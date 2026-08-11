@@ -30,7 +30,7 @@ export function ProductCard({ product, delay = 0 }) {
       <div className="product-card-img">
         <div className="product-img-inner" style={{ background: product.color }}>
           <i className={`bi ${product.icon}`} />
-          <span>Maison</span>
+          <span>Lyra</span>
         </div>
         {product.badge && (
           <div className={`product-badge ${product.badge.toLowerCase()}`}>{product.badge}</div>
@@ -98,7 +98,7 @@ export function Newsletter({ showToast }) {
         <div className="row align-items-center">
           <div className="col-lg-5 mb-4 mb-lg-0">
             <h2 className="newsletter-title">Nhận ưu đãi<br /><em>độc quyền</em></h2>
-            <p className="newsletter-sub">Đăng ký nhận thông tin về bộ sưu tập mới, khuyến mãi và xu hướng thời trang hàng tuần từ MAISON.</p>
+            <p className="newsletter-sub">Đăng ký nhận thông tin về bộ sưu tập mới, khuyến mãi và xu hướng thời trang hàng tuần từ LYRA.</p>
           </div>
           <div className="col-lg-6 offset-lg-1">
             <div className="newsletter-form">
@@ -124,7 +124,7 @@ export function Footer({ navigate }) {
       <div className="container">
         <div className="row">
           <div className="col-lg-3 col-md-6 mb-4">
-            <div className="footer-logo">MAISON</div>
+            <div className="footer-logo">LYRA</div>
             <p className="footer-desc">Thương hiệu thời trang cao cấp Việt Nam. Nơi phong cách gặp gỡ chất lượng thủ công tuyệt vời.</p>
           </div>
           {[

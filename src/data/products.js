@@ -1,6 +1,6 @@
 // src/data/products.js
 export const PRODUCTS = [
-  { id: 1,  name: 'Áo lụa cổ V premium',       brand: 'Maison',  cat: 'Thời trang nữ', price: 890000,  oldPrice: 1290000, discount: 31, rating: 4.3, reviews: 128, badge: 'Sale', icon: 'bi-bag-heart',  color: '#E4DAD0', stock: 24 },
+  { id: 1,  name: 'Áo lụa cổ V premium',       brand: 'Lyra',  cat: 'Thời trang nữ', price: 890000,  oldPrice: 1290000, discount: 31, rating: 4.3, reviews: 128, badge: 'Sale', icon: 'bi-bag-heart',  color: '#E4DAD0', stock: 24 },
   { id: 2,  name: 'Quần culotte high-waist',    brand: 'Maison',  cat: 'Thời trang nữ', price: 650000,  oldPrice: null,    discount: 0,  rating: 4.7, reviews: 84,  badge: 'New',  icon: 'bi-bag',        color: '#D8D0C6', stock: 12 },
   { id: 3,  name: 'Giày mule da thật',          brand: 'Maison',  cat: 'Giày dép',      price: 1290000, oldPrice: 1890000, discount: 32, rating: 4.5, reviews: 201, badge: 'Sale', icon: 'bi-star',       color: '#CCC0B0', stock: 8  },
   { id: 4,  name: 'Túi mini bucket da bò',      brand: 'Maison',  cat: 'Phụ kiện',      price: 1850000, oldPrice: null,    discount: 0,  rating: 4.8, reviews: 56,  badge: 'Hot',  icon: 'bi-heart',      color: '#C9B99A', stock: 6  },

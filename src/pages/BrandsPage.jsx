@@ -7,17 +7,17 @@ import { ProductCard, Footer } from '../components/index.jsx';
 
 const BRANDS = [
   {
-    id: 'maison',
-    name: 'MAISON',
+    id: 'lyra',
+    name: 'LYRA',
     tagline: 'Phong cách định nghĩa bạn',
-    desc: 'Thương hiệu thời trang cao cấp Việt Nam được thành lập năm 2018. MAISON tập trung vào thiết kế tối giản, chất liệu cao cấp và sự bền vững.',
-    story: 'Từ một xưởng may nhỏ tại Hà Nội, MAISON đã vươn lên trở thành thương hiệu thời trang được yêu thích với hơn 100.000 khách hàng trung thành. Mỗi sản phẩm được tạo ra bởi các nghệ nhân lành nghề, kết hợp giữa kỹ thuật truyền thống và xu hướng đương đại.',
+    desc: 'Thương hiệu thời trang cao cấp Việt Nam được thành lập năm 2018. LYRA tập trung vào thiết kế tối giản, chất liệu cao cấp và sự bền vững.',
+    story: 'Từ một xưởng may nhỏ tại Hà Nội, LYRA đã vươn lên trở thành thương hiệu thời trang được yêu thích với hơn 100.000 khách hàng trung thành. Mỗi sản phẩm được tạo ra bởi các nghệ nhân lành nghề, kết hợp giữa kỹ thuật truyền thống và xu hướng đương đại.',
     color: '#C9B99A',
     darkColor: '#8B7355',
     icon: 'bi-bag-heart',
     founded: '2018',
     country: 'Việt Nam',
-    products: PRODUCTS.filter(p => p.brand === 'Maison').length,
+    products: PRODUCTS.filter(p => p.brand === 'LYRA').length,
     rating: 4.6,
     isLocal: true,
     tags: ['Lụa tự nhiên', 'Tối giản', 'Bền vững', 'Local Brand'],
@@ -263,10 +263,10 @@ export default function BrandsPage() {
               </div>
 
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                <button className="btn-maison" onClick={() => navigate('shop')}>
+                <button className="btn-lyra" onClick={() => navigate('shop')}>
                   <i className={`bi ${selectedBrand.icon}`} /> Xem sản phẩm
                 </button>
-                <button className="btn-outline-maison"
+                <button className="btn-outline-lyra"
                   onClick={() => showToast(`Đã theo dõi ${selectedBrand.name}`, 'bi-heart-fill')}>
                   <i className="bi bi-heart" /> Theo dõi
                 </button>
@@ -313,7 +313,7 @@ export default function BrandsPage() {
               <p style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 340, lineHeight: 1.7 }}>
                 Chúng tôi đang trong quá trình hợp tác với {selectedBrand.name}. Đăng ký để nhận thông báo khi có sản phẩm.
               </p>
-              <button className="btn-maison"
+              <button className="btn-lyra"
                 onClick={() => showToast(`Đã đăng ký nhận thông báo ${selectedBrand.name}`, 'bi-bell')}>
                 Nhận thông báo
               </button>
@@ -385,14 +385,14 @@ export default function BrandsPage() {
                 Dành cho thương hiệu
               </div>
               <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 34, fontWeight: 300, marginBottom: 12, lineHeight: 1.2 }}>
-                Hợp tác với <em style={{ fontStyle: 'italic', color: 'var(--warm)' }}>MAISON</em>
+                Hợp tác với <em style={{ fontStyle: 'italic', color: 'var(--warm)' }}>LYRA</em>
               </h3>
               <p style={{ fontSize: 13.5, color: 'rgba(247,244,239,.55)', lineHeight: 1.75, maxWidth: 500 }}>
-                Bạn là thương hiệu thời trang muốn tiếp cận hàng chục nghìn khách hàng cao cấp? Hãy kết nối với chúng tôi để đưa sản phẩm của bạn lên MAISON.
+                Bạn là thương hiệu thời trang muốn tiếp cận hàng chục nghìn khách hàng cao cấp? Hãy kết nối với chúng tôi để đưa sản phẩm của bạn lên LYRA.
               </p>
             </div>
             <div>
-              <button className="btn-maison" style={{ background: 'var(--warm)', borderColor: 'var(--warm)' }}
+              <button className="btn-lyra" style={{ background: 'var(--warm)', borderColor: 'var(--warm)' }}
                 onClick={() => showToast('Đã gửi yêu cầu hợp tác!', 'bi-handshake')}>
                 Liên hệ hợp tác <i className="bi bi-arrow-right" />
               </button>

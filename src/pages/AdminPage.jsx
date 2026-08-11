@@ -30,7 +30,7 @@ export default function AdminPage() {
     <div className="admin-layout">
       {/* Sidebar */}
       <aside className="admin-sidebar">
-        <div className="admin-sidebar-logo">MAISON <span style={{ fontSize: 11, opacity: .5, letterSpacing: '.08em' }}>Admin</span></div>
+        <div className="admin-sidebar-logo">LYRA <span style={{ fontSize: 11, opacity: .5, letterSpacing: '.08em' }}>Admin</span></div>
         <div className="admin-nav-section">Quản lý</div>
         {ADMIN_NAV.map(item => (
           <a key={item.id}
@@ -170,7 +170,7 @@ function ProductsTab({ showToast, navigate }) {
           <h1 className="admin-page-title">Sản phẩm</h1>
           <p className="admin-page-sub">{PRODUCTS.length} sản phẩm</p>
         </div>
-        <button className="btn-maison" onClick={() => showToast('Tính năng thêm sản phẩm đang phát triển', 'bi-plus')}>
+        <button className="btn-lyra" onClick={() => showToast('Tính năng thêm sản phẩm đang phát triển', 'bi-plus')}>
           <i className="bi bi-plus" /> Thêm sản phẩm
         </button>
       </div>
@@ -315,8 +315,8 @@ function CustomersTab() {
 /* ── Coupons Tab ── */
 function CouponsTab({ showToast }) {
   const coupons = [
-    { code: 'MAISON10', type: 'Phần trăm', value: '10%',       uses: 45, limit: 100,  expires: '31/03/2025', active: true },
-    { code: 'MAISON20', type: 'Phần trăm', value: '20%',       uses: 12, limit: 50,   expires: '28/02/2025', active: true },
+    { code: 'LYRA10', type: 'Phần trăm', value: '10%',       uses: 45, limit: 100,  expires: '31/03/2025', active: true },
+    { code: 'LYRA20', type: 'Phần trăm', value: '20%',       uses: 12, limit: 50,   expires: '28/02/2025', active: true },
     { code: 'FREESHIP', type: 'Vận chuyển', value: 'Miễn phí', uses: 88, limit: 200,  expires: '30/06/2025', active: true },
     { code: 'SAVE100K', type: 'Cố định',   value: '100.000đ',  uses: 23, limit: 50,   expires: '15/02/2025', active: false },
   ];
@@ -327,7 +327,7 @@ function CouponsTab({ showToast }) {
           <h1 className="admin-page-title">Mã giảm giá</h1>
           <p className="admin-page-sub">{coupons.length} mã coupon</p>
         </div>
-        <button className="btn-maison" onClick={() => showToast('Tạo mã giảm giá mới', 'bi-plus')}>
+        <button className="btn-lyra" onClick={() => showToast('Tạo mã giảm giá mới', 'bi-plus')}>
           <i className="bi bi-plus" /> Tạo mã mới
         </button>
       </div>
@@ -372,7 +372,7 @@ function SettingsTab({ showToast }) {
                   <input style={{ width: '100%', border: '1px solid var(--border)', padding: '10px 14px', fontSize: 13, fontFamily: 'var(--font-sans)', outline: 'none' }} placeholder={f} />
                 </div>
               ))}
-              <button className="btn-maison" onClick={() => showToast('Đã lưu cài đặt!', 'bi-check-circle')}>Lưu</button>
+              <button className="btn-lyra" onClick={() => showToast('Đã lưu cài đặt!', 'bi-check-circle')}>Lưu</button>
             </div>
           </div>
         ))}

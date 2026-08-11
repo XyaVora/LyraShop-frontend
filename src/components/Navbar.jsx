@@ -51,8 +51,8 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className={`maison-navbar${scrolled ? ' scrolled' : ''}`}>
-        <span className="navbar-logo" onClick={() => go('home')}>MAISON</span>
+      <nav className={`lyra-navbar${scrolled ? ' scrolled' : ''}`}>
+        <span className="navbar-logo" onClick={() => go('home')}>LYRA</span>
 
         <ul className="navbar-nav-links">
           {navLinks.map(({ label, page }) => (

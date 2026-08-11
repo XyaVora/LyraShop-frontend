@@ -6,7 +6,7 @@ import { Footer } from '../components/index.jsx';
 import { useApp } from '../context/AppContext';
 
 const CATS    = ['Tất cả', 'Thời trang nữ', 'Thời trang nam', 'Giày dép', 'Phụ kiện'];
-const BRANDS  = ['Maison'];
+const BRANDS  = ['Lyra'];
 const COLORS  = [
   { name: 'Đen',      hex: '#0E0E0E' },
   { name: 'Trắng',    hex: '#F5F0E8' },

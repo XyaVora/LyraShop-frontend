@@ -93,12 +93,12 @@ function OrdersTab({ navigate }) {
             <div className="order-total-text">{fmt(order.total)}</div>
           </div>
           <div className="d-flex gap-2 mt-3">
-            <button className="btn-outline-maison" style={{ padding: '8px 18px', fontSize: 11 }}
+            <button className="btn-outline-lyra" style={{ padding: '8px 18px', fontSize: 11 }}
               onClick={() => navigate('order-detail', { order: order.id })}>
               Xem chi tiết
             </button>
             {order.status === 'processing' && (
-              <button className="btn-outline-maison" style={{ padding: '8px 18px', fontSize: 11, color: 'var(--danger)', borderColor: 'var(--danger)' }}>
+              <button className="btn-outline-lyra" style={{ padding: '8px 18px', fontSize: 11, color: 'var(--danger)', borderColor: 'var(--danger)' }}>
                 Hủy đơn
               </button>
             )}
@@ -109,7 +109,7 @@ function OrdersTab({ navigate }) {
         <div className="cart-empty-state">
           <i className="bi bi-bag" />
           <div className="cart-empty-title">Chưa có đơn hàng</div>
-          <button className="btn-maison mt-3" onClick={() => navigate('shop')}>Mua sắm ngay</button>
+          <button className="btn-lyra mt-3" onClick={() => navigate('shop')}>Mua sắm ngay</button>
         </div>
       )}
     </>
@@ -126,7 +126,7 @@ function WishlistTab({ wishlist, toggleWishlist, addToCart, navigate }) {
         <div className="cart-empty-state">
           <i className="bi bi-heart" />
           <div className="cart-empty-title">Chưa có sản phẩm yêu thích</div>
-          <button className="btn-maison mt-3" onClick={() => navigate('shop')}>Khám phá ngay</button>
+          <button className="btn-lyra mt-3" onClick={() => navigate('shop')}>Khám phá ngay</button>
         </div>
       ) : (
         <div className="row g-3">
@@ -141,7 +141,7 @@ function WishlistTab({ wishlist, toggleWishlist, addToCart, navigate }) {
                 <Stars rating={p.rating} />
                 <div style={{ fontFamily: 'var(--font-serif)', fontSize: 17, margin: '6px 0 12px' }}>{fmt(p.price)}</div>
                 <div className="d-flex gap-2">
-                  <button className="btn-maison flex-grow-1 justify-content-center" style={{ padding: '9px' }}
+                  <button className="btn-lyra flex-grow-1 justify-content-center" style={{ padding: '9px' }}
                     onClick={() => addToCart(p)}>
                     Thêm vào giỏ
                   </button>
@@ -178,11 +178,11 @@ function AddressTab({ showToast }) {
           </span>
         </div>
         <div className="d-flex gap-2 mt-3">
-          <button className="btn-outline-maison" style={{ padding: '7px 16px', fontSize: 11 }}>Chỉnh sửa</button>
-          <button className="btn-outline-maison" style={{ padding: '7px 16px', fontSize: 11, color: 'var(--danger)', borderColor: 'var(--danger)' }}>Xóa</button>
+          <button className="btn-outline-lyra" style={{ padding: '7px 16px', fontSize: 11 }}>Chỉnh sửa</button>
+          <button className="btn-outline-lyra" style={{ padding: '7px 16px', fontSize: 11, color: 'var(--danger)', borderColor: 'var(--danger)' }}>Xóa</button>
         </div>
       </div>
-      <button className="btn-outline-maison" onClick={() => showToast('Tính năng đang phát triển', 'bi-info-circle')}>
+      <button className="btn-outline-lyra" onClick={() => showToast('Tính năng đang phát triển', 'bi-info-circle')}>
         <i className="bi bi-plus" /> Thêm địa chỉ mới
       </button>
     </>
@@ -217,7 +217,7 @@ function ProfileInfoTab({ user, showToast }) {
           <input className="form-field-input" type="date" defaultValue="1995-06-15" />
         </div>
         <div className="col-12">
-          <button className="btn-maison" onClick={() => showToast('Đã lưu thông tin thành công!', 'bi-check-circle')}>
+          <button className="btn-lyra" onClick={() => showToast('Đã lưu thông tin thành công!', 'bi-check-circle')}>
             Lưu thay đổi
           </button>
         </div>
@@ -239,7 +239,7 @@ function PasswordTab({ showToast }) {
         <input className="form-field-input" type="password" placeholder="••••••••" />
         <label className="form-field-label">Xác nhận mật khẩu mới</label>
         <input className="form-field-input" type="password" placeholder="••••••••" />
-        <button className="btn-maison" onClick={() => showToast('Đổi mật khẩu thành công!', 'bi-shield-check')}>
+        <button className="btn-lyra" onClick={() => showToast('Đổi mật khẩu thành công!', 'bi-shield-check')}>
           Cập nhật mật khẩu
         </button>
       </div>

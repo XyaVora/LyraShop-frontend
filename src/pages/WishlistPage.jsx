@@ -47,9 +47,9 @@ export default function WishlistPage() {
   };
 
   const shareWishlist = () => {
-    const text = `Danh sách yêu thích của tôi tại MAISON:\n${wishlist.map(p => `• ${p.name} — ${fmt(p.price)}`).join('\n')}`;
+    const text = `Danh sách yêu thích của tôi tại LYRA:\n${wishlist.map(p => `• ${p.name} — ${fmt(p.price)}`).join('\n')}`;
     if (navigator.share) {
-      navigator.share({ title: 'MAISON Wishlist', text }).catch(() => {});
+      navigator.share({ title: 'LYRA Wishlist', text }).catch(() => {});
     } else {
       navigator.clipboard?.writeText(text);
       showToast('Đã sao chép danh sách yêu thích!', 'bi-share');
@@ -77,18 +77,18 @@ export default function WishlistPage() {
             </div>
             {wishlist.length > 0 && (
               <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <button className="btn-outline-maison" onClick={shareWishlist} style={{ padding: '10px 20px', fontSize: 12 }}>
+                <button className="btn-outline-lyra" onClick={shareWishlist} style={{ padding: '10px 20px', fontSize: 12 }}>
                   <i className="bi bi-share" /> Chia sẻ
                 </button>
                 <button
-                  className="btn-outline-maison"
+                  className="btn-outline-lyra"
                   onClick={() => { setSelectMode(v => !v); setSelected(new Set()); }}
                   style={{ padding: '10px 20px', fontSize: 12 }}
                 >
                   <i className={`bi bi-${selectMode ? 'x' : 'check2-square'}`} />
                   {selectMode ? 'Hủy chọn' : 'Chọn nhiều'}
                 </button>
-                <button className="btn-maison" onClick={addAllToCart} style={{ padding: '10px 22px', fontSize: 12 }}>
+                <button className="btn-lyra" onClick={addAllToCart} style={{ padding: '10px 22px', fontSize: 12 }}>
                   <i className="bi bi-bag-plus" /> Thêm tất cả vào giỏ
                 </button>
               </div>
@@ -120,7 +120,7 @@ export default function WishlistPage() {
               <p style={{ fontSize: 14, color: 'var(--muted)', maxWidth: 340, lineHeight: 1.7 }}>
                 Bạn chưa lưu sản phẩm nào. Nhấn vào biểu tượng ♡ trên sản phẩm để thêm vào đây.
               </p>
-              <button className="btn-maison" onClick={() => navigate('shop')}>
+              <button className="btn-lyra" onClick={() => navigate('shop')}>
                 Khám phá sản phẩm
               </button>
             </div>
@@ -131,10 +131,10 @@ export default function WishlistPage() {
                 {selectMode && selected.size > 0 ? (
                   <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                     <span style={{ fontSize: 13, color: 'var(--muted)' }}>Đã chọn {selected.size} sản phẩm</span>
-                    <button className="btn-maison" style={{ padding: '8px 18px', fontSize: 11.5 }} onClick={addSelectedToCart}>
+                    <button className="btn-lyra" style={{ padding: '8px 18px', fontSize: 11.5 }} onClick={addSelectedToCart}>
                       <i className="bi bi-bag-plus" /> Thêm vào giỏ
                     </button>
-                    <button className="btn-outline-maison" style={{ padding: '8px 18px', fontSize: 11.5, color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={removeSelected}>
+                    <button className="btn-outline-lyra" style={{ padding: '8px 18px', fontSize: 11.5, color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={removeSelected}>
                       <i className="bi bi-trash" /> Xóa
                     </button>
                   </div>
@@ -178,10 +178,10 @@ export default function WishlistPage() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 12 }}>
-                  <button className="btn-outline-maison" onClick={() => navigate('shop')}>
+                  <button className="btn-outline-lyra" onClick={() => navigate('shop')}>
                     Tiếp tục mua sắm
                   </button>
-                  <button className="btn-maison" onClick={addAllToCart}>
+                  <button className="btn-lyra" onClick={addAllToCart}>
                     <i className="bi bi-bag-plus" /> Thêm tất cả ({wishlist.length}) vào giỏ
                   </button>
                 </div>

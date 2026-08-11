@@ -213,15 +213,15 @@ export default function OrderDetailPage() {
 
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: 12, marginTop: 20, flexWrap: 'wrap' }}>
-                  <button className="btn-maison" onClick={reorder}>
+                  <button className="btn-lyra" onClick={reorder}>
                     <i className="bi bi-arrow-repeat" /> Mua lại
                   </button>
-                  <button className="btn-outline-maison" onClick={() => navigate('shop')}>
+                  <button className="btn-outline-lyra" onClick={() => navigate('shop')}>
                     <i className="bi bi-bag" /> Tiếp tục mua sắm
                   </button>
                   {order.status === 'processing' && (
                     <button
-                      className="btn-outline-maison"
+                      className="btn-outline-lyra"
                       style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
                       onClick={() => setShowCancelModal(true)}
                     >
@@ -369,10 +369,10 @@ export default function OrderDetailPage() {
                 {/* Header */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 36, paddingBottom: 28, borderBottom: '1px solid var(--border)' }}>
                   <div>
-                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 300, letterSpacing: '.1em', marginBottom: 6 }}>MAISON</div>
+                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 300, letterSpacing: '.1em', marginBottom: 6 }}>LYRA</div>
                     <div style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.7 }}>
                       123 Phố Cổ, Hoàn Kiếm, Hà Nội<br />
-                      support@maison.vn · 1900 1234
+                      support@lyra.vn · 1900 1234
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
@@ -441,16 +441,16 @@ export default function OrderDetailPage() {
 
                 {/* Footer note */}
                 <div style={{ marginTop: 36, paddingTop: 20, borderTop: '1px solid var(--border)', fontSize: 11.5, color: 'var(--muted)', lineHeight: 1.7 }}>
-                  Cảm ơn bạn đã mua sắm tại MAISON. Đây là hóa đơn điện tử, có giá trị tương đương hóa đơn giấy.
+                  Cảm ơn bạn đã mua sắm tại LYRA. Đây là hóa đơn điện tử, có giá trị tương đương hóa đơn giấy.
                 </div>
               </div>
 
               {/* Print button */}
               <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-                <button className="btn-outline-maison" onClick={() => window.print()}>
+                <button className="btn-outline-lyra" onClick={() => window.print()}>
                   <i className="bi bi-printer" /> In hóa đơn
                 </button>
-                <button className="btn-outline-maison" onClick={() => showToast('Đã tải xuống hóa đơn PDF!', 'bi-file-earmark-pdf')}>
+                <button className="btn-outline-lyra" onClick={() => showToast('Đã tải xuống hóa đơn PDF!', 'bi-file-earmark-pdf')}>
                   <i className="bi bi-download" /> Tải PDF
                 </button>
               </div>
@@ -474,9 +474,9 @@ export default function OrderDetailPage() {
               Bạn có chắc muốn hủy đơn hàng <strong>{order.id}</strong>? Hành động này không thể hoàn tác.
             </p>
             <div style={{ display: 'flex', gap: 12 }}>
-              <button className="btn-outline-maison flex-grow-1" onClick={() => setShowCancelModal(false)}>Giữ đơn hàng</button>
+              <button className="btn-outline-lyra flex-grow-1" onClick={() => setShowCancelModal(false)}>Giữ đơn hàng</button>
               <button
-                className="btn-maison"
+                className="btn-lyra"
                 style={{ background: 'var(--danger)', borderColor: 'var(--danger)' }}
                 onClick={() => { setShowCancelModal(false); showToast('Đã hủy đơn hàng thành công', 'bi-x-circle'); navigate('profile'); }}
               >

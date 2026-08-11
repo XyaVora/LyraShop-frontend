@@ -36,7 +36,7 @@ export default function App() {
   useEffect(() => {
     // Welcome toast on first load
     if (!loading) {
-      setTimeout(() => showToast('Chào mừng đến với MAISON! 👋', 'bi-bag-heart'), 400);
+      setTimeout(() => showToast('Chào mừng đến với LYRA! 👋', 'bi-bag-heart'), 400);
     }
   }, [loading]);
 

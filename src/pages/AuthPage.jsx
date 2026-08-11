@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 
 export default function AuthPage() {
-  const { navigate, login } = useApp();
+  const { navigate, login, register } = useApp();
   const { showToast } = useCart();
   const [mode, setMode]       = useState('login'); // login | register
   const [email, setEmail]     = useState('');
@@ -12,10 +12,10 @@ export default function AuthPage() {
   const [name, setName]       = useState('');
   const [showPass, setShowPass] = useState(false);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!email || !password) { showToast('Vui lòng điền đầy đủ thông tin', 'bi-exclamation-circle'); return; }
-    login(email, password);
-    showToast(mode === 'login' ? 'Đăng nhập thành công! Chào mừng bạn trở lại.' : 'Đăng ký thành công! Chào mừng bạn đến với MAISON.', 'bi-person-check');
+    if (mode === 'login') await login(email, password); else await register(name, email, password);
+    showToast(mode === 'login' ? 'Đăng nhập thành công! Chào mừng bạn trở lại.' : 'Đăng ký thành công! Chào mừng bạn đến với LYRA.', 'bi-person-check');
     navigate('home');
   };
 
@@ -23,7 +23,7 @@ export default function AuthPage() {
     <div className="auth-layout">
       {/* Visual */}
       <div className="auth-visual">
-        <div className="auth-visual-logo">MAISON</div>
+        <div className="auth-visual-logo">LYRA</div>
         <p className="auth-visual-sub">Phong cách định nghĩa bạn. Khám phá bộ sưu tập thời trang cao cấp độc quyền.</p>
         <div style={{ marginTop: 40, display: 'flex', flexDirection: 'column', gap: 14, width: '100%', maxWidth: 280 }}>
           {[
@@ -44,7 +44,7 @@ export default function AuthPage() {
         <div className="auth-form-wrap">
           <h2 className="auth-title">{mode === 'login' ? 'Đăng nhập' : 'Đăng ký'}</h2>
           <p className="auth-subtitle">
-            {mode === 'login' ? 'Chào mừng bạn trở lại với MAISON' : 'Tạo tài khoản mới và khám phá thời trang'}
+            {mode === 'login' ? 'Chào mừng bạn trở lại với LYRA' : 'Tạo tài khoản mới và khám phá thời trang'}
           </p>
 
           {/* Toggle */}
@@ -102,11 +102,11 @@ export default function AuthPage() {
             <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16, lineHeight: 1.6 }}>
               Bằng cách đăng ký, bạn đồng ý với{' '}
               <span style={{ color: 'var(--ink)', cursor: 'pointer', textDecoration: 'underline' }}>Điều khoản dịch vụ</span>{' '}và{' '}
-              <span style={{ color: 'var(--ink)', cursor: 'pointer', textDecoration: 'underline' }}>Chính sách bảo mật</span> của MAISON.
+              <span style={{ color: 'var(--ink)', cursor: 'pointer', textDecoration: 'underline' }}>Chính sách bảo mật</span> của LYRA.
             </div>
           )}
 
-          <button className="btn-maison w-100 justify-content-center py-3" onClick={handleSubmit}>
+          <button className="btn-lyra w-100 justify-content-center py-3" onClick={handleSubmit}>
             {mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'} <i className="bi bi-arrow-right" />
           </button>
 
@@ -118,7 +118,7 @@ export default function AuthPage() {
             </span>
           </div>
 
-          <button className="btn-outline-maison w-100 justify-content-center mt-4"
+          <button className="btn-outline-lyra w-100 justify-content-center mt-4"
             onClick={() => navigate('home')}>
             <i className="bi bi-arrow-left" /> Về trang chủ
           </button>

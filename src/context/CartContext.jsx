@@ -1,14 +1,18 @@
 // src/context/CartContext.jsx
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { COUPONS, fmt } from '../data/products';
 
 const CartContext = createContext(null);
 
 export function CartProvider({ children }) {
-  const [cart, setCart] = useState([]);
-  const [wishlist, setWishlist] = useState([]);
-  const [coupon, setCoupon] = useState(null);
+  const [cart, setCart] = useState(() => readStorage('maison_cart', []));
+  const [wishlist, setWishlist] = useState(() => readStorage('maison_wishlist', []));
+  const [coupon, setCoupon] = useState(() => readStorage('maison_coupon', null));
   const [toasts, setToasts] = useState([]);
+
+  useEffect(() => { localStorage.setItem('maison_cart', JSON.stringify(cart)); }, [cart]);
+  useEffect(() => { localStorage.setItem('maison_wishlist', JSON.stringify(wishlist)); }, [wishlist]);
+  useEffect(() => { localStorage.setItem('maison_coupon', JSON.stringify(coupon)); }, [coupon]);
 
   // ── TOAST ──────────────────────────────────────
   const showToast = useCallback((msg, icon = 'bi-check-circle') => {
@@ -22,7 +26,7 @@ export function CartProvider({ children }) {
     setCart(prev => {
       const key = `${product.id}-${size}-${color}`;
       const existing = prev.find(i => i.key === key);
-      if (existing) return prev.map(i => i.key === key ? { ...i, qty: i.qty + qty } : i);
+      if (existing) return prev.map(i => i.key === key ? { ...i, qty: Math.min(i.stock || 99, i.qty + qty) } : i);
       return [...prev, { ...product, qty, size, color, key }];
     });
     showToast(`Đã thêm "${product.name}" vào giỏ`, 'bi-bag-check');
@@ -35,7 +39,7 @@ export function CartProvider({ children }) {
 
   const updateQty = useCallback((key, delta) => {
     setCart(prev => prev.map(i =>
-      i.key === key ? { ...i, qty: Math.max(1, i.qty + delta) } : i
+      i.key === key ? { ...i, qty: Math.max(1, Math.min(i.stock || 99, i.qty + delta)) } : i
     ));
   }, []);
 
@@ -91,3 +95,7 @@ export function CartProvider({ children }) {
 }
 
 export const useCart = () => useContext(CartContext);
+function readStorage(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
+  catch { return fallback; }
+}

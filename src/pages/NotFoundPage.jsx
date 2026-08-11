@@ -9,10 +9,10 @@ export default function NotFoundPage() {
       <h2 className="not-found-title">Trang không tồn tại</h2>
       <p className="not-found-sub">Trang bạn đang tìm kiếm không tồn tại hoặc đã được di chuyển sang địa chỉ khác.</p>
       <div className="d-flex gap-3">
-        <button className="btn-maison" onClick={() => navigate('home')}>
+        <button className="btn-lyra" onClick={() => navigate('home')}>
           <i className="bi bi-house" /> Về trang chủ
         </button>
-        <button className="btn-outline-maison" onClick={() => navigate('shop')}>
+        <button className="btn-outline-lyra" onClick={() => navigate('shop')}>
           Khám phá shop
         </button>
       </div>
@@ -24,7 +24,7 @@ export default function NotFoundPage() {
 export function LoadingScreen() {
   return (
     <div className="loader-screen">
-      <div className="loader-logo">MAISON</div>
+      <div className="loader-logo">LYRA</div>
       <div className="loader-bar" />
       <div style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--muted)', marginTop: 12 }}>
         Loading...

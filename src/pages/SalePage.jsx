@@ -268,7 +268,7 @@ export default function SalePage() {
               <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.7 }}>Nhập mã khi thanh toán để được giảm thêm.</p>
             </div>
             {[
-              { code: 'MAISON10', desc: 'Giảm thêm 10%' },
+              { code: 'LYRA10', desc: 'Giảm thêm 10%' },
               { code: 'SAVE100K', desc: 'Giảm 100.000đ' },
               { code: 'FREESHIP', desc: 'Miễn phí vận chuyển' },
             ].map(({ code, desc }) => (

@@ -1,5 +1,5 @@
 /* =============================================
-   MAISON — Global Styles
+   LYRA — Global Styles
    ============================================= */
 @import 'bootstrap/dist/css/bootstrap.min.css';
 @import 'bootstrap-icons/font/bootstrap-icons.css';
@@ -58,7 +58,7 @@ h1, h2, h3, .display { font-family: var(--font-serif); font-weight: 300; }
 /* =============================================
    NAVBAR
    ============================================= */
-.maison-navbar {
+.lyra-navbar {
   position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
   height: 68px;
   background: rgba(247, 244, 239, 0.94);
@@ -69,7 +69,7 @@ h1, h2, h3, .display { font-family: var(--font-serif); font-weight: 300; }
   padding: 0 48px;
   transition: var(--transition);
 }
-.maison-navbar.scrolled { box-shadow: var(--shadow-sm); }
+.lyra-navbar.scrolled { box-shadow: var(--shadow-sm); }
 .navbar-logo {
   font-family: var(--font-serif);
   font-size: 26px; font-weight: 500;
@@ -149,7 +149,7 @@ h1, h2, h3, .display { font-family: var(--font-serif); font-weight: 300; }
 /* =============================================
    BUTTONS
    ============================================= */
-.btn-maison {
+.btn-lyra {
   display: inline-flex; align-items: center; gap: 10px;
   background: var(--ink); color: var(--cream);
   border: 1.5px solid var(--ink);
@@ -161,10 +161,10 @@ h1, h2, h3, .display { font-family: var(--font-serif); font-weight: 300; }
   transition: var(--transition);
   white-space: nowrap;
 }
-.btn-maison:hover { background: var(--warm); border-color: var(--warm); color: #fff; }
-.btn-maison:active { transform: scale(0.98); }
+.btn-lyra:hover { background: var(--warm); border-color: var(--warm); color: #fff; }
+.btn-lyra:active { transform: scale(0.98); }
 
-.btn-outline-maison {
+.btn-outline-lyra {
   display: inline-flex; align-items: center; gap: 10px;
   background: transparent; color: var(--ink);
   border: 1.5px solid var(--border);
@@ -175,7 +175,7 @@ h1, h2, h3, .display { font-family: var(--font-serif); font-weight: 300; }
   cursor: pointer; text-decoration: none;
   transition: var(--transition);
 }
-.btn-outline-maison:hover { border-color: var(--ink); color: var(--ink); }
+.btn-outline-lyra:hover { border-color: var(--ink); color: var(--ink); }
 
 .btn-warm {
   display: inline-flex; align-items: center; justify-content: center; gap: 10px;
@@ -550,7 +550,7 @@ h1, h2, h3, .display { font-family: var(--font-serif); font-weight: 300; }
 .view-btn.active { background: var(--ink); border-color: var(--ink); color: var(--cream); }
 .products-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
 .products-grid.list-view { grid-template-columns: 1fr; }
-.maison-pagination { display: flex; gap: 4px; justify-content: center; margin-top: 52px; }
+.lyra-pagination { display: flex; gap: 4px; justify-content: center; margin-top: 52px; }
 .page-num-btn {
   width: 40px; height: 40px;
   border: 1px solid var(--border); background: transparent;
@@ -998,7 +998,7 @@ h1, h2, h3, .display { font-family: var(--font-serif); font-weight: 300; }
    RESPONSIVE
    ============================================= */
 @media (max-width: 1024px) {
-  .maison-navbar { padding: 0 24px; }
+  .lyra-navbar { padding: 0 24px; }
   .navbar-nav-links { display: none; }
   .hamburger { display: flex; }
   .hero-section { grid-template-columns: 1fr; height: auto; }

@@ -104,8 +104,8 @@ export default function SearchPage() {
                 Không có sản phẩm nào khớp với từ khóa <strong>"{searchQuery}"</strong>. Hãy thử từ khóa khác.
               </p>
               <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-                <button className="btn-maison" onClick={() => navigate('shop')}>Xem tất cả sản phẩm</button>
-                <button className="btn-outline-maison" onClick={() => navigate('home')}>Về trang chủ</button>
+                <button className="btn-lyra" onClick={() => navigate('shop')}>Xem tất cả sản phẩm</button>
+                <button className="btn-outline-lyra" onClick={() => navigate('home')}>Về trang chủ</button>
               </div>
             </div>
           ) : (

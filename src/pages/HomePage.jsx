@@ -13,7 +13,7 @@ export default function HomePage() {
       {/* ── HERO ── */}
       <section className="hero-section">
         <div className="hero-left">
-          <div className="hero-eyebrow">Bộ sưu tập mùa hè 2025</div>
+          <div className="hero-eyebrow">Bộ sưu tập mùa hè 2026</div>
           <h1 className="hero-title">
             Phong cách<br />
             định nghĩa<br />
@@ -23,10 +23,10 @@ export default function HomePage() {
             Khám phá những thiết kế độc quyền — nơi chất lượng thủ công gặp gỡ phong cách đương đại. Mỗi món đồ là một câu chuyện.
           </p>
           <div className="hero-cta">
-            <button className="btn-maison" onClick={() => navigate('shop')}>
+            <button className="btn-lyra" onClick={() => navigate('shop')}>
               Khám phá ngay <i className="bi bi-arrow-right" />
             </button>
-            <button className="btn-outline-maison" onClick={() => navigate('shop')}>
+            <button className="btn-outline-lyra" onClick={() => navigate('shop')}>
               Xem Sale
             </button>
           </div>
@@ -34,7 +34,7 @@ export default function HomePage() {
         <div className="hero-right">
           <div className="hero-img-box">
             <i className="bi bi-bag-heart" />
-            <span>Lookbook 2025</span>
+            <span>Lookbook 2026</span>
           </div>
           <div className="hero-float-tag">
             <div className="hero-float-label">Giảm đến</div>
@@ -111,7 +111,7 @@ export default function HomePage() {
                 Sale cuối mùa<br /><em style={{ fontStyle: 'italic' }}>giảm đến 50%</em>
               </h2>
             </div>
-            <button className="btn-maison" style={{ background: '#fff', color: 'var(--ink)', borderColor: '#fff' }}
+            <button className="btn-lyra" style={{ background: '#fff', color: 'var(--ink)', borderColor: '#fff' }}
               onClick={() => navigate('shop')}
             >
               Mua ngay <i className="bi bi-arrow-right" />

@@ -145,7 +145,7 @@ export default function NewArrivalsPage() {
                   <div style={{ fontSize: 11.5, letterSpacing: '.06em' }}>{item.sub}</div>
                 </div>
                 {activeLook === i && (
-                  <button className="btn-maison" style={{ marginTop: 8, fontSize: 11, padding: '8px 18px' }}
+                  <button className="btn-lyra" style={{ marginTop: 8, fontSize: 11, padding: '8px 18px' }}
                     onClick={e => { e.stopPropagation(); navigate('shop'); }}>
                     Xem BST
                   </button>
@@ -244,7 +244,7 @@ export default function NewArrivalsPage() {
                 style={{ border: '1.5px solid var(--border)', borderRight: 'none', padding: '13px 18px', fontSize: 13, fontFamily: 'var(--font-sans)', outline: 'none', width: 260 }}
                 placeholder="Email của bạn..."
               />
-              <button className="btn-maison" style={{ borderRadius: 0 }}
+              <button className="btn-lyra" style={{ borderRadius: 0 }}
                 onClick={() => showToast('Đã đăng ký thông báo hàng mới!', 'bi-bell-fill')}>
                 Đăng ký
               </button>

@@ -74,7 +74,7 @@ export default function CartPage() {
               ))}
 
               <div className="d-flex justify-content-between align-items-center mt-4">
-                <button className="btn-outline-maison" onClick={() => navigate('shop')}>
+                <button className="btn-outline-lyra" onClick={() => navigate('shop')}>
                   <i className="bi bi-arrow-left" /> Tiếp tục mua sắm
                 </button>
               </div>
@@ -115,7 +115,7 @@ export default function CartPage() {
               </button>
             </div>
             <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 6 }}>
-              Thử: MAISON10 · MAISON20 · FREESHIP · SAVE100K
+              Thử: LYRA10 · LYRA20 · FREESHIP · SAVE100K
             </div>
           </div>
 
@@ -140,7 +140,7 @@ export default function CartPage() {
 
 /* ── Checkout ───────────────────────────── */
 function CheckoutView({ navigate, setView }) {
-  const { cart, subtotal, shipping, discount, total, clearCart } = useCart();
+  const { cart, subtotal, shipping, discount, total, clearCart, showToast } = useCart();
   const [activePayment, setActivePayment] = useState('cod');
   const [step, setStep]   = useState(2);
 
@@ -152,6 +152,14 @@ function CheckoutView({ navigate, setView }) {
   ];
 
   const handlePlaceOrder = () => {
+    const requiredFields = [...document.querySelectorAll('.checkout-grid input.form-field-input')];
+    const invalidField = requiredFields.find(field => !field.value.trim());
+    if (invalidField) {
+      invalidField.focus();
+      showToast('Vui lòng điền đầy đủ thông tin giao hàng', 'bi-exclamation-circle');
+      return;
+    }
+    setStep(4);
     clearCart();
     setView('success');
   };
@@ -244,10 +252,10 @@ function CheckoutView({ navigate, setView }) {
           ))}
 
           <div className="d-flex gap-3 mt-4">
-            <button className="btn-outline-maison flex-shrink-0" onClick={() => setView('cart')}>
+            <button className="btn-outline-lyra flex-shrink-0" onClick={() => setView('cart')}>
               <i className="bi bi-arrow-left" /> Giỏ hàng
             </button>
-            <button className="btn-maison w-100 justify-content-center" onClick={handlePlaceOrder}>
+            <button className="btn-lyra w-100 justify-content-center" onClick={handlePlaceOrder}>
               Đặt hàng ngay <i className="bi bi-check2" />
             </button>
           </div>
@@ -294,14 +302,14 @@ function OrderSuccess({ navigate }) {
       </div>
       <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 42, fontWeight: 300, marginBottom: 12 }}>Đặt hàng thành công!</h2>
       <p style={{ fontSize: 14, color: 'var(--muted)', maxWidth: 400, lineHeight: 1.7, marginBottom: 10 }}>
-        Cảm ơn bạn đã mua sắm tại MAISON. Chúng tôi sẽ xử lý và giao hàng trong 2–3 ngày làm việc.
+        Cảm ơn bạn đã mua sắm tại LYRA. Chúng tôi sẽ xử lý và giao hàng trong 2–3 ngày làm việc.
       </p>
       <p style={{ fontSize: 13, color: 'var(--muted)', marginBottom: 32 }}>
         Mã đơn hàng: <strong style={{ color: 'var(--ink)' }}>{orderId}</strong>
       </p>
       <div className="d-flex gap-3">
-        <button className="btn-maison" onClick={() => navigate('home')}>Về trang chủ</button>
-        <button className="btn-outline-maison" onClick={() => navigate('shop')}>Tiếp tục mua sắm</button>
+        <button className="btn-lyra" onClick={() => navigate('home')}>Về trang chủ</button>
+        <button className="btn-outline-lyra" onClick={() => navigate('shop')}>Tiếp tục mua sắm</button>
       </div>
     </div>
   );

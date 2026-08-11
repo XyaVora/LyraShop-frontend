@@ -14,7 +14,7 @@ export default function SearchModal({ open, onClose }) {
   const [query, setQuery]       = useState('');
   const [results, setResults]   = useState([]);
   const [history, setHistory]   = useState(() => {
-    try { return JSON.parse(localStorage.getItem('maison_search_history') || '[]'); }
+    try { return JSON.parse(localStorage.getItem('lyra_search_history') || '[]'); }
     catch { return []; }
   });
   const [activeIdx, setActiveIdx] = useState(-1);
@@ -66,7 +66,7 @@ export default function SearchModal({ open, onClose }) {
     if (!trimmed) return;
     const updated = [trimmed, ...history.filter(h => h !== trimmed)].slice(0, MAX_HISTORY);
     setHistory(updated);
-    try { localStorage.setItem('maison_search_history', JSON.stringify(updated)); } catch {}
+    try { localStorage.setItem('lyra_search_history', JSON.stringify(updated)); } catch {}
   }, [history]);
 
   const openProduct = (product) => {
@@ -83,14 +83,14 @@ export default function SearchModal({ open, onClose }) {
 
   const clearHistory = () => {
     setHistory([]);
-    try { localStorage.removeItem('maison_search_history'); } catch {}
+    try { localStorage.removeItem('lyra_search_history'); } catch {}
   };
 
   const removeHistoryItem = (item, e) => {
     e.stopPropagation();
     const updated = history.filter(h => h !== item);
     setHistory(updated);
-    try { localStorage.setItem('maison_search_history', JSON.stringify(updated)); } catch {}
+    try { localStorage.setItem('lyra_search_history', JSON.stringify(updated)); } catch {}
   };
 
   if (!open) return null;
@@ -258,7 +258,7 @@ export default function SearchModal({ open, onClose }) {
               <p style={{ fontSize: 13, lineHeight: 1.7, maxWidth: 320, margin: '0 auto 24px' }}>
                 Thử tìm với từ khóa khác hoặc khám phá các danh mục bên dưới.
               </p>
-              <button className="btn-maison" onClick={() => { onClose(); navigate('shop'); }}>
+              <button className="btn-lyra" onClick={() => { onClose(); navigate('shop'); }}>
                 Xem tất cả sản phẩm
               </button>
             </div>
