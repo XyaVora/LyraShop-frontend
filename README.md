@@ -1,10 +1,11 @@
+
 # MAISON — Fashion E-Commerce Frontend
 
 Nền tảng mua sắm thời trang cao cấp xây dựng bằng React 18 + Bootstrap 5.
 
 ---
 
-## 🚀 Khởi động nhanh
+## Khởi động nhanh
 
 ```bash
 # 1. Cài dependencies
@@ -21,7 +22,7 @@ Mở trình duyệt tại: http://localhost:3000
 
 ---
 
-## 📁 Cấu trúc thư mục
+## Cấu trúc thư mục
 
 ```
 maison-shop/
@@ -57,7 +58,7 @@ maison-shop/
 
 ---
 
-## 🎨 Design System
+## Design System
 
 | Token | Giá trị |
 |---|---|
@@ -71,7 +72,7 @@ maison-shop/
 
 ---
 
-## 📄 Các trang
+## Các trang
 
 | Trang | Mô tả |
 |---|---|
@@ -87,7 +88,7 @@ maison-shop/
 
 ---
 
-## 🔌 Kết nối Backend (Python Flask/Django)
+## Kết nối Backend (Python Flask/Django)
 
 Thay mock data trong `src/data/products.js` bằng API calls thực:
 
@@ -107,7 +108,7 @@ Tạo `src/services/api.js` và thay thế từng hàm trong context.
 
 ---
 
-## 🧪 Mã coupon demo
+## Mã coupon demo
 
 | Mã | Ưu đãi |
 |---|---|
@@ -118,7 +119,7 @@ Tạo `src/services/api.js` và thay thế từng hàm trong context.
 
 ---
 
-## 📦 Dependencies
+## Dependencies
 
 ```
 react@18          — UI framework
@@ -129,3 +130,4 @@ bootstrap-icons   — Icon set
 axios             — HTTP client cho API calls
 vite              — Dev server & build tool
 ```
+
