@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const TOKEN_KEY = 'maison_access_token';
+const TOKEN_KEY = 'lyra_access_token';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8080/api',
