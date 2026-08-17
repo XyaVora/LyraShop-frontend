@@ -44,6 +44,7 @@ export default function HomePage() {
             <div className="scroll-line" />
             <span>Scroll</span>
           </div>
+
         </div>
       </section>
 

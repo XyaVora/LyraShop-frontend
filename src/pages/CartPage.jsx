@@ -29,8 +29,9 @@ export default function CartPage() {
               <p style={{ fontSize: 13, color: 'var(--muted)', maxWidth: 280, lineHeight: 1.6 }}>
                 Bạn chưa thêm sản phẩm nào vào giỏ hàng.
               </p>
-              <button className="btn-maison mt-3" onClick={() => navigate('shop')}>
-                Tiếp tục mua sắm
+              <button className="btn-outline-lyra cart-continue-shopping mt-3" onClick={() => navigate('shop')}>
+                <span className="cart-continue-arrow" aria-hidden="true">←</span>
+                <span className="cart-continue-label">Tiếp tục mua sắm</span>
               </button>
             </div>
           ) : (
@@ -74,8 +75,9 @@ export default function CartPage() {
               ))}
 
               <div className="d-flex justify-content-between align-items-center mt-4">
-                <button className="btn-outline-lyra" onClick={() => navigate('shop')}>
-                  <i className="bi bi-arrow-left" /> Tiếp tục mua sắm
+                <button className="btn-outline-lyra cart-continue-shopping" onClick={() => navigate('shop')}>
+                  <span className="cart-continue-arrow" aria-hidden="true">←</span>
+                  <span className="cart-continue-label">Tiếp tục mua sắm</span>
                 </button>
               </div>
             </>

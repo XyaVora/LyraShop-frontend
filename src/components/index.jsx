@@ -54,7 +54,7 @@ export function ProductCard({ product, delay = 0 }) {
       <Stars rating={product.rating} />
       <div className="product-name">{product.name}</div>
       <div className="product-brand">{product.brand} · {product.cat}</div>
-      <div>
+      <div className="product-price-row">
         <span className="product-price">{fmt(product.price)}</span>
         {product.oldPrice && <span className="product-price-old">{fmt(product.oldPrice)}</span>}
       </div>

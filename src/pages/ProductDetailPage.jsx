@@ -164,7 +164,7 @@ export default function ProductDetailPage() {
             ))}
           </div>
 
-          <div className={`tab-pane${activeTab === 'desc' ? ' active' : ''}`}>
+          <div className={`tab-pane detail-description${activeTab === 'desc' ? ' active' : ''}`}>
             <p>Sản phẩm được làm từ chất liệu cao cấp, mang lại cảm giác mềm mại, thoáng mát và sang trọng. Thiết kế tối giản với đường may tinh tế, phù hợp cho nhiều dịp từ công sở đến tiệc tối.</p>
             <br />
             <p>Chất liệu thấm hút tốt, điều hòa thân nhiệt. Màu sắc bền đẹp sau nhiều lần giặt. Có thể giặt tay nhẹ nhàng hoặc giặt khô để bảo quản lâu dài.</p>

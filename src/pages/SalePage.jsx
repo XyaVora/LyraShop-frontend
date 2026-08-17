@@ -149,11 +149,11 @@ export default function SalePage() {
             </div>
           </div>
 
-          <div className="products-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
+          <div className="products-grid flash-sale-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
             {FLASH_PRODUCTS.map((p, i) => (
-              <div key={p.id} style={{ position: 'relative' }}>
+              <div key={p.id} className="flash-sale-item">
                 {/* Discount ribbon */}
-                <div style={{
+                <div className="flash-sale-discount" style={{
                   position: 'absolute', top: 0, right: 0, zIndex: 10,
                   background: 'var(--warm)', color: '#fff',
                   fontSize: 13, fontFamily: 'var(--font-serif)', fontWeight: 400,
@@ -162,7 +162,7 @@ export default function SalePage() {
                   −{p.discount}%
                 </div>
                 <ProductCard product={p} delay={i} />
-                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: -8, marginBottom: 12 }}>
+                <div className="flash-sale-saving">
                   Tiết kiệm: <span style={{ color: 'var(--warm)', fontFamily: 'var(--font-serif)' }}>
                     {fmt(p.oldPrice - p.price)}
                   </span>
