@@ -1,127 +1,231 @@
-// src/services/api.js — lớp gọi HTTP cho LYRA.
-// Backend chưa chạy thật (localhost:8080) nên mọi lỗi mạng sẽ được AppContext
-// bắt lại và chuyển sang CHẾ ĐỘ DEMO offline. Xem `isOffline` ở cuối file.
+// src/services/api.js
 import axios from 'axios';
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
 const TOKEN_KEY = 'lyra_access_token';
+const CSRF_KEY = 'lyra_xsrf_token';
 
-/* ── localStorage an toàn ───────────────────────────────────────────────
-   Một số trình duyệt (chặn cookie/private mode/webview nhúng) ném
-   SecurityError ngay khi chạm vào localStorage → phải bọc try/catch,
-   nếu không toàn bộ app trắng màn hình. */
-const safeGet = (key) => {
-  try { return localStorage.getItem(key); } catch { return null; }
-};
-const safeSet = (key, value) => {
-  try { localStorage.setItem(key, value); return true; } catch { return false; }
-};
-const safeRemove = (key) => {
-  try { localStorage.removeItem(key); } catch { /* bỏ qua */ }
-};
-
-/* URL gốc: ưu tiên biến môi trường; khi build production mà không khai báo
-   thì dùng '/api' cùng origin thay vì nhúng localhost vào bundle. */
-const BASE_URL =
-  import.meta.env.VITE_API_URL ||
-  (import.meta.env.DEV ? 'http://localhost:8080/api' : '/api');
-
+/* ── Axios instance ──────────────────────────── */
 const api = axios.create({
-  baseURL: BASE_URL,
+  baseURL: API_BASE,
   headers: { 'Content-Type': 'application/json' },
-  // 4000ms: không có backend thì phải rơi về chế độ demo thật nhanh.
-  timeout: 4000,
+  withCredentials: true, // cần cho refresh-token cookie & CSRF cookie
+  timeout: 15000,
 });
 
-// Gắn access token vào mọi request nếu có.
+/* ── Token helpers ───────────────────────────── */
+export const tokenStore = {
+  get: ()        => localStorage.getItem(TOKEN_KEY),
+  set: (token)   => localStorage.setItem(TOKEN_KEY, token),
+  clear: ()      => localStorage.removeItem(TOKEN_KEY),
+};
+
+export const csrfStore = {
+  get: ()        => sessionStorage.getItem(CSRF_KEY),
+  set: (token)   => {
+    if (token) sessionStorage.setItem(CSRF_KEY, token);
+  },
+  clear: ()      => sessionStorage.removeItem(CSRF_KEY),
+};
+
+/* ── Request interceptor: đính kèm Bearer token & CSRF header ─ */
 api.interceptors.request.use((config) => {
-  const token = safeGet(TOKEN_KEY);
+  const token = tokenStore.get();
   if (token) config.headers.Authorization = `Bearer ${token}`;
+
+  // Đính kèm header X-XSRF-TOKEN cho refresh/logout khi cần
+  const xsrf = csrfStore.get();
+  if (xsrf) {
+    config.headers['X-XSRF-TOKEN'] = xsrf;
+  }
+
   return config;
 });
 
+/* ── Response interceptor: lưu XSRF-TOKEN và auto-refresh khi 401 ─ */
+let isRefreshing = false;
+let refreshQueue = [];
+
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    // Hết phiên: xoá token và báo cho AppContext để đồng bộ state đăng nhập.
-    if (error?.response?.status === 401) {
-      safeRemove(TOKEN_KEY);
-      if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
-        try { window.dispatchEvent(new CustomEvent('lyra:auth-expired')); } catch { /* bỏ qua */ }
+  (response) => {
+    // Lưu header X-XSRF-TOKEN nếu backend trả về (từ login, refresh, csrf)
+    const xsrf = response.headers?.['x-xsrf-token'] || response.headers?.['X-XSRF-TOKEN'];
+    if (xsrf) {
+      csrfStore.set(xsrf);
+    }
+    return response;
+  },
+  async (error) => {
+    const original = error.config;
+
+    // Nếu 401 và chưa retry và không phải endpoint auth
+    if (
+      error.response?.status === 401 &&
+      !original._retry &&
+      !original.url?.includes('/auth/')
+    ) {
+      original._retry = true;
+
+      if (isRefreshing) {
+        // Đợi refresh xong rồi thử lại
+        return new Promise((resolve, reject) => {
+          refreshQueue.push({ resolve, reject });
+        }).then((token) => {
+          original.headers.Authorization = `Bearer ${token}`;
+          return api(original);
+        });
+      }
+
+      isRefreshing = true;
+      try {
+        const { data, headers } = await authApi.refresh();
+        tokenStore.set(data.accessToken);
+
+        const newXsrf = headers?.['x-xsrf-token'] || headers?.['X-XSRF-TOKEN'];
+        if (newXsrf) csrfStore.set(newXsrf);
+
+        refreshQueue.forEach(({ resolve }) => resolve(data.accessToken));
+        refreshQueue = [];
+        original.headers.Authorization = `Bearer ${data.accessToken}`;
+        return api(original);
+      } catch (refreshError) {
+        tokenStore.clear();
+        csrfStore.clear();
+        refreshQueue.forEach(({ reject }) => reject(refreshError));
+        refreshQueue = [];
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
       }
     }
+
     return Promise.reject(error);
-  },
+  }
 );
 
-export const tokenStore = {
-  get: () => safeGet(TOKEN_KEY),
-  set: (token) => safeSet(TOKEN_KEY, token),
-  clear: () => safeRemove(TOKEN_KEY),
-};
-
-/** Status coi như "chưa có backend" chứ không phải lỗi nghiệp vụ. */
-const NO_BACKEND_STATUS = new Set([404, 405, 501, 502, 503, 504]);
-
-/**
- * Lỗi "offline": coi như KHÔNG có backend, UI rơi về dữ liệu demo.
- *
- * Gồm ba trường hợp:
- *  1. Không nhận được response nào (backend không chạy, timeout, DNS, CORS
- *     chặn ở tầng mạng) — đây là tình huống khi chạy `npm run dev`.
- *  2. Response có status thuộc nhóm "endpoint không tồn tại / dịch vụ chưa
- *     sẵn sàng". Khi build tĩnh đem deploy mà chưa gắn backend, `/api/...`
- *     sẽ trả 404 — nếu không xử lý thì đăng nhập demo sẽ hỏng trên bản
- *     production dù vẫn chạy tốt ở dev.
- *  3. Response trả về HTML (máy chủ tĩnh fallback index.html cho mọi đường
- *     dẫn không khớp). Đó không phải câu trả lời của một API thật.
- *
- * Lỗi nghiệp vụ thật (400/401/409/422…) KHÔNG thuộc nhóm này và sẽ được ném
- * lên cho giao diện hiển thị thông báo.
- *
- * @param {any} error
- * @returns {boolean}
- */
-export const isOffline = (error) => {
-  const res = error?.response;
-  if (!res) return true;
-  if (NO_BACKEND_STATUS.has(res.status)) return true;
-  const type = String(res.headers?.['content-type'] || '');
-  if (type.includes('text/html')) return true;
-  return false;
-};
-
+/* ── Auth API ────────────────────────────────── */
 export const authApi = {
+  /**
+   * Đăng ký — POST /auth/register
+   * Body: { email, password, fullName, phone? }
+   * Response: { id, email, fullName, phone, createdAt }
+   */
   register: (payload) => api.post('/auth/register', payload),
-  login: (payload) => api.post('/auth/login', payload),
-  me: () => api.get('/auth/me'),
+
+  /**
+   * Đăng nhập — POST /auth/login
+   * Body: { email, password }
+   * Response: { accessToken, tokenType, expiresIn }
+   * Header: X-XSRF-TOKEN
+   * Cookie: __Secure-LyraShopRefresh (HttpOnly)
+   */
+  login: async (payload) => {
+    const res = await api.post('/auth/login', payload);
+    const xsrf = res.headers?.['x-xsrf-token'] || res.headers?.['X-XSRF-TOKEN'];
+    if (xsrf) csrfStore.set(xsrf);
+    return res;
+  },
+
+  /**
+   * Lấy CSRF token sau khi reload trang — GET /auth/csrf
+   * Header X-XSRF-TOKEN được trả về
+   */
+  csrf: async () => {
+    const res = await api.get('/auth/csrf');
+    const xsrf = res.headers?.['x-xsrf-token'] || res.headers?.['X-XSRF-TOKEN'];
+    if (xsrf) csrfStore.set(xsrf);
+    return res;
+  },
+
+  /**
+   * Refresh access token — POST /auth/refresh
+   * Dùng cookie refresh token + X-XSRF-TOKEN header
+   */
+  refresh: async () => {
+    // Nếu chưa có CSRF token trong session, lấy trước
+    if (!csrfStore.get()) {
+      try { await authApi.csrf(); } catch {}
+    }
+    const res = await api.post('/auth/refresh');
+    const xsrf = res.headers?.['x-xsrf-token'] || res.headers?.['X-XSRF-TOKEN'];
+    if (xsrf) csrfStore.set(xsrf);
+    return res;
+  },
+
+  /**
+   * Đăng xuất — POST /auth/logout
+   * Cần Bearer token + X-XSRF-TOKEN header
+   */
+  logout: async () => {
+    if (!csrfStore.get()) {
+      try { await authApi.csrf(); } catch {}
+    }
+    const res = await api.post('/auth/logout');
+    csrfStore.clear();
+    return res;
+  },
 };
 
+/* ── Products API ────────────────────────────── */
 export const productApi = {
+  /**
+   * Danh sách sản phẩm — GET /products
+   * Params: keyword, category (slug), minPrice, maxPrice,
+   *         sort (name|price|createdAt,asc|desc), page, size
+   * Response: { content: ProductResponse[], page, size, totalElements, totalPages }
+   */
   list: (params = {}) => api.get('/products', { params }),
+
+  /**
+   * Chi tiết sản phẩm — GET /products/:uuid
+   * Response: { id, name, slug, description, basePrice, categoryId, createdAt, updatedAt,
+   *             variants: [{ id, sku, size, color, price, stock }] }
+   */
   get: (id) => api.get(`/products/${id}`),
-  categories: () => api.get('/categories'),
 };
 
-export const cartApi = {
-  get: () => api.get('/cart'),
-  add: (payload) => api.post('/cart/items', payload),
-  update: (id, quantity) => api.patch(`/cart/items/${id}`, { quantity }),
-  remove: (id) => api.delete(`/cart/items/${id}`),
+/* ── Categories API ──────────────────────────── */
+export const categoryApi = {
+  /**
+   * Danh sách danh mục — GET /categories
+   * Response: [{ id, name, slug, description, parentId, createdAt, updatedAt }]
+   */
+  list: () => api.get('/categories'),
+
+  /**
+   * Chi tiết danh mục — GET /categories/:id
+   */
+  get: (id) => api.get(`/categories/${id}`),
 };
 
-export const wishlistApi = {
-  get: () => api.get('/wishlist'),
-  toggle: (productId) => api.put(`/wishlist/${productId}`),
+/* ── Admin API ───────────────────────────────── */
+export const adminApi = {
+  // Category management
+  createCategory: (payload) => api.post('/admin/categories', payload),
+
+  // Product management
+  createProduct: (payload) => api.post('/admin/products', payload),
+  updateProduct: (id, payload) => api.put(`/admin/products/${id}`, payload),
+  deactivateProduct: (id) => api.patch(`/admin/products/${id}/deactivate`),
+
+  // Variant management
+  createVariant: (productId, payload) => api.post(`/admin/products/${productId}/variants`, payload),
+  updateVariant: (productId, variantId, payload) => api.put(`/admin/products/${productId}/variants/${variantId}`, payload),
+  deactivateVariant: (productId, variantId) => api.patch(`/admin/products/${productId}/variants/${variantId}/deactivate`),
 };
 
-export const couponApi = {
-  validate: (code, subtotal) => api.post('/coupons/validate', { code, subtotal }),
-};
-
-export const orderApi = {
-  create: (payload) => api.post('/orders', payload),
-  mine: () => api.get('/orders/me'),
-  get: (id) => api.get(`/orders/${id}`),
-};
+/* ── Utility ─────────────────────────────────── */
+/**
+ * Trích xuất message lỗi từ ApiErrorResponse của backend
+ * Backend: { timestamp, status, code, message, path, fieldErrors }
+ */
+export function extractErrorMessage(error, fallback = 'Đã có lỗi xảy ra') {
+  const data = error?.response?.data;
+  if (!data) return fallback;
+  if (data.fieldErrors && Object.keys(data.fieldErrors).length > 0) {
+    return Object.values(data.fieldErrors).join(', ');
+  }
+  return data.message || fallback;
+}
 
 export default api;

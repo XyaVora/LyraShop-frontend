@@ -1,274 +1,142 @@
-// src/context/AppContext.jsx — định tuyến (URL thật) + phiên đăng nhập.
-// Không dùng thư viện router: mọi ánh xạ URL <-> trang nằm ở src/router.js.
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { buildUrl, pageTitle, parseLocation } from '../router.js';
-import { CATEGORIES, findProduct } from '../data/products';
-import { authApi, isOffline, tokenStore } from '../services/api';
+// src/context/AppContext.jsx
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { authApi, tokenStore, extractErrorMessage } from '../services/api';
 
 const AppContext = createContext(null);
 
-const USER_KEY = 'lyra_user';
-const LEGACY_USER_KEY = 'maison_demo_user'; // khoá cũ — chỉ để dọn dẹp
-
-/* ── localStorage an toàn (có thể bị chặn → ném SecurityError) ───────── */
-const safeGet = (key) => {
-  try { return localStorage.getItem(key); } catch { return null; }
-};
-const safeSet = (key, value) => {
-  try { localStorage.setItem(key, value); } catch { /* bỏ qua */ }
-};
-const safeRemove = (key) => {
-  try { localStorage.removeItem(key); } catch { /* bỏ qua */ }
-};
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
-/** Mã người dùng ổn định suy ra từ email (không dùng Math.random). */
-function hashId(seed) {
-  const s = String(seed || '');
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i += 1) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return `u${(h >>> 0).toString(36)}`;
-}
-
-/** Tên hiển thị suy ra từ phần trước @ của email. */
-function nameFromEmail(email) {
-  const local = String(email || '').split('@')[0].replace(/[._-]+/g, ' ').trim();
-  if (!local) return 'Khách hàng LYRA';
-  return local
-    .split(/\s+/)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-    .join(' ');
-}
-
-/** Chuẩn hoá user về đúng shape hợp đồng §2. */
-function normalizeUser(raw, fallbackEmail = '') {
-  const email = String(raw?.email || fallbackEmail || '').trim();
-  const name = String(raw?.name || raw?.fullName || nameFromEmail(email)).trim();
-  return {
-    id: raw?.id || hashId(email),
-    name,
-    email,
-    avatar: (name.charAt(0) || email.charAt(0) || 'L').toUpperCase(),
-    role: raw?.role || (/^admin@/i.test(email) ? 'admin' : 'customer'),
-    joined: raw?.joined || raw?.createdAt || new Date().toISOString(),
-  };
-}
-
-/** Đọc route hiện tại từ thanh địa chỉ. */
-function readRoute() {
-  if (typeof window === 'undefined') return { page: 'home', params: {}, pathname: '/' };
-  const { page, params } = parseLocation(window.location);
-  return { page, params, pathname: window.location.pathname || '/' };
-}
-
-/** Tách URL do buildUrl sinh ra thành { pathname, search }. */
-function splitUrl(url) {
-  const i = url.indexOf('?');
-  return i === -1 ? { pathname: url, search: '' } : { pathname: url.slice(0, i), search: url.slice(i) };
-}
-
 export function AppProvider({ children }) {
-  // ── ROUTE ────────────────────────────────────────────────────────────
-  const [route, setRoute] = useState(readRoute);
-  const { page: currentPage, params, pathname } = route;
+  const [currentPage, setCurrentPage]         = useState('home');
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedOrder, setSelectedOrder]     = useState(null);
+  const [searchQuery, setSearchQuery]         = useState('');
+  const [adminTab, setAdminTab]               = useState('dashboard');
+  const [profileTab, setProfileTab]           = useState('orders');
+  const [checkoutStep, setCheckoutStep]       = useState('cart');
 
-  /**
-   * Điều hướng nội bộ.
-   * @param {string} page - một trong PAGES
-   * @param {object} extra - params URL + cờ điều khiển { replace, keepScroll }
-   *   `product` nhận object sản phẩm / id / slug; `order` nhận id có hoặc không '#'.
-   */
+  // Auth state
+  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(tokenStore.get()));
+  const [user, setUser]             = useState(() => {
+    try { return JSON.parse(localStorage.getItem('lyra_user') || 'null'); }
+    catch { return null; }
+  });
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError]     = useState(null);
+
+  // Persist user info (không sensitive)
+  useEffect(() => {
+    if (user) localStorage.setItem('lyra_user', JSON.stringify(user));
+    else localStorage.removeItem('lyra_user');
+  }, [user]);
+
+  /* ── Navigation ──────────────────────────── */
   const navigate = useCallback((page, extra = {}) => {
-    const { replace = false, keepScroll = false, ...rest } = extra || {};
-    const next = { ...rest };
-
-    // product có thể là object sản phẩm → lấy slug.
-    if (next.product && typeof next.product === 'object') {
-      next.product = next.product.slug || next.product.id;
-    }
-    // order luôn lưu trong URL ở dạng không có '#'.
-    if (next.order !== undefined && next.order !== null && next.order !== '') {
-      next.order = String(next.order).replace(/^#/, '');
-    }
-
-    const url = buildUrl(page, next);
-    const { pathname: nextPath, search } = splitUrl(url);
-    // Parse lại chính URL vừa dựng để state luôn khớp thanh địa chỉ.
-    const parsed = parseLocation({ pathname: nextPath, search });
-
-    try {
-      // Đi tới đúng URL đang mở thì thay thế, không đẩy thêm entry — nếu không
-      // lịch sử sẽ đầy các entry trùng nhau và người dùng phải bấm Back nhiều
-      // lần mới rời được trang hiện tại.
-      const sameUrl = typeof window !== 'undefined'
-        && url === `${window.location.pathname}${window.location.search}`;
-      if (replace || sameUrl) window.history.replaceState({ page: parsed.page }, '', url);
-      else window.history.pushState({ page: parsed.page }, '', url);
-    } catch { /* môi trường không có history: bỏ qua, state vẫn đổi */ }
-
-    setRoute({ page: parsed.page, params: parsed.params, pathname: nextPath });
-
-    // Cuộn tức thì (không smooth) trừ khi trang chỉ đổi query của chính nó.
-    if (!keepScroll && typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, behavior: 'auto' });
-    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setCurrentPage(page);
+    if (extra.product)    setSelectedProduct(extra.product);
+    if (extra.order)      setSelectedOrder(extra.order);
+    if (extra.query !== undefined) setSearchQuery(extra.query);
+    if (extra.adminTab)   setAdminTab(extra.adminTab);
+    if (extra.profileTab) setProfileTab(extra.profileTab);
+    if (page === 'cart')  setCheckoutStep('cart');
   }, []);
 
-  // Back/Forward của trình duyệt → đọc lại URL.
-  // Đồng thời phát tín hiệu để các lớp phủ (giỏ hàng, menu mobile, hộp tìm kiếm)
-  // tự đóng: nếu không, bấm Back khi đang mở drawer sẽ để lại lớp phủ che trang
-  // và khoá cuộn body vĩnh viễn.
-  useEffect(() => {
-    const onPop = () => {
-      setRoute(readRoute());
-      try { window.dispatchEvent(new CustomEvent('lyra:navigated')); } catch { /* bỏ qua */ }
-    };
-    window.addEventListener('popstate', onPop);
-    return () => window.removeEventListener('popstate', onPop);
-  }, []);
-
-  // ── DẪN XUẤT TỪ PARAMS (không lưu trùng state) ───────────────────────
-  const selectedProduct = useMemo(() => findProduct(params.product), [params.product]);
-  const selectedOrder = useMemo(
-    () => (params.order ? `#${String(params.order).replace(/^#/, '')}` : null),
-    [params.order],
-  );
-  const searchQuery = params.q || '';
-  const profileTab = params.tab || 'orders';
-  const adminTab = params.tab || 'dashboard';
-
-  // Tiêu đề tài liệu theo trang (kèm tên sản phẩm / danh mục / từ khoá).
-  useEffect(() => {
-    let extra;
-    if (currentPage === 'detail' && selectedProduct) extra = selectedProduct.name;
-    else if (currentPage === 'search' && searchQuery) extra = `Tìm kiếm: ${searchQuery}`;
-    else if (currentPage === 'shop' && params.cat) {
-      const cat = (CATEGORIES || []).find((c) => c.slug === params.cat || c.name === params.cat);
-      if (cat) extra = cat.name;
-    } else if (currentPage === 'order-detail' && selectedOrder) extra = `Đơn hàng ${selectedOrder}`;
-    document.title = pageTitle(currentPage, extra);
-  }, [currentPage, selectedProduct, searchQuery, selectedOrder, params.cat]);
-
-  // ── PHIÊN ĐĂNG NHẬP ──────────────────────────────────────────────────
-  const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
-
-  // Khôi phục phiên từ localStorage khi tải trang.
-  useEffect(() => {
-    safeRemove(LEGACY_USER_KEY); // dọn khoá maison_* cũ
-    try {
-      const raw = safeGet(USER_KEY);
-      const parsed = raw ? JSON.parse(raw) : null;
-      if (parsed && typeof parsed === 'object' && parsed.email) setUser(normalizeUser(parsed));
-    } catch { /* dữ liệu hỏng → coi như chưa đăng nhập */ }
-    setAuthLoading(false);
-  }, []);
-
-  const persistUser = useCallback((u) => {
-    setUser(u);
-    if (u) safeSet(USER_KEY, JSON.stringify(u));
-    else safeRemove(USER_KEY);
-  }, []);
-
-  const logout = useCallback(() => {
-    tokenStore.clear();
-    safeRemove(LEGACY_USER_KEY);
-    persistUser(null);
-  }, [persistUser]);
-
-  // Token hết hạn (401 từ interceptor) → đồng bộ state đăng nhập.
-  useEffect(() => {
-    const onExpired = () => logout();
-    window.addEventListener('lyra:auth-expired', onExpired);
-    return () => window.removeEventListener('lyra:auth-expired', onExpired);
-  }, [logout]);
-
-  /** Lấy thông điệp lỗi từ response của backend. */
-  const apiMessage = (error, fallback) =>
-    error?.response?.data?.message || error?.response?.data?.error || fallback;
-
+  /* ── Auth ────────────────────────────────── */
   /**
-   * Đăng nhập. Thử API thật trước; nếu không có backend (network error/timeout)
-   * thì rơi về CHẾ ĐỘ DEMO offline. Lỗi có status → throw để trang hiện inline.
+   * Đăng nhập.
+   * Backend trả về { accessToken, tokenType, expiresIn } — không có user info.
+   * Sau khi lấy token, ta lưu trữ thông tin user cơ bản từ response đăng ký
+   * hoặc từ payload JWT (decode thủ công).
    */
   const login = useCallback(async (email, password) => {
-    const mail = String(email || '').trim();
-    const pass = String(password || '');
+    setAuthLoading(true);
+    setAuthError(null);
     try {
-      const { data } = await authApi.login({ email: mail, password: pass });
-      if (data?.accessToken) tokenStore.set(data.accessToken);
-      const u = normalizeUser(data?.user || data, mail);
-      persistUser(u);
-      return u;
-    } catch (error) {
-      // Backend trả lỗi có status → báo cho người dùng, không vào demo.
-      if (!isOffline(error)) throw new Error(apiMessage(error, 'Email hoặc mật khẩu không đúng.'));
+      const { data } = await authApi.login({ email, password });
+      tokenStore.set(data.accessToken);
 
-      // ── CHẾ ĐỘ DEMO ─────────────────────────────────────────────
-      if (!EMAIL_RE.test(mail)) throw new Error('Email không hợp lệ.');
-      if (pass.length < 6) throw new Error('Mật khẩu phải có ít nhất 6 ký tự.');
-      const u = normalizeUser({ email: mail });
-      persistUser(u);
-      return u;
+      // Decode payload JWT để lấy thông tin cơ bản (sub = userId)
+      // Backend dùng sub = UUID của user
+      const payload = parseJwtPayload(data.accessToken);
+      const userInfo = {
+        id:     payload?.sub || null,
+        email,
+        name:   payload?.name || email.split('@')[0],
+        avatar: (payload?.name || email)[0].toUpperCase(),
+        roles:  payload?.roles || [],
+      };
+      setUser(userInfo);
+      setIsLoggedIn(true);
+      return userInfo;
+    } catch (err) {
+      const msg = extractErrorMessage(err, 'Email hoặc mật khẩu không đúng');
+      setAuthError(msg);
+      throw new Error(msg);
+    } finally {
+      setAuthLoading(false);
     }
-  }, [persistUser]);
-
-  /** Đăng ký — cùng cơ chế demo offline như login. */
-  const register = useCallback(async (fullName, email, password) => {
-    const name = String(fullName || '').trim();
-    const mail = String(email || '').trim();
-    const pass = String(password || '');
-    try {
-      const { data } = await authApi.register({ fullName: name, email: mail, password: pass });
-      if (data?.accessToken) tokenStore.set(data.accessToken);
-      const u = normalizeUser(data?.user || data, mail);
-      persistUser(u);
-      return u;
-    } catch (error) {
-      if (!isOffline(error)) throw new Error(apiMessage(error, 'Không thể tạo tài khoản.'));
-
-      // ── CHẾ ĐỘ DEMO ─────────────────────────────────────────────
-      if (!name) throw new Error('Vui lòng nhập họ và tên.');
-      if (!EMAIL_RE.test(mail)) throw new Error('Email không hợp lệ.');
-      if (pass.length < 6) throw new Error('Mật khẩu phải có ít nhất 6 ký tự.');
-      const u = normalizeUser({ name, email: mail });
-      persistUser(u);
-      return u;
-    }
-  }, [persistUser]);
-
-  /** Cập nhật hồ sơ (trang Tài khoản). */
-  const updateUser = useCallback((patch) => {
-    setUser((prev) => {
-      if (!prev) return prev;
-      const merged = normalizeUser({ ...prev, ...(patch || {}) });
-      safeSet(USER_KEY, JSON.stringify(merged));
-      return merged;
-    });
   }, []);
 
-  const value = useMemo(() => ({
-    // định tuyến
-    currentPage, params, pathname, navigate,
-    selectedProduct, selectedOrder, searchQuery, profileTab, adminTab,
-    // phiên đăng nhập
-    user,
-    isLoggedIn: Boolean(user),
-    isAdmin: user?.role === 'admin',
-    authLoading,
-    login, register, logout, updateUser,
-  }), [
-    currentPage, params, pathname, navigate,
-    selectedProduct, selectedOrder, searchQuery, profileTab, adminTab,
-    user, authLoading, login, register, logout, updateUser,
-  ]);
+  /**
+   * Đăng ký.
+   * Backend trả về { id, email, fullName, phone, createdAt }.
+   * Sau đăng ký thành công, tự động đăng nhập.
+   */
+  const register = useCallback(async (fullName, email, password) => {
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      await authApi.register({ fullName, email, password });
+      // Tự động login sau khi đăng ký
+      return await login(email, password);
+    } catch (err) {
+      const msg = extractErrorMessage(err, 'Đăng ký thất bại, vui lòng thử lại');
+      setAuthError(msg);
+      throw new Error(msg);
+    } finally {
+      setAuthLoading(false);
+    }
+  }, [login]);
 
-  return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
+  /**
+   * Đăng xuất — gọi API để revoke refresh token cookie.
+   */
+  const logout = useCallback(async () => {
+    try {
+      if (tokenStore.get()) await authApi.logout();
+    } catch {
+      // Bỏ qua lỗi logout (token đã hết hạn v.v.)
+    } finally {
+      tokenStore.clear();
+      setIsLoggedIn(false);
+      setUser(null);
+    }
+  }, []);
+
+  return (
+    <AppContext.Provider value={{
+      currentPage, navigate,
+      selectedProduct, setSelectedProduct,
+      selectedOrder, setSelectedOrder,
+      searchQuery, setSearchQuery,
+      isLoggedIn, user, authLoading, authError,
+      login, register, logout,
+      adminTab, setAdminTab,
+      profileTab, setProfileTab,
+      checkoutStep, setCheckoutStep,
+    }}>
+      {children}
+    </AppContext.Provider>
+  );
 }
 
 export const useApp = () => useContext(AppContext);
-export default AppContext;
+
+/* ── JWT decode helper ───────────────────────── */
+function parseJwtPayload(token) {
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(base64));
+  } catch {
+    return null;
+  }
+}

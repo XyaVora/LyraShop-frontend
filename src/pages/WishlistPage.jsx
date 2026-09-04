@@ -1,530 +1,309 @@
-// src/pages/WishlistPage.jsx — Danh sách yêu thích của LYRA.
-// Lưới dùng .products-grid (không inline gridTemplateColumns), thẻ dùng <Pic>,
-// chế độ chọn nhiều bằng checkbox thật, mọi thao tác hàng loạt chỉ mở drawer
-// MỘT lần và hiện MỘT toast tổng kết.
-import { useCallback, useMemo, useState } from 'react';
+// src/pages/WishlistPage.jsx
+import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { PRODUCTS, fmt, relatedProducts } from '../data/products';
-import { buildUrl } from '../router.js';
-import {
-  EmptyState,
-  Footer,
-  Pic,
-  ProductCard,
-  SectionHeader,
-  Stars,
-  isModifiedClick,
-} from '../components/index.jsx';
-import Modal from '../components/Modal.jsx';
-import '../styles/wishlist.css';
-
-const SORTS = [
-  { value: 'added', label: 'Mới lưu nhất' },
-  { value: 'price-asc', label: 'Giá: thấp đến cao' },
-  { value: 'price-desc', label: 'Giá: cao đến thấp' },
-  { value: 'rating', label: 'Đánh giá cao nhất' },
-  { value: 'discount', label: 'Giảm giá nhiều nhất' },
-];
+import { fmt } from '../data/products';
+import { Stars, Footer } from '../components/index.jsx';
 
 export default function WishlistPage() {
   const { navigate } = useApp();
-  const { wishlist, toggleWishlist, addToCart, openCart, showToast } = useCart();
-
+  const { wishlist, toggleWishlist, addToCart, showToast } = useCart();
   const [sortBy, setSortBy] = useState('added');
-  const [catFilter, setCatFilter] = useState('all');
   const [selectMode, setSelectMode] = useState(false);
-  const [selected, setSelected] = useState(() => new Set());
-  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [selected, setSelected]     = useState(new Set());
 
-  /* ── Số liệu tính THẬT từ danh sách đã lưu ─────────────────────────── */
-  const totalValue = useMemo(
-    () => wishlist.reduce((sum, p) => sum + p.price, 0),
-    [wishlist],
-  );
-  const totalSaving = useMemo(
-    () => wishlist.reduce((sum, p) => sum + Math.max(0, (p.oldPrice || 0) - p.price), 0),
-    [wishlist],
-  );
+  const sorted = [...wishlist].sort((a, b) => {
+    if (sortBy === 'price-asc')  return a.price - b.price;
+    if (sortBy === 'price-desc') return b.price - a.price;
+    if (sortBy === 'rating')     return b.rating - a.rating;
+    return 0; // added — keep original order
+  });
 
-  /* ── Bộ lọc danh mục dựng từ chính danh sách ───────────────────────── */
-  const catTabs = useMemo(() => {
-    const counter = new Map();
-    wishlist.forEach((p) => counter.set(p.cat, (counter.get(p.cat) || 0) + 1));
-    return [...counter.entries()].map(([name, count]) => ({ name, count }));
-  }, [wishlist]);
-
-  const filtered = useMemo(
-    () => (catFilter === 'all' ? wishlist : wishlist.filter((p) => p.cat === catFilter)),
-    [wishlist, catFilter],
-  );
-
-  /* ── Sắp xếp — luôn thao tác trên bản sao ──────────────────────────── */
-  const view = useMemo(() => {
-    const list = [...filtered];
-    // toggleWishlist thêm vào CUỐI mảng ⇒ "mới lưu nhất" là mảng đảo ngược.
-    if (sortBy === 'added') return list.reverse();
-    if (sortBy === 'price-asc') return list.sort((a, b) => a.price - b.price);
-    if (sortBy === 'price-desc') return list.sort((a, b) => b.price - a.price);
-    if (sortBy === 'rating') return list.sort((a, b) => b.rating - a.rating);
-    if (sortBy === 'discount') return list.sort((a, b) => b.discount - a.discount);
-    return list;
-  }, [filtered, sortBy]);
-
-  /* ── Lựa chọn: luôn dẫn xuất từ wishlist nên không bao giờ "đếm ma" ── */
-  const selectedProducts = useMemo(
-    () => wishlist.filter((p) => selected.has(p.id)),
-    [wishlist, selected],
-  );
-  const selectedCount = selectedProducts.length;
-  const allViewSelected = view.length > 0 && view.every((p) => selected.has(p.id));
-
-  const toggleSelect = useCallback((id) => {
-    setSelected((prev) => {
+  const toggleSelect = (id) => {
+    setSelected(prev => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  }, []);
+  };
 
-  const toggleSelectAll = useCallback(() => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      const every = view.length > 0 && view.every((p) => next.has(p.id));
-      view.forEach((p) => (every ? next.delete(p.id) : next.add(p.id)));
-      return next;
-    });
-  }, [view]);
+  const addAllToCart = () => {
+    wishlist.forEach(p => addToCart(p));
+    showToast(`Đã thêm ${wishlist.length} sản phẩm vào giỏ hàng`, 'bi-bag-check');
+  };
 
-  const exitSelectMode = useCallback(() => {
-    setSelectMode(false);
+  const addSelectedToCart = () => {
+    const items = wishlist.filter(p => selected.has(p.id));
+    items.forEach(p => addToCart(p));
+    showToast(`Đã thêm ${items.size} sản phẩm vào giỏ hàng`, 'bi-bag-check');
     setSelected(new Set());
-  }, []);
+    setSelectMode(false);
+  };
 
-  /* ── Thêm hàng loạt: KHÔNG mở drawer từng lần, một toast duy nhất ──── */
-  const addMany = useCallback((items) => {
-    if (!items.length) return;
-    items.forEach((p) => addToCart(p, 1, undefined, undefined, { openDrawer: false }));
-    openCart();
-    showToast(`Đã thêm ${items.length} sản phẩm vào giỏ hàng`, 'bi-bag-check');
-  }, [addToCart, openCart, showToast]);
+  const removeSelected = () => {
+    wishlist.filter(p => selected.has(p.id)).forEach(p => toggleWishlist(p));
+    setSelected(new Set());
+    setSelectMode(false);
+  };
 
-  const addAllToCart = useCallback(() => addMany(wishlist), [addMany, wishlist]);
-
-  const addSelectedToCart = useCallback(() => {
-    const items = selectedProducts;
-    if (!items.length) return;
-    addMany(items);
-    exitSelectMode();
-  }, [addMany, selectedProducts, exitSelectMode]);
-
-  /* ── Xoá hàng loạt: toggleWishlist im lặng + một toast tổng kết ────── */
-  const removeSelected = useCallback(() => {
-    const items = selectedProducts;
-    setConfirmRemove(false);
-    if (!items.length) return;
-    items.forEach((p) => toggleWishlist(p, { silent: true }));
-    exitSelectMode();
-    showToast(`Đã bỏ ${items.length} sản phẩm khỏi danh sách yêu thích`, 'bi-heart');
-  }, [selectedProducts, toggleWishlist, exitSelectMode, showToast]);
-
-  /* Bỏ một sản phẩm: dọn luôn id khỏi tập đang chọn để bộ đếm không lệch. */
-  const removeOne = useCallback((product) => {
-    toggleWishlist(product);
-    setSelected((prev) => {
-      if (!prev.has(product.id)) return prev;
-      const next = new Set(prev);
-      next.delete(product.id);
-      return next;
-    });
-  }, [toggleWishlist]);
-
-  /* ── Chia sẻ: mọi nhánh đều xử lý lỗi, không báo thành công giả ────── */
-  const shareWishlist = useCallback(async () => {
-    const text = `Danh sách yêu thích của tôi tại LYRA:\n${
-      wishlist.map((p) => `• ${p.name} — ${fmt(p.price)}`).join('\n')}`;
-
-    if (typeof navigator !== 'undefined' && navigator.share) {
-      try {
-        await navigator.share({ title: 'LYRA — Danh sách yêu thích', text });
-      } catch {
-        /* người dùng đóng hộp chia sẻ — không báo gì */
-      }
-      return;
+  const shareWishlist = () => {
+    const text = `Danh sách yêu thích của tôi tại LYRA:\n${wishlist.map(p => `• ${p.name} — ${fmt(p.price)}`).join('\n')}`;
+    if (navigator.share) {
+      navigator.share({ title: 'LYRA Wishlist', text }).catch(() => {});
+    } else {
+      navigator.clipboard?.writeText(text);
+      showToast('Đã sao chép danh sách yêu thích!', 'bi-share');
     }
-    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
-      showToast('Trình duyệt không hỗ trợ sao chép tự động', 'bi-exclamation-circle');
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(text);
-      showToast('Đã sao chép danh sách yêu thích', 'bi-clipboard-check');
-    } catch {
-      showToast('Không thể sao chép, vui lòng thử lại', 'bi-x-circle');
-    }
-  }, [wishlist, showToast]);
-
-  /* ── Gợi ý: dựa trên sản phẩm vừa lưu, loại bỏ thứ đã có ───────────── */
-  const suggestions = useMemo(() => {
-    const saved = new Set(wishlist.map((p) => p.id));
-    const seed = wishlist.length ? wishlist[wishlist.length - 1] : null;
-    const pool = seed
-      ? relatedProducts(seed, 12)
-      : [...PRODUCTS].sort((a, b) => b.sold - a.sold);
-    return pool.filter((p) => !saved.has(p.id)).slice(0, 4);
-  }, [wishlist]);
-
-  const isEmpty = wishlist.length === 0;
+  };
 
   return (
-    <div className="wishlist-page">
-      {/* ══ Mở đầu ══ */}
-      <section className="wishlist-hero">
-        <div className="wrap">
-          <div className="wishlist-hero-inner" data-reveal>
-            <div className="wishlist-hero-copy">
-              <div className="eyebrow">Bộ sưu tập cá nhân</div>
-              <h1 className="t-h1">
-                Danh sách
-                <br />
-                <em>yêu thích</em>
+    <div>
+      {/* ── Header ── */}
+      <div style={{ padding: '52px 0 36px', borderBottom: '1px solid var(--border)' }}>
+        <div className="container-fluid px-4 px-lg-5">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--warm)', marginBottom: 10 }}>
+                Bộ sưu tập cá nhân
+              </div>
+              <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(36px,4vw,56px)', fontWeight: 300, marginBottom: 6 }}>
+                Danh sách<br /><em style={{ fontStyle: 'italic', color: 'var(--warm)' }}>yêu thích</em>
               </h1>
-              <p className="wishlist-lead">
-                {isEmpty
-                  ? 'Nơi giữ lại những thiết kế bạn muốn ngắm thêm một lần nữa trước khi quyết định. Danh sách được lưu ngay trên thiết bị này.'
-                  : 'Những thiết kế bạn đã chọn giữ lại cho mùa Thu – Đông 2026. Thêm vào giỏ khi bạn sẵn sàng, hoặc chia sẻ danh sách cho người thân.'}
+              <p style={{ fontSize: 13, color: 'var(--muted)' }}>
+                {wishlist.length > 0
+                  ? `${wishlist.length} sản phẩm đã lưu`
+                  : 'Chưa có sản phẩm nào'}
               </p>
             </div>
-
-            {!isEmpty && (
-              <div className="wishlist-hero-side">
-                <dl className="wishlist-stats">
-                  <div className="wishlist-stat">
-                    <dt>Sản phẩm đã lưu</dt>
-                    <dd>{wishlist.length}</dd>
-                  </div>
-                  <div className="wishlist-stat">
-                    <dt>Tổng giá trị</dt>
-                    <dd>{fmt(totalValue)}</dd>
-                  </div>
-                  {totalSaving > 0 && (
-                    <div className="wishlist-stat">
-                      <dt>Đang tiết kiệm</dt>
-                      <dd className="is-warm">{fmt(totalSaving)}</dd>
-                    </div>
-                  )}
-                </dl>
-
-                <div className="wishlist-hero-actions">
-                  <button type="button" className="btn-lyra btn-sm" onClick={addAllToCart}>
-                    <i className="bi bi-bag-plus" aria-hidden="true" />
-                    Thêm tất cả vào giỏ
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn-outline-lyra btn-sm${selectMode ? ' is-on' : ''}`}
-                    onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
-                    aria-pressed={selectMode}
-                  >
-                    <i className={`bi ${selectMode ? 'bi-x-lg' : 'bi-check2-square'}`} aria-hidden="true" />
-                    {selectMode ? 'Thoát chọn nhiều' : 'Chọn nhiều'}
-                  </button>
-                  <button type="button" className="btn-outline-lyra btn-sm" onClick={shareWishlist}>
-                    <i className="bi bi-share" aria-hidden="true" />
-                    Chia sẻ
-                  </button>
-                </div>
+            {wishlist.length > 0 && (
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <button className="btn-outline-lyra" onClick={shareWishlist} style={{ padding: '10px 20px', fontSize: 12 }}>
+                  <i className="bi bi-share" /> Chia sẻ
+                </button>
+                <button
+                  className="btn-outline-lyra"
+                  onClick={() => { setSelectMode(v => !v); setSelected(new Set()); }}
+                  style={{ padding: '10px 20px', fontSize: 12 }}
+                >
+                  <i className={`bi bi-${selectMode ? 'x' : 'check2-square'}`} />
+                  {selectMode ? 'Hủy chọn' : 'Chọn nhiều'}
+                </button>
+                <button className="btn-lyra" onClick={addAllToCart} style={{ padding: '10px 22px', fontSize: 12 }}>
+                  <i className="bi bi-bag-plus" /> Thêm tất cả vào giỏ
+                </button>
               </div>
             )}
           </div>
         </div>
-      </section>
+      </div>
 
-      {/* ══ Nội dung ══ */}
-      <section className="wishlist-body">
-        <div className="wrap">
-          {isEmpty ? (
-            <EmptyState
-              icon="bi-heart"
-              title="Danh sách còn trống"
-              sub="Chạm vào biểu tượng trái tim trên mỗi sản phẩm để giữ lại thiết kế bạn thích. Chúng tôi sẽ nhớ giúp bạn."
-              action={{ label: 'Khám phá bộ sưu tập', onClick: () => navigate('shop') }}
-            >
-              <button type="button" className="btn-outline-lyra" onClick={() => navigate('new')}>
-                Hàng mới về
+      {/* ── Content ── */}
+      <div style={{ padding: '40px 0 72px' }}>
+        <div className="container-fluid px-4 px-lg-5">
+
+          {wishlist.length === 0 ? (
+            /* Empty state */
+            <div style={{
+              textAlign: 'center', padding: '80px 20px',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+            }}>
+              <div style={{
+                width: 100, height: 100, borderRadius: '50%',
+                background: 'var(--cream-dark)', display: 'flex',
+                alignItems: 'center', justifyContent: 'center',
+              }}>
+                <i className="bi bi-heart" style={{ fontSize: 44, color: 'var(--warm-light)' }} />
+              </div>
+              <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 34, fontWeight: 300 }}>
+                Danh sách trống
+              </h2>
+              <p style={{ fontSize: 14, color: 'var(--muted)', maxWidth: 340, lineHeight: 1.7 }}>
+                Bạn chưa lưu sản phẩm nào. Nhấn vào biểu tượng ♡ trên sản phẩm để thêm vào đây.
+              </p>
+              <button className="btn-lyra" onClick={() => navigate('shop')}>
+                Khám phá sản phẩm
               </button>
-            </EmptyState>
+            </div>
           ) : (
             <>
-              {/* Thanh công cụ */}
-              <div className="wishlist-toolbar">
-                <div className="chip-row wishlist-cats">
-                  <button
-                    type="button"
-                    className={`chip${catFilter === 'all' ? ' active' : ''}`}
-                    onClick={() => setCatFilter('all')}
-                    aria-pressed={catFilter === 'all'}
-                  >
-                    Tất cả <span className="wishlist-chip-num">{wishlist.length}</span>
-                  </button>
-                  {catTabs.map((c) => (
-                    <button
-                      key={c.name}
-                      type="button"
-                      className={`chip${catFilter === c.name ? ' active' : ''}`}
-                      onClick={() => setCatFilter(c.name)}
-                      aria-pressed={catFilter === c.name}
-                    >
-                      {c.name} <span className="wishlist-chip-num">{c.count}</span>
+              {/* Toolbar */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
+                {selectMode && selected.size > 0 ? (
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>Đã chọn {selected.size} sản phẩm</span>
+                    <button className="btn-lyra" style={{ padding: '8px 18px', fontSize: 11.5 }} onClick={addSelectedToCart}>
+                      <i className="bi bi-bag-plus" /> Thêm vào giỏ
                     </button>
-                  ))}
-                </div>
-
-                <div className="wishlist-sort">
-                  <label className="sr-only" htmlFor="wishlist-sort">Sắp xếp danh sách</label>
-                  <select
-                    id="wishlist-sort"
-                    className="sort-select"
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value)}
-                  >
-                    {SORTS.map((s) => (
-                      <option key={s.value} value={s.value}>{s.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Thanh thao tác hàng loạt */}
-              {selectMode && (
-                <div className="wishlist-selectbar" role="group" aria-label="Thao tác với sản phẩm đã chọn">
-                  <span className="wishlist-selectbar-count">
-                    {selectedCount > 0
-                      ? `Đã chọn ${selectedCount} sản phẩm`
-                      : 'Chưa chọn sản phẩm nào'}
-                  </span>
-                  <div className="wishlist-selectbar-actions">
-                    <button type="button" className="btn-outline-lyra btn-sm" onClick={toggleSelectAll}>
-                      {allViewSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-lyra btn-sm"
-                      onClick={addSelectedToCart}
-                      disabled={selectedCount === 0}
-                    >
-                      <i className="bi bi-bag-plus" aria-hidden="true" />
-                      Thêm vào giỏ
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-outline-lyra btn-sm wishlist-danger-btn"
-                      onClick={() => setConfirmRemove(true)}
-                      disabled={selectedCount === 0}
-                    >
-                      <i className="bi bi-trash3" aria-hidden="true" />
-                      Bỏ khỏi danh sách
+                    <button className="btn-outline-lyra" style={{ padding: '8px 18px', fontSize: 11.5, color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={removeSelected}>
+                      <i className="bi bi-trash" /> Xóa
                     </button>
                   </div>
-                </div>
-              )}
+                ) : (
+                  <span style={{ fontSize: 13, color: 'var(--muted)' }}>{sorted.length} sản phẩm</span>
+                )}
+                <select className="sort-select" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+                  <option value="added">Mới lưu nhất</option>
+                  <option value="price-asc">Giá: Thấp → Cao</option>
+                  <option value="price-desc">Giá: Cao → Thấp</option>
+                  <option value="rating">Đánh giá cao nhất</option>
+                </select>
+              </div>
 
-              <p className="wishlist-count" aria-live="polite">
-                {catFilter === 'all'
-                  ? `${view.length} sản phẩm trong danh sách`
-                  : `${view.length} sản phẩm — ${catFilter}`}
-              </p>
+              {/* Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 22 }}>
+                {sorted.map((p, i) => (
+                  <WishlistCard
+                    key={p.id}
+                    product={p}
+                    selectMode={selectMode}
+                    isSelected={selected.has(p.id)}
+                    onToggleSelect={() => toggleSelect(p.id)}
+                    onRemove={() => toggleWishlist(p)}
+                    onAddToCart={() => addToCart(p)}
+                    onOpen={() => navigate('detail', { product: p })}
+                  />
+                ))}
+              </div>
 
-              {/* Lưới */}
-              {view.length === 0 ? (
-                <EmptyState
-                  icon="bi-funnel"
-                  title="Không có sản phẩm trong danh mục này"
-                  sub="Hãy chọn một danh mục khác để xem tiếp danh sách của bạn."
-                  action={{ label: 'Xem tất cả', onClick: () => setCatFilter('all') }}
-                />
-              ) : (
-                <div className="products-grid wishlist-grid">
-                  {view.map((p, i) => (
-                    <WishlistCard
-                      key={p.id}
-                      product={p}
-                      index={i}
-                      selectMode={selectMode}
-                      isSelected={selected.has(p.id)}
-                      onToggleSelect={() => toggleSelect(p.id)}
-                      onRemove={() => removeOne(p)}
-                      onAdd={() => addToCart(p, 1)}
-                      onOpen={() => navigate('detail', { product: p })}
-                    />
-                  ))}
+              {/* Summary bar */}
+              <div style={{
+                marginTop: 48, padding: '24px 32px',
+                background: 'var(--cream-dark)', border: '1px solid var(--border)',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16,
+              }}>
+                <div>
+                  <div style={{ fontSize: 12.5, color: 'var(--muted)', marginBottom: 4 }}>Tổng giá trị wishlist</div>
+                  <div style={{ fontFamily: 'var(--font-serif)', fontSize: 28, fontWeight: 300 }}>
+                    {fmt(wishlist.reduce((a, p) => a + p.price, 0))}
+                  </div>
                 </div>
-              )}
-
-              {/* Tổng kết */}
-              <div className="wishlist-summary">
-                <div className="wishlist-summary-figures">
-                  <div className="wishlist-summary-label">Tổng giá trị danh sách</div>
-                  <div className="wishlist-summary-value">{fmt(totalValue)}</div>
-                  {totalSaving > 0 && (
-                    <div className="wishlist-summary-note">
-                      Tiết kiệm {fmt(totalSaving)} so với giá gốc
-                    </div>
-                  )}
-                </div>
-                <div className="wishlist-summary-actions">
-                  <button type="button" className="btn-outline-lyra" onClick={() => navigate('shop')}>
+                <div style={{ display: 'flex', gap: 12 }}>
+                  <button className="btn-outline-lyra" onClick={() => navigate('shop')}>
                     Tiếp tục mua sắm
                   </button>
-                  <button type="button" className="btn-lyra" onClick={addAllToCart}>
-                    <i className="bi bi-bag-plus" aria-hidden="true" />
-                    Thêm tất cả ({wishlist.length}) vào giỏ
+                  <button className="btn-lyra" onClick={addAllToCart}>
+                    <i className="bi bi-bag-plus" /> Thêm tất cả ({wishlist.length}) vào giỏ
                   </button>
                 </div>
               </div>
             </>
           )}
-
-          {/* Gợi ý */}
-          {suggestions.length > 0 && (
-            <div className="wishlist-suggest">
-              <SectionHeader
-                eyebrow={isEmpty ? 'Được yêu thích nhất' : 'Có thể bạn cũng thích'}
-                title={isEmpty ? (<>Bắt đầu từ <em>đây</em></>) : (<>Hợp gu <em>của bạn</em></>)}
-                link={{ label: 'Xem tất cả sản phẩm', page: 'shop' }}
-              />
-              <div className="products-grid">
-                {suggestions.map((p, i) => (
-                  <ProductCard key={p.id} product={p} index={i} />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
-      </section>
+      </div>
 
-      {/* Xác nhận bỏ khỏi danh sách */}
-      <Modal
-        open={confirmRemove}
-        onClose={() => setConfirmRemove(false)}
-        title="Bỏ khỏi danh sách yêu thích?"
-        size="sm"
-        footer={(
-          <>
-            <button type="button" className="btn-outline-lyra" onClick={() => setConfirmRemove(false)}>
-              Giữ lại
-            </button>
-            <button type="button" className="btn-lyra" onClick={removeSelected}>
-              Bỏ {selectedCount} sản phẩm
-            </button>
-          </>
-        )}
-      >
-        <p className="wishlist-modal-text">
-          {selectedCount} sản phẩm sẽ được gỡ khỏi danh sách yêu thích. Bạn vẫn có thể lưu lại
-          bất cứ lúc nào từ trang sản phẩm.
-        </p>
-      </Modal>
-
-      <Footer />
+      <Footer navigate={navigate} />
     </div>
   );
 }
 
-/* ══════════════════════════════════════════════
-   Thẻ sản phẩm trong danh sách yêu thích
-   ══════════════════════════════════════════════ */
-function WishlistCard({
-  product: p,
-  index = 0,
-  selectMode,
-  isSelected,
-  onToggleSelect,
-  onRemove,
-  onAdd,
-  onOpen,
-}) {
-  const href = buildUrl('detail', { product: p.slug || p.id });
-  const images = Array.isArray(p.images) ? p.images : [];
-
-  // Ctrl/Cmd-click vẫn mở tab mới; click thường điều hướng trong SPA.
-  const open = (e) => {
-    if (isModifiedClick(e)) return;
-    e.preventDefault();
-    onOpen();
-  };
+/* ── Wishlist Product Card ── */
+function WishlistCard({ product: p, selectMode, isSelected, onToggleSelect, onRemove, onAddToCart, onOpen }) {
+  const [hovered, setHovered] = useState(false);
 
   return (
-    <article
-      className={`wishlist-card${isSelected ? ' is-selected' : ''}`}
-      data-reveal
-      style={{ '--i': index % 8 }}
+    <div
+      style={{
+        border: `1.5px solid ${isSelected ? 'var(--ink)' : hovered ? 'var(--border-dark)' : 'var(--border)'}`,
+        transition: 'border-color .2s',
+        position: 'relative',
+        cursor: 'pointer',
+      }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      <div className="wishlist-card-media">
-        {/* Ảnh là liên kết thật nhưng không tạo thêm điểm dừng Tab —
-            tên sản phẩm bên dưới đã là liên kết có nhãn rõ ràng. */}
-        <a className="wishlist-card-link" href={href} onClick={open} tabIndex={-1} aria-hidden="true">
-          <Pic
-            src={images[0]}
-            alt={p.name}
-            tint={p.color}
-            icon={p.icon}
-            ratio="3/4"
-            sizes="(max-width: 900px) 50vw, 25vw"
-          />
-          {images[1] && (
-            <Pic src={images[1]} alt="" tint={p.color} icon={p.icon} ratio="3/4" className="pic--hover" />
-          )}
-        </a>
-
-        {selectMode && (
-          <input
-            type="checkbox"
-            className="wishlist-check"
-            checked={isSelected}
-            onChange={onToggleSelect}
-            aria-label={`Chọn ${p.name}`}
-          />
-        )}
-
-        <button
-          type="button"
-          className="wishlist-remove"
-          onClick={onRemove}
-          aria-label={`Bỏ ${p.name} khỏi danh sách yêu thích`}
+      {/* Select checkbox */}
+      {selectMode && (
+        <div
+          onClick={onToggleSelect}
+          style={{
+            position: 'absolute', top: 10, left: 10, zIndex: 5,
+            width: 22, height: 22,
+            background: isSelected ? 'var(--ink)' : 'rgba(247,244,239,.9)',
+            border: `1.5px solid ${isSelected ? 'var(--ink)' : 'var(--border)'}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer',
+          }}
         >
-          <i className="bi bi-heart-fill" aria-hidden="true" />
-        </button>
+          {isSelected && <i className="bi bi-check" style={{ fontSize: 13, color: 'var(--cream)' }} />}
+        </div>
+      )}
 
-        {p.badge && (
-          <span className={`wishlist-badge${p.badge === 'Sale' ? ' is-sale' : ''}`}>{p.badge}</span>
-        )}
+      {/* Image */}
+      <div
+        onClick={onOpen}
+        style={{
+          background: p.color, aspectRatio: '3/4',
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+          gap: 12, color: 'rgba(14,14,14,.18)',
+          overflow: 'hidden',
+        }}
+      >
+        <i className={`bi ${p.icon}`} style={{ fontSize: 52, transition: 'transform .5s', transform: hovered ? 'scale(1.08)' : 'scale(1)' }} />
+        <span style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase' }}>Xem chi tiết</span>
       </div>
 
-      <div className="wishlist-card-body">
-        <Stars rating={p.rating} size={10} />
-        <a className="wishlist-name" href={href} onClick={open}>{p.name}</a>
-        <div className="wishlist-meta">{p.brand} · {p.cat}</div>
+      {/* Badge */}
+      {p.badge && (
+        <div style={{
+          position: 'absolute', top: 10, right: 10,
+          background: p.badge === 'Sale' ? 'var(--warm)' : 'var(--ink)',
+          color: '#fff', fontSize: 9.5, letterSpacing: '.08em',
+          padding: '3px 9px', textTransform: 'uppercase',
+        }}>
+          {p.badge}
+        </div>
+      )}
 
-        <div className="wishlist-price-row">
-          <span className="wishlist-price">{fmt(p.price)}</span>
-          {p.oldPrice > p.price && (
-            <>
-              <span className="wishlist-price-old">{fmt(p.oldPrice)}</span>
-              <span className="wishlist-off">−{p.discount}%</span>
-            </>
+      {/* Info */}
+      <div style={{ padding: '14px 16px 16px' }}>
+        <Stars rating={p.rating} size={10} />
+        <div style={{ fontSize: 13.5, fontWeight: 400, margin: '5px 0 3px', cursor: 'pointer' }} onClick={onOpen}>{p.name}</div>
+        <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 10 }}>{p.brand} · {p.cat}</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18 }}>{fmt(p.price)}</span>
+          {p.oldPrice && (
+            <span style={{ fontFamily: 'var(--font-serif)', fontSize: 13, color: 'var(--muted-light)', textDecoration: 'line-through' }}>
+              {fmt(p.oldPrice)}
+            </span>
           )}
         </div>
 
-        {p.stock <= 5 && (
-          <div className="wishlist-stock">Chỉ còn {p.stock} sản phẩm</div>
-        )}
-
-        <button type="button" className="btn-lyra btn-sm wishlist-add" onClick={onAdd}>
-          <i className="bi bi-bag-plus" aria-hidden="true" />
-          Thêm giỏ
-        </button>
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={onAddToCart}
+            style={{
+              flex: 1, padding: '10px 0',
+              background: 'var(--ink)', color: 'var(--cream)',
+              border: '1.5px solid var(--ink)',
+              fontSize: 11.5, letterSpacing: '.08em', textTransform: 'uppercase',
+              cursor: 'pointer', fontFamily: 'var(--font-sans)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              transition: 'all .2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = 'var(--warm)'; e.currentTarget.style.borderColor = 'var(--warm)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'var(--ink)'; e.currentTarget.style.borderColor = 'var(--ink)'; }}
+          >
+            <i className="bi bi-bag-plus" /> Thêm giỏ
+          </button>
+          <button
+            onClick={onRemove}
+            title="Xóa khỏi yêu thích"
+            style={{
+              width: 40, height: 40, border: '1.5px solid var(--border)',
+              background: 'transparent', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 16, color: 'var(--warm)',
+              transition: 'all .2s',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.background = '#FFF0EE'; e.currentTarget.style.borderColor = 'var(--danger)'; e.currentTarget.style.color = 'var(--danger)'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--warm)'; }}
+          >
+            <i className="bi bi-heart-fill" />
+          </button>
+        </div>
       </div>
-    </article>
+    </div>
   );
 }

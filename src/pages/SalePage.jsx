@@ -1,480 +1,178 @@
-// src/pages/SalePage.jsx — Trang khuyến mãi của LYRA.
-// Mọi con số quảng cáo đều tính từ dữ liệu thật trong src/data/products.js.
-import { useState, useEffect, useMemo, useCallback } from 'react';
+// src/pages/SalePage.jsx
+import { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { PRODUCTS, CATEGORIES, COUPONS, FREE_SHIPPING_THRESHOLD, fmt, img } from '../data/products';
-import { ProductCard, Pic, EmptyState, Footer, Reveal, isModifiedClick } from '../components/index.jsx';
-import { buildUrl } from '../router.js';
-import '../styles/sale.css';
+import { productApi } from '../services/api';
+import { normalizeProduct, fmt } from '../data/products';
+import { ProductCard, Footer } from '../components/index.jsx';
 
-/* ══════════════════════════════════════════════════════════
-   DỮ LIỆU DẪN XUẤT — tính một lần ở tầng module, thuần tuý
-   ══════════════════════════════════════════════════════════ */
+// Sale kết thúc sau 2 ngày từ now
+const SALE_END = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
 
-/** Sản phẩm đang giảm giá thật sự (có giá cũ cao hơn giá bán). */
-const SALE_PRODUCTS = PRODUCTS.filter((p) => p.oldPrice > p.price && p.discount > 0);
-
-/** Ngưỡng "giảm sâu nhất". */
-const FLASH_THRESHOLD = 28;
-const FLASH_PRODUCTS = SALE_PRODUCTS.filter((p) => p.discount >= FLASH_THRESHOLD);
-
-/** Mức giảm cao nhất có thật trong dữ liệu (hiện tại: 32%). */
-const MAX_DISCOUNT = SALE_PRODUCTS.length
-  ? Math.max(...SALE_PRODUCTS.map((p) => p.discount))
-  : 0;
-
-/** Tổng số tiền khách tiết kiệm được nếu mua trọn bộ sản phẩm sale. */
-const TOTAL_SAVING = SALE_PRODUCTS.reduce((sum, p) => sum + (p.oldPrice - p.price), 0);
-
-/** Tab danh mục — chỉ dựng từ danh mục THỰC SỰ có hàng giảm giá. */
-const SALE_TABS = [
-  { id: 'all', name: null, label: 'Tất cả', count: SALE_PRODUCTS.length },
-  ...CATEGORIES.map((c) => ({
-    id: c.slug,
-    name: c.name,
-    label: c.name,
-    count: SALE_PRODUCTS.filter((p) => p.cat === c.name).length,
-  })).filter((t) => t.count > 0),
-];
-
-/** Mã giảm giá gợi ý — lấy đúng từ bảng COUPONS. */
-const COUPON_CODES = ['LYRA10', 'SAVE100K', 'FREESHIP'].filter((code) => COUPONS[code]);
-
-const HERO_IMAGE = img('1481437156560-3205f6a55735', 1600);
-
-const SORT_OPTIONS = [
-  { id: 'discount', label: 'Giảm nhiều nhất' },
-  { id: 'saving', label: 'Tiết kiệm nhiều nhất' },
-  { id: 'price-asc', label: 'Giá: thấp đến cao' },
-  { id: 'price-desc', label: 'Giá: cao đến thấp' },
-  { id: 'popular', label: 'Bán chạy nhất' },
-];
-
-const STRIP_ITEMS = [
-  { icon: 'bi-truck', text: `Miễn phí giao hàng cho đơn từ ${fmt(FREE_SHIPPING_THRESHOLD)}` },
-  { icon: 'bi-arrow-repeat', text: 'Đổi trả trong 30 ngày' },
-  { icon: 'bi-patch-check', text: 'Hàng chính hãng LYRA 100%' },
-];
-
-/* ══════════════════════════════════════════════════════════
-   ĐẾM NGƯỢC
-   ══════════════════════════════════════════════════════════ */
-
-/**
- * Hạn kết thúc đợt ưu đãi: Chủ nhật gần nhất, 23:59:59 giờ địa phương.
- * Là một mốc CỐ ĐỊNH trong tuần — tải lại trang không làm đồng hồ chạy lại từ đầu.
- */
-function computeSaleEnd() {
-  const now = new Date();
-  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  end.setDate(end.getDate() + ((7 - end.getDay()) % 7)); // 0 = Chủ nhật
-  end.setHours(23, 59, 59, 999);
-  return end.getTime();
-}
-
-const pad2 = (n) => String(n).padStart(2, '0');
-
-/** "23:59 ngày 06/09/2026" */
-function formatDeadline(ts) {
-  const d = new Date(ts);
-  return `${pad2(d.getHours())}:${pad2(d.getMinutes())} ngày ${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
-}
-
-/** Đếm ngược tới mốc `target` (timestamp). Trả về ngày/giờ/phút/giây ĐÚNG, chạm 0 thì dừng. */
 function useCountdown(target) {
-  const [remain, setRemain] = useState(() => Math.max(0, target - Date.now()));
-
+  const calc = () => {
+    const diff = Math.max(0, target - Date.now());
+    return {
+      h: Math.floor(diff / 3600000),
+      m: Math.floor((diff % 3600000) / 60000),
+      s: Math.floor((diff % 60000) / 1000),
+    };
+  };
+  const [time, setTime] = useState(calc);
   useEffect(() => {
-    const left = Math.max(0, target - Date.now());
-    setRemain(left);
-    if (left <= 0) return undefined; // đã kết thúc: không cần đếm nữa
-    const id = setInterval(() => {
-      const next = Math.max(0, target - Date.now());
-      setRemain(next);
-      // Chạm 0 thì dừng hẳn, tránh chạy interval vô hạn suốt phiên làm việc.
-      if (next <= 0) clearInterval(id);
-    }, 1000);
+    const id = setInterval(() => setTime(calc()), 1000);
     return () => clearInterval(id);
-  }, [target]);
-
-  return useMemo(
-    () => ({
-      d: Math.floor(remain / 86400000),
-      h: Math.floor((remain % 86400000) / 3600000),
-      m: Math.floor((remain % 3600000) / 60000),
-      s: Math.floor((remain % 60000) / 1000),
-      ended: remain <= 0,
-    }),
-    [remain]
-  );
+  }, []);
+  return time;
 }
 
-
-/** Khối đếm ngược tách riêng: cô lập việc vẽ lại mỗi giây khỏi phần còn lại của trang. */
-function SaleCountdown({ target, deadlineText }) {
-  const countdown = useCountdown(target);
-  const cells = [
-    { value: countdown.d, unit: 'Ngày' },
-    { value: countdown.h, unit: 'Giờ' },
-    { value: countdown.m, unit: 'Phút' },
-    { value: countdown.s, unit: 'Giây' },
-  ];
-
-  return (
-    <div className="sale-countdown">
-      <p className="sale-countdown-label">
-        {countdown.ended ? 'Trạng thái' : 'Kết thúc sau'}
-      </p>
-
-      {countdown.ended ? (
-        <p className="sale-countdown-ended">
-          Đã kết thúc. Cảm ơn bạn đã đồng hành — hẹn gặp lại ở đợt ưu đãi tiếp theo.
-        </p>
-      ) : (
-        <>
-          <ul className="sale-countdown-row" aria-hidden="true">
-            {cells.map(({ value, unit }) => (
-              <li className="sale-countdown-cell" key={unit}>
-                <span className="sale-countdown-val">{pad2(value)}</span>
-                <span className="sale-countdown-unit">{unit}</span>
-              </li>
-            ))}
-          </ul>
-          {/* Trình đọc màn hình nhận mốc thời gian tĩnh, không bị đọc lại mỗi giây */}
-          <p className="sr-only">Chương trình kết thúc lúc {deadlineText}.</p>
-          <p className="sale-countdown-note">Kết thúc lúc {deadlineText}</p>
-        </>
-      )}
-    </div>
-  );
-}
-
-/* ══════════════════════════════════════════════════════════
-   SAO CHÉP MÃ — có đường lui khi Clipboard API bị chặn
-   ══════════════════════════════════════════════════════════ */
-function legacyCopy(text) {
-  try {
-    const el = document.createElement('textarea');
-    el.value = text;
-    el.setAttribute('readonly', '');
-    el.style.position = 'fixed';
-    el.style.opacity = '0';
-    document.body.appendChild(el);
-    el.select();
-    const ok = document.execCommand('copy');
-    document.body.removeChild(el);
-    return ok;
-  } catch {
-    return false;
-  }
-}
-
-/* ══════════════════════════════════════════════════════════
-   TRANG
-   ══════════════════════════════════════════════════════════ */
 export default function SalePage() {
   const { navigate } = useApp();
-  const { showToast, applyCoupon } = useCart();
-
-  // Mốc kết thúc tính MỘT LẦN cho suốt vòng đời trang.
-  const saleEnd = useMemo(() => computeSaleEnd(), []);
-  const deadlineText = useMemo(() => formatDeadline(saleEnd), [saleEnd]);
-
+  const { showToast } = useCart();
+  const countdown = useCountdown(SALE_END);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('all');
-  const [sortBy, setSortBy] = useState('discount');
-  const [copied, setCopied] = useState('');
+  const [sortBy, setSortBy] = useState('price-asc');
 
-  // Nhãn "Đã sao chép" tự trở lại sau 2 giây.
   useEffect(() => {
-    if (!copied) return undefined;
-    const t = setTimeout(() => setCopied(''), 2000);
-    return () => clearTimeout(t);
-  }, [copied]);
+    let cancelled = false;
+    setLoading(true);
+    productApi.list({ size: 24, sort: 'basePrice,asc' })
+      .then(res => {
+        if (cancelled) return;
+        const list = (res.data?.content || []).map((p, idx) => normalizeProduct(p, idx));
+        setProducts(list);
+      })
+      .catch(() => setProducts([]))
+      .finally(() => setLoading(false));
+
+    return () => { cancelled = true; };
+  }, []);
 
   const filtered = useMemo(() => {
-    const tab = SALE_TABS.find((t) => t.id === activeTab);
-    const list = tab && tab.name ? SALE_PRODUCTS.filter((p) => p.cat === tab.name) : [...SALE_PRODUCTS];
+    let list = [...products];
     switch (sortBy) {
-      case 'saving':
-        return list.sort((a, b) => (b.oldPrice - b.price) - (a.oldPrice - a.price));
-      case 'price-asc':
-        return list.sort((a, b) => a.price - b.price);
-      case 'price-desc':
-        return list.sort((a, b) => b.price - a.price);
-      case 'popular':
-        return list.sort((a, b) => b.sold - a.sold);
-      case 'discount':
-      default:
-        return list.sort((a, b) => b.discount - a.discount);
+      case 'price-asc':  list.sort((a, b) => a.price - b.price); break;
+      case 'price-desc': list.sort((a, b) => b.price - a.price); break;
+      default: break;
     }
-  }, [activeTab, sortBy]);
-
-  const copyCode = useCallback(
-    async (code) => {
-      let ok = false;
-      try {
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          await navigator.clipboard.writeText(code);
-          ok = true;
-        }
-      } catch {
-        ok = false;
-      }
-      if (!ok) ok = legacyCopy(code);
-      if (ok) {
-        setCopied(code);
-        showToast(`Đã sao chép mã ${code}`, 'bi-clipboard-check');
-      } else {
-        showToast(`Không sao chép được. Mã của bạn là ${code}.`, 'bi-exclamation-circle');
-      }
-    },
-    [showToast]
-  );
-
+    return list;
+  }, [products, sortBy]);
 
   return (
-    <div className="sale-page">
-      {/* ═══════════ HERO ═══════════ */}
-      <section className="sale-hero" aria-labelledby="sale-hero-title">
-        <Pic
-          className="sale-hero-media"
-          src={HERO_IMAGE}
-          alt="Không gian cửa hàng LYRA trong đợt ưu đãi cuối mùa"
-          ratio="auto"
-          tint="#17150F"
-          icon="bi-tags"
-          eager
-          sizes="100vw"
-        />
-        <span className="sale-hero-veil" aria-hidden="true" />
+    <div>
+      {/* ── HERO BANNER ── */}
+      <section style={{
+        background: 'linear-gradient(135deg, #1A1A1A 0%, #2D251E 50%, #1A1A1A 100%)',
+        color: 'var(--cream)',
+        padding: '72px 0 64px',
+        position: 'relative',
+        overflow: 'hidden',
+      }}>
+        <div className="container position-relative" style={{ zIndex: 1 }}>
+          <div className="row align-items-center">
+            <div className="col-lg-7">
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 8,
+                background: 'rgba(200,169,126,.15)', border: '1px solid rgba(200,169,126,.3)',
+                padding: '6px 14px', marginBottom: 20,
+              }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--warm)', display: 'inline-block' }} />
+                <span style={{ fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--warm)' }}>
+                  Ưu đãi có hạn
+                </span>
+              </div>
+              <h1 style={{
+                fontFamily: 'var(--font-serif)',
+                fontSize: 'clamp(44px,6vw,80px)',
+                fontWeight: 300, lineHeight: 1.05,
+                margin: '0 0 20px',
+              }}>
+                Mùa Sale<br />
+                <em style={{ fontStyle: 'italic', color: 'var(--warm)' }}>Đặc Quyền</em>
+              </h1>
+              <p style={{ fontSize: 14, color: 'rgba(247,244,239,.65)', maxWidth: 440, lineHeight: 1.8, marginBottom: 36 }}>
+                Bộ sưu tập các thiết kế cao cấp với mức giá ưu đãi nhất mùa. Số lượng có hạn cho từng sản phẩm.
+              </p>
+              <div className="d-flex gap-3 flex-wrap">
+                <button className="btn-warm" onClick={() => {
+                  document.getElementById('sale-products')?.scrollIntoView({ behavior: 'smooth' });
+                }}>
+                  Khám phá ngay <i className="bi bi-arrow-down" />
+                </button>
+              </div>
+            </div>
 
-        <div className="wrap sale-hero-inner">
-          <p className="eyebrow on-ink">Ưu đãi cuối mùa · Thu – Đông 2026</p>
-
-          <h1 className="t-h1 sale-hero-title" id="sale-hero-title">
-            Giảm giá
-            <br />
-            cuối <em>mùa</em>
-          </h1>
-
-          <p className="sale-hero-lead">
-            {SALE_PRODUCTS.length} thiết kế được tuyển chọn từ bộ sưu tập Thu – Đông, giảm đến{' '}
-            <strong>{MAX_DISCOUNT}%</strong>. Mỗi mẫu chỉ còn số lượng nhỏ — hết size là dừng.
-          </p>
-
-          {/* Đếm ngược — component riêng để mỗi giây chỉ vẽ lại khối này */}
-          <SaleCountdown target={saleEnd} deadlineText={deadlineText} />
-
-          {/* Số liệu — tính từ dữ liệu thật */}
-          <ul className="sale-hero-stats">
-            <li className="sale-stat">
-              <span className="sale-stat-num">{SALE_PRODUCTS.length}</span>
-              <span className="sale-stat-label">Thiết kế đang giảm giá</span>
-            </li>
-            <li className="sale-stat">
-              <span className="sale-stat-num">{MAX_DISCOUNT}%</span>
-              <span className="sale-stat-label">Mức giảm sâu nhất</span>
-            </li>
-            <li className="sale-stat">
-              <span className="sale-stat-num">{fmt(TOTAL_SAVING)}</span>
-              <span className="sale-stat-label">Tổng mức tiết kiệm</span>
-            </li>
-            <li className="sale-stat">
-              <span className="sale-stat-num">Từ {fmt(FREE_SHIPPING_THRESHOLD)}</span>
-              <span className="sale-stat-label">Miễn phí giao hàng</span>
-            </li>
-          </ul>
-
-          <div className="sale-hero-actions">
-            <a className="btn-warm" href="#tat-ca-uu-dai">
-              Xem tất cả ưu đãi
-            </a>
-            <a
-              className="link-underline sale-hero-link"
-              href={buildUrl('shop', {})}
-              onClick={(e) => {
-                if (isModifiedClick(e)) return;
-                e.preventDefault();
-                navigate('shop');
-              }}
-            >
-              Xem toàn bộ bộ sưu tập
-            </a>
+            {/* Countdown timer */}
+            <div className="col-lg-5 mt-5 mt-lg-0">
+              <div style={{
+                background: 'rgba(255,255,255,.05)',
+                border: '1px solid rgba(255,255,255,.1)',
+                padding: '36px 32px', textAlign: 'center',
+              }}>
+                <div style={{ fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--warm)', marginBottom: 16 }}>
+                  Kết thúc sau
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 16, marginBottom: 20 }}>
+                  {[
+                    { val: String(countdown.h).padStart(2, '0'), label: 'Giờ' },
+                    { val: String(countdown.m).padStart(2, '0'), label: 'Phút' },
+                    { val: String(countdown.s).padStart(2, '0'), label: 'Giây' },
+                  ].map(({ val, label }) => (
+                    <div key={label} style={{ textAlign: 'center' }}>
+                      <div style={{
+                        fontFamily: 'var(--font-serif)', fontSize: 44, fontWeight: 300,
+                        background: 'rgba(255,255,255,.08)', padding: '8px 16px', minWidth: 70,
+                        border: '1px solid rgba(255,255,255,.1)', lineHeight: 1.1,
+                      }}>
+                        {val}
+                      </div>
+                      <div style={{ fontSize: 10.5, color: 'rgba(247,244,239,.4)', marginTop: 6, letterSpacing: '.1em', textTransform: 'uppercase' }}>
+                        {label}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p style={{ fontSize: 12, color: 'rgba(247,244,239,.4)', margin: 0 }}>
+                  Miễn phí giao hàng đơn từ 500.000đ
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ═══════════ GIẢM SÂU NHẤT ═══════════ */}
-      {FLASH_PRODUCTS.length > 0 && (
-        <section className="section sale-flash" aria-labelledby="sale-flash-title">
-          <div className="wrap">
-            <div className="section-header">
-              <div className="section-header-text">
-                <p className="eyebrow">Giảm sâu nhất</p>
-                <h2 className="section-title" id="sale-flash-title">
-                  Những mức giảm
-                  <br />
-                  <em>đậm</em> nhất mùa
-                </h2>
-                <p className="section-sub">
-                  {FLASH_PRODUCTS.length} thiết kế giảm từ {FLASH_THRESHOLD}% trở lên. Số lượng cuối cùng của mùa.
-                </p>
-              </div>
-            </div>
-
-            <div className="flash-sale-grid">
-              {FLASH_PRODUCTS.map((p, i) => (
-                <div className="flash-sale-item" key={p.id}>
-                  <p className="sale-ribbon">
-                    <span className="sale-ribbon-pct">−{p.discount}%</span>
-                    <span className="sale-ribbon-note">Tiết kiệm {fmt(p.oldPrice - p.price)}</span>
-                  </p>
-                  <ProductCard product={p} index={i} />
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ═══════════ DẢI CAM KẾT ═══════════ */}
-      <div className="sale-strip grain">
-        <div className="wrap">
-          <ul className="sale-strip-list">
-            {STRIP_ITEMS.map((s) => (
-              <li key={s.text}>
-                <i className={`bi ${s.icon}`} aria-hidden="true" />
-                {s.text}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
-      {/* ═══════════ TẤT CẢ ƯU ĐÃI ═══════════ */}
-      <section className="section sale-all" id="tat-ca-uu-dai" aria-labelledby="sale-all-title">
-        <div className="wrap">
-          <div className="section-header">
-            <div className="section-header-text">
-              <p className="eyebrow">Danh mục ưu đãi</p>
-              <h2 className="section-title" id="sale-all-title">
-                Tất cả <em>ưu đãi</em>
-              </h2>
-              <p className="section-sub">
-                {filtered.length} thiết kế đang giảm giá
-                {activeTab !== 'all' ? ` trong ${SALE_TABS.find((t) => t.id === activeTab)?.label}` : ''}.
-              </p>
-            </div>
+      {/* ── PRODUCTS ── */}
+      <section id="sale-products" style={{ padding: '64px 0 80px' }}>
+        <div className="container-fluid px-4 px-lg-5">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
+            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 300, margin: 0 }}>
+              Sản phẩm ưu đãi ({filtered.length})
+            </h2>
+            <select className="sort-select" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+              <option value="price-asc">Giá: Thấp → Cao</option>
+              <option value="price-desc">Giá: Cao → Thấp</option>
+            </select>
           </div>
 
-          <div className="sale-toolbar">
-            <div className="sale-tabs" role="group" aria-label="Lọc ưu đãi theo danh mục">
-              {SALE_TABS.map((tab) => (
-                <button
-                  type="button"
-                  key={tab.id}
-                  className="sale-tab"
-                  aria-pressed={activeTab === tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                >
-                  {tab.label}
-                  <span className="sale-tab-count">{tab.count}</span>
-                </button>
-              ))}
+          {loading ? (
+            <div className="products-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
+              {[1, 2, 3, 4].map(i => <div key={i} className="product-card skeleton" style={{ height: 320 }} />)}
             </div>
-
-            <div className="sale-sort">
-              <label className="sr-only" htmlFor="sale-sort-select">
-                Sắp xếp sản phẩm
-              </label>
-              <select
-                id="sale-sort-select"
-                className="sort-select"
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-              >
-                {SORT_OPTIONS.map((o) => (
-                  <option value={o.id} key={o.id}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {filtered.length > 0 ? (
-            <div className="products-grid">
-              {filtered.map((p, i) => (
-                <ProductCard product={p} key={p.id} index={i} />
-              ))}
+          ) : filtered.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--muted)' }}>
+              Hiện chưa có sản phẩm nào
             </div>
           ) : (
-            <EmptyState
-              icon="bi-tag"
-              title="Chưa có ưu đãi trong danh mục này"
-              sub="Hãy xem toàn bộ danh sách giảm giá hoặc ghé cửa hàng để tìm thiết kế phù hợp."
-              action={{ label: 'Xem tất cả ưu đãi', onClick: () => setActiveTab('all') }}
-            />
+            <div className="products-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
+              {filtered.map((p, i) => <ProductCard key={p.id} product={p} delay={i % 4} />)}
+            </div>
           )}
         </div>
       </section>
 
-      {/* ═══════════ MÃ GIẢM THÊM ═══════════ */}
-      <section className="sale-coupons" aria-labelledby="sale-coupon-title">
-        <div className="wrap">
-          <Reveal className="sale-coupon-panel">
-            <div className="sale-coupon-intro">
-              <p className="eyebrow">Giảm thêm khi thanh toán</p>
-              <h2 className="section-title" id="sale-coupon-title">
-                Mã ưu đãi <em>dành riêng</em>
-              </h2>
-              <p className="section-sub">
-                Ưu đãi cộng dồn với giá đã giảm. Sao chép mã hoặc áp dụng ngay cho giỏ hàng hiện tại của bạn.
-              </p>
-            </div>
-
-            <ul className="sale-coupon-list">
-              {COUPON_CODES.map((code) => {
-                const c = COUPONS[code];
-                return (
-                  <li className="sale-coupon" key={code}>
-                    <span className="sale-coupon-code">{code}</span>
-                    <span className="sale-coupon-label">{c.label}</span>
-                    <span className="sale-coupon-min">
-                      {c.min > 0 ? `Áp dụng cho đơn từ ${fmt(c.min)}` : 'Không yêu cầu giá trị tối thiểu'}
-                    </span>
-                    <div className="sale-coupon-actions">
-                      <button
-                        type="button"
-                        className="btn-outline-lyra btn-sm"
-                        onClick={() => copyCode(code)}
-                        aria-label={`Sao chép mã ${code}`}
-                      >
-                        <i
-                          className={`bi ${copied === code ? 'bi-clipboard-check' : 'bi-clipboard'}`}
-                          aria-hidden="true"
-                        />
-                        {copied === code ? 'Đã sao chép' : 'Sao chép'}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-lyra btn-sm"
-                        onClick={() => applyCoupon(code)}
-                        aria-label={`Áp dụng mã ${code} cho giỏ hàng`}
-                      >
-                        Áp dụng
-                      </button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </Reveal>
-        </div>
-      </section>
-
-      <Footer />
+      <Footer navigate={navigate} />
     </div>
   );
 }

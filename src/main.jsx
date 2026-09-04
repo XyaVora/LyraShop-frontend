@@ -1,16 +1,13 @@
-// src/main.jsx — điểm khởi động ứng dụng LYRA.
+// src/main.jsx
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import './index.css';
 import App from './App.jsx';
-import { AppProvider } from './context/AppContext.jsx';
 import { CartProvider } from './context/CartContext.jsx';
+import { AppProvider } from './context/AppContext.jsx';
 
-const container = document.getElementById('root');
-
-createRoot(container).render(
+createRoot(document.getElementById('root')).render(
   <StrictMode>
-    {/* AppProvider (định tuyến + phiên đăng nhập) bọc ngoài CartProvider */}
     <AppProvider>
       <CartProvider>
         <App />
