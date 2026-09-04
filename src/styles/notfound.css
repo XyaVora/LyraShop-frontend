@@ -1,0 +1,181 @@
+/* =============================================
+   Trang 404 — LYRA
+   Chỉ bổ sung cho khối .not-found đã có trong index.css.
+   Dùng selector kép (.not-found.nf-page) để không phụ thuộc thứ tự nạp CSS.
+   ============================================= */
+
+.not-found.nf-page {
+  padding: clamp(64px, 12vh, 104px) var(--gutter);
+  gap: 0;
+}
+
+.nf-inner {
+  width: 100%;
+  max-width: 620px;
+  margin-inline: auto;
+}
+
+.not-found.nf-page .eyebrow {
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.not-found.nf-page .not-found-num {
+  color: var(--warm-light);
+  letter-spacing: .02em;
+  margin-bottom: 4px;
+}
+
+.not-found.nf-page .not-found-title em {
+  font-style: italic;
+  color: var(--warm-deep);
+}
+
+.not-found.nf-page .not-found-sub {
+  margin-inline: auto;
+  margin-bottom: 22px;
+}
+
+/* Đường dẫn không tồn tại — có thể rất dài, phải tự xuống dòng */
+.nf-path {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 26px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.nf-path code {
+  font-size: 11.5px;
+  letter-spacing: .02em;
+  text-transform: none;
+  color: var(--warm-text);
+  background: none;
+  padding: 0;
+}
+
+/* ---------- Ô tìm kiếm ---------- */
+.nf-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 26px;
+}
+
+.nf-input {
+  flex: 1 1 220px;
+  min-width: 0;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px solid var(--border-dark);
+  border-radius: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  transition: border-color var(--dur-2) var(--ease-out);
+}
+
+.nf-input::placeholder {
+  color: var(--muted-light);
+}
+
+.nf-input:focus {
+  outline: none;
+  border-color: var(--ink);
+}
+
+.nf-form .nf-submit {
+  flex: 0 0 auto;
+  height: 48px;
+  white-space: nowrap;
+}
+
+/* ---------- Gợi ý danh mục ---------- */
+.nf-suggest-label {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--warm-text);
+  margin-bottom: 12px;
+}
+
+.not-found.nf-page .chip-row {
+  justify-content: center;
+  margin-bottom: 30px;
+}
+
+/* Chip ở đây là thẻ <a> — bỏ gạch chân mặc định của liên kết */
+.not-found.nf-page .chip {
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.not-found.nf-page .chip i {
+  color: var(--warm-text);
+  font-size: 12px;
+}
+
+.nf-chip-count {
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+/* ---------- Màn hình chờ ---------- */
+.loader-note {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---------- Nút hành động ---------- */
+.nf-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+}
+
+.nf-actions .btn-lyra,
+.nf-actions .btn-outline-lyra {
+  justify-content: center;
+}
+
+.nf-links {
+  margin-top: 26px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px 18px;
+  font-size: 12.5px;
+}
+
+.nf-links .nf-sep {
+  color: var(--border-dark);
+}
+
+/* ---------- Điện thoại ---------- */
+@media (max-width: 575.98px) {
+  .not-found.nf-page {
+    padding: 56px 20px;
+  }
+
+  .nf-actions {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .nf-form .nf-submit {
+    width: 100%;
+  }
+}

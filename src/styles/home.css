@@ -1,0 +1,366 @@
+/* =============================================================
+   src/styles/home.css — CSS RIÊNG của trang chủ LYRA.
+   Chỉ dùng cho các khối do HomePage.jsx dựng. Mọi class dùng chung
+   (.wrap, .section, .products-grid, .hero*, .cat-*, .mosaic-*,
+   .scroll-row, .quote-card, .promise-row, .eyebrow, .t-display…)
+   đã có sẵn trong src/index.css — ở đây chỉ tinh chỉnh, không định
+   nghĩa lại. Bo góc = 0. Chuyển động chậm, một chiều.
+   ============================================================= */
+
+/* Nhịp dọc của trang: rộng rãi nhưng không để hai khối cách nhau
+   tới 2× var(--section) như khi để .section mặc định chồng nhau. */
+.home-page>section.section {
+  padding-block: clamp(48px, 6.2vw, 100px);
+}
+
+/* ══════════════════════════════════════════════
+   1. HERO
+   ══════════════════════════════════════════════ */
+.home-hero {
+  border-bottom: 1px solid var(--border);
+}
+
+/* Canh chữ trong panel theo lề nội dung của trang, panel vẫn đè lên
+   mép trái của ảnh (margin-right âm đã khai báo ở .hero-panel). */
+.home-hero .hero-panel {
+  padding-inline-start: clamp(24px, 6vw, 104px);
+  padding-inline-end: clamp(24px, 5vw, 76px);
+  padding-block: clamp(40px, 5vw, 80px);
+  max-width: 100%;
+}
+
+.home-hero .hero-panel .eyebrow {
+  margin-bottom: -4px;
+}
+
+.home-hero .hero-lead {
+  max-width: 40ch;
+}
+
+/* Ảnh hero: khung mặt/áo nằm ở phần trên của khung hình. */
+.home-hero .hero-media img {
+  object-position: 50% 18%;
+}
+
+.home-hero .hero-badge-value {
+  font-variant-numeric: lining-nums tabular-nums;
+  color: var(--ink);
+}
+
+@media (max-width: 1024px) {
+
+  /* Ghi đè lại bản mobile của index.css với đúng độ ưu tiên. */
+  .home-hero .hero-panel {
+    padding-inline: var(--gutter);
+    padding-block: 36px 48px;
+  }
+}
+
+/* ══════════════════════════════════════════════
+   3. DANH MỤC — chỉ chỉnh phần chữ trong lớp phủ
+   ══════════════════════════════════════════════ */
+.home-cats .cat-card {
+  text-decoration: none;
+}
+
+/* Các phần tử trong lớp phủ là <span> (nằm trong <a>) → cần block. */
+.home-cats .cat-overlay,
+.home-cats .cat-name,
+.home-cats .cat-count,
+.home-cats .cat-blurb {
+  display: block;
+}
+
+.home-cats .cat-blurb {
+  /* Chỉ hiện mô tả ở ô lớn đầu tiên để 3 ô nhỏ không bị chật chữ. */
+  display: none;
+}
+
+.home-cats .cat-grid .cat-card:first-child .cat-blurb {
+  display: block;
+}
+
+@media (max-width: 1024px) {
+  .home-cats .cat-grid .cat-card:first-child .cat-blurb {
+    display: none;
+  }
+}
+
+/* ══════════════════════════════════════════════
+   5. CÂU CHUYỆN LYRA
+   ══════════════════════════════════════════════ */
+.home-story {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.story-grid {
+  display: grid;
+  grid-template-columns: minmax(0, .82fr) minmax(0, 1fr);
+  gap: clamp(28px, 5vw, 76px);
+  align-items: center;
+}
+
+.story-media {
+  min-width: 0;
+}
+
+.story-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.story-body .t-h1 {
+  margin: 0;
+}
+
+.story-text {
+  font-size: 14px;
+  line-height: 1.85;
+  color: var(--ink-2);
+  max-width: 54ch;
+  margin: 0;
+}
+
+.story-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 20px 18px;
+  width: 100%;
+  margin: 10px 0 4px;
+  padding-top: 26px;
+  border-top: 1px solid var(--border);
+}
+
+.story-stat {
+  min-width: 0;
+}
+
+.story-stat-value {
+  font-family: var(--font-serif);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-size: clamp(30px, 3.2vw, 44px);
+  font-weight: 300;
+  line-height: 1;
+  color: var(--ink);
+}
+
+.story-stat-label {
+  margin: 6px 0 0;
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  line-height: 1.5;
+  color: var(--warm-text);
+}
+
+@media (max-width: 900px) {
+  .story-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ══════════════════════════════════════════════
+   6. BANNER SALE — ảnh nền + lớp phủ mực
+   ══════════════════════════════════════════════ */
+.home-sale {
+  padding-block: clamp(10px, 2vw, 28px);
+}
+
+.sale-banner {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: clamp(20px, 4vw, 44px);
+  padding: clamp(28px, 5.5vw, 76px);
+  min-height: clamp(260px, 32vw, 420px);
+  background: var(--ink);
+}
+
+.sale-banner .sale-banner-media {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  aspect-ratio: auto;
+}
+
+.sale-banner .sale-banner-media img {
+  object-position: 50% 45%;
+}
+
+/* Lớp phủ mực: chữ trắng luôn đạt tương phản ≥ 7:1 ở nửa trái. */
+.sale-banner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(100deg,
+      rgba(14, 14, 14, .92) 0%,
+      rgba(14, 14, 14, .76) 44%,
+      rgba(14, 14, 14, .44) 100%);
+}
+
+.sale-banner-body {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+  max-width: 46ch;
+}
+
+.sale-banner-body .eyebrow {
+  margin-bottom: 14px;
+}
+
+.sale-banner-title {
+  font-family: var(--font-serif);
+  font-size: clamp(30px, 4.2vw, 58px);
+  font-weight: 300;
+  line-height: 1.06;
+  letter-spacing: -.005em;
+  color: #fff;
+  margin: 0;
+}
+
+.sale-banner-title em {
+  font-style: italic;
+  color: var(--warm);
+}
+
+.sale-banner-sub {
+  margin: 16px 0 0;
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, .86);
+}
+
+.sale-banner .sale-banner-cta {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  background: var(--cream);
+  color: var(--ink);
+  border-color: var(--cream);
+}
+
+.sale-banner .sale-banner-cta:hover,
+.sale-banner .sale-banner-cta:focus-visible {
+  background: var(--warm);
+  border-color: var(--warm);
+  color: var(--ink);
+}
+
+/* ══════════════════════════════════════════════
+   8. ĐÃ XEM GẦN ĐÂY
+   ══════════════════════════════════════════════ */
+.home-recent .scroll-row {
+  /* chừa chỗ cho vòng focus của thẻ sản phẩm */
+  padding: 4px 4px 14px;
+  margin-inline: -4px;
+}
+
+/* ══════════════════════════════════════════════
+   9. CẢM NHẬN KHÁCH HÀNG
+   ══════════════════════════════════════════════ */
+.quote-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(258px, 1fr));
+  gap: clamp(26px, 3.4vw, 48px);
+}
+
+.quote-card {
+  margin: 0;
+  min-width: 0;
+}
+
+.quote-card .product-stars {
+  margin-bottom: 14px;
+}
+
+.quote-card .quote-text {
+  margin: 0 0 16px;
+}
+
+.quote-card figcaption {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.quote-card .quote-author {
+  display: block;
+}
+
+.quote-meta {
+  display: block;
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--warm-text);
+}
+
+/* ══════════════════════════════════════════════
+   10. #LYRASTYLE — mosaic 6 ảnh
+   ══════════════════════════════════════════════ */
+.home-mosaic {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.home-mosaic .mosaic-item {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.home-mosaic .mosaic-item .pic {
+  width: 100%;
+}
+
+.home-mosaic .mosaic-item img {
+  transition: transform var(--dur-3) var(--ease-out);
+}
+
+.home-mosaic .mosaic-item:hover img,
+.home-mosaic .mosaic-item:focus-visible img {
+  transform: scale(1.04);
+}
+
+@media (max-width: 1024px) {
+  .home-mosaic {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 576px) {
+  .home-mosaic {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+}
+
+/* ══════════════════════════════════════════════
+   11. DẢI CAM KẾT
+   ══════════════════════════════════════════════ */
+.home-promises {
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+/* ══════════════════════════════════════════════
+   GIẢM CHUYỂN ĐỘNG
+   ══════════════════════════════════════════════ */
+@media (prefers-reduced-motion: reduce) {
+
+  .home-mosaic .mosaic-item img,
+  .home-cats .cat-card img {
+    transition: none !important;
+    transform: none !important;
+  }
+}

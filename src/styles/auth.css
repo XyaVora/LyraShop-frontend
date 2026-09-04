@@ -1,0 +1,253 @@
+/* src/styles/auth.css — bổ sung riêng cho trang Đăng nhập / Đăng ký.
+   Khung .auth-layout / .auth-visual / .auth-form-* đã có trong index.css §24;
+   file này chỉ thêm phần trang tự dùng, không định nghĩa lại. */
+
+/* ── Cột hình ─────────────────────────────────────────────────────── */
+.auth-visual .pic {
+  aspect-ratio: auto;
+}
+
+.auth-visual .pic img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 25%;
+}
+
+.auth-visual .eyebrow {
+  margin-bottom: 18px;
+  justify-content: center;
+}
+
+.auth-visual-perks span {
+  text-align: left;
+}
+
+/* ── Cột form ─────────────────────────────────────────────────────── */
+.auth-form-wrap {
+  min-width: 0;
+}
+
+.auth-form-wrap>.eyebrow {
+  margin-bottom: 14px;
+}
+
+.auth-title {
+  line-height: 1.08;
+  margin-bottom: 8px;
+}
+
+.auth-title em {
+  font-style: italic;
+  color: var(--warm-deep);
+}
+
+.auth-subtitle {
+  margin-bottom: 26px;
+  color: var(--ink-2);
+}
+
+.auth-toggle {
+  margin-bottom: 22px;
+}
+
+/* ── Hộp tài khoản demo ───────────────────────────────────────────── */
+.auth-demo-title {
+  display: block;
+  font-size: 10.5px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--warm-text);
+  font-weight: 500;
+  margin-bottom: 6px;
+}
+
+.auth-demo-text {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--ink-2);
+}
+
+.auth-demo-text code {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--ink);
+  background: rgba(14, 14, 14, .05);
+  padding: 1px 5px;
+  word-break: break-word;
+}
+
+.auth-demo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.auth-demo-fill {
+  flex: 1 1 150px;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 12px;
+  border: 1px solid var(--warm-deep);
+  background: transparent;
+  color: var(--warm-hover);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+}
+
+.auth-demo-fill:hover {
+  background: var(--warm-deep);
+  color: #fff;
+}
+
+/* ── Trường nhập ──────────────────────────────────────────────────── */
+.auth-field {
+  margin-bottom: 16px;
+}
+
+/* Bỏ margin dưới của input để nút hiện/ẩn mật khẩu căn đúng giữa ô. */
+.auth-field .form-field-input {
+  margin-bottom: 0;
+}
+
+.auth-field .field-error {
+  margin: 7px 0 0;
+  min-height: 0;
+}
+
+.auth-forgot-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: -4px 0 16px;
+}
+
+.auth-terms {
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--ink-2);
+  margin: 0 0 18px;
+}
+
+/* Liên kết dạng chữ trong đoạn văn (là <button> thật để bấm được bằng bàn phím). */
+.auth-inline-link {
+  background: none;
+  border: 0;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  text-decoration-color: var(--warm);
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-out);
+}
+
+.auth-inline-link:hover {
+  color: var(--warm-hover);
+}
+
+/* ── Lỗi chung của form ───────────────────────────────────────────── */
+.auth-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  border-left: 2px solid var(--danger);
+  background: rgba(160, 58, 58, .06);
+  padding: 11px 13px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--danger);
+  margin: 0 0 16px;
+}
+
+.auth-alert i {
+  font-size: 14px;
+  line-height: 1.3;
+  flex: none;
+}
+
+/* ── Nút gửi ──────────────────────────────────────────────────────── */
+.auth-submit {
+  padding-top: 15px;
+  padding-bottom: 15px;
+}
+
+.auth-spin {
+  display: inline-block;
+  animation: auth-spin 900ms linear infinite;
+}
+
+@keyframes auth-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── Chân form ────────────────────────────────────────────────────── */
+.auth-divider {
+  margin: 26px 0 18px;
+}
+
+.auth-switch {
+  text-align: center;
+  margin: 22px 0 0;
+  font-size: 13px;
+  color: var(--ink-2);
+}
+
+.auth-back {
+  margin-top: 26px;
+}
+
+/* ── Trạng thái đã đăng nhập ──────────────────────────────────────── */
+.auth-actions-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.auth-signout {
+  align-self: center;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  margin-top: 4px;
+}
+
+/* ── Responsive ───────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .auth-visual .eyebrow {
+    margin-bottom: 12px;
+  }
+
+  .auth-visual-sub {
+    font-size: 12.5px;
+  }
+}
+
+@media (max-width: 420px) {
+  .auth-demo-fill {
+    flex: 1 1 100%;
+  }
+
+  .auth-toggle-btn {
+    font-size: 10.5px;
+    letter-spacing: .06em;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-spin {
+    animation: none;
+  }
+}

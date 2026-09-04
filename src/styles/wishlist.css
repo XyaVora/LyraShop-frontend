@@ -1,0 +1,499 @@
+/* =============================================================
+   LYRA — Trang Danh sách yêu thích (src/pages/WishlistPage.jsx)
+   Chỉ chứa style riêng của trang. Token & class dùng chung
+   (.wrap .section .eyebrow .t-h1 .products-grid .chip .btn-*)
+   đã định nghĩa trong src/index.css.
+   ============================================================= */
+
+/* ── Mở đầu ────────────────────────────────────────────────── */
+.wishlist-hero {
+  padding: clamp(40px, 6vw, 84px) 0 clamp(28px, 4vw, 48px);
+  border-bottom: 1px solid var(--border);
+}
+
+.wishlist-hero-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 56px);
+  align-items: end;
+}
+
+@media (min-width: 900px) {
+  .wishlist-hero-inner {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr);
+  }
+}
+
+.wishlist-hero-copy .t-h1 {
+  margin: 14px 0 18px;
+}
+
+.wishlist-lead {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--ink-2);
+  max-width: 46ch;
+}
+
+.wishlist-hero-side {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+}
+
+/* Số liệu — tính thật từ danh sách đã lưu */
+.wishlist-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin: 0;
+  border-top: 1px solid var(--border);
+}
+
+.wishlist-stat {
+  flex: 1 1 130px;
+  min-width: 0;
+  padding: 16px 18px 14px 0;
+  border-right: 1px solid var(--border);
+}
+
+.wishlist-stat:last-child {
+  border-right: 0;
+}
+
+.wishlist-stat+.wishlist-stat {
+  padding-left: 18px;
+}
+
+.wishlist-stat dt {
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--warm-text);
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.wishlist-stat dd {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(22px, 2.4vw, 30px);
+  font-weight: 400;
+  line-height: 1.1;
+  color: var(--ink);
+  font-variant-numeric: lining-nums tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.wishlist-stat dd.is-warm {
+  color: var(--warm-deep);
+}
+
+.wishlist-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.wishlist-hero-actions>* {
+  flex: 0 1 auto;
+}
+
+.btn-outline-lyra.is-on {
+  border-color: var(--ink);
+  background: rgba(14, 14, 14, .04);
+}
+
+/* ── Thân trang ────────────────────────────────────────────── */
+.wishlist-body {
+  padding: clamp(32px, 5vw, 56px) 0 clamp(56px, 8vw, 104px);
+}
+
+/* Thanh công cụ — luôn xuống dòng, không bao giờ tràn ngang */
+.wishlist-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.wishlist-cats {
+  min-width: 0;
+  flex: 1 1 260px;
+}
+
+.wishlist-chip-num {
+  font-size: 10px;
+  letter-spacing: .06em;
+  opacity: .62;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.wishlist-sort {
+  flex: 0 1 auto;
+}
+
+@media (max-width: 575.98px) {
+  .wishlist-sort {
+    flex: 1 1 100%;
+  }
+
+  .wishlist-sort .sort-select {
+    width: 100%;
+  }
+}
+
+/* Thanh thao tác hàng loạt */
+.wishlist-selectbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 14px 18px;
+  background: var(--cream-dark);
+  border: 1px solid var(--border);
+}
+
+.wishlist-selectbar-count {
+  font-size: 12.5px;
+  letter-spacing: .04em;
+  color: var(--ink-2);
+}
+
+.wishlist-selectbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.wishlist-danger-btn {
+  color: var(--danger);
+  border-color: rgba(160, 58, 58, .4);
+}
+
+.wishlist-danger-btn:hover:not(:disabled),
+.wishlist-danger-btn:focus-visible:not(:disabled) {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: rgba(160, 58, 58, .06);
+}
+
+@media (max-width: 575.98px) {
+  .wishlist-selectbar-actions {
+    width: 100%;
+  }
+
+  .wishlist-selectbar-actions>* {
+    flex: 1 1 130px;
+    justify-content: center;
+  }
+}
+
+.wishlist-count {
+  margin: 22px 0 20px;
+  font-size: 12px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--warm-text);
+}
+
+/* ── Thẻ sản phẩm ──────────────────────────────────────────── */
+.wishlist-grid {
+  align-items: stretch;
+}
+
+.wishlist-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  transition: border-color var(--dur-2) var(--ease-out);
+}
+
+.wishlist-card:hover,
+.wishlist-card:focus-within {
+  border-color: var(--border-dark);
+}
+
+.wishlist-card.is-selected {
+  border-color: var(--ink);
+}
+
+.wishlist-card-media {
+  position: relative;
+  overflow: hidden;
+}
+
+.wishlist-card-link {
+  position: relative;
+  display: block;
+  text-decoration: none;
+}
+
+.wishlist-card-media .pic img {
+  transition: opacity 480ms var(--ease-out), transform var(--dur-3) var(--ease-out);
+}
+
+.wishlist-card:hover .wishlist-card-link>.pic:not(.pic--hover) img {
+  transform: scale(1.03);
+}
+
+.wishlist-card:hover .pic--hover,
+.wishlist-card:focus-within .pic--hover {
+  opacity: 1;
+}
+
+/* Ô chọn — checkbox thật, có thể tới bằng bàn phím */
+.wishlist-check {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 3;
+  width: 26px;
+  height: 26px;
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  background: rgba(251, 250, 247, .94);
+  border: 1px solid var(--border-dark);
+  border-radius: 0;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+}
+
+.wishlist-check::after {
+  content: '';
+  width: 11px;
+  height: 6px;
+  border-left: 1.6px solid var(--cream);
+  border-bottom: 1.6px solid var(--cream);
+  transform: rotate(-45deg) translate(1px, -1px);
+  opacity: 0;
+  transition: opacity var(--dur-1) var(--ease-out);
+}
+
+.wishlist-check:checked {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.wishlist-check:checked::after {
+  opacity: 1;
+}
+
+/* Nút bỏ khỏi yêu thích */
+.wishlist-remove {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 3;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-size: 14px;
+  color: var(--warm-text);
+  background: rgba(251, 250, 247, .94);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out),
+    background var(--dur-1) var(--ease-out);
+}
+
+.wishlist-remove:hover,
+.wishlist-remove:focus-visible {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: #fff;
+}
+
+.wishlist-badge {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  z-index: 2;
+  padding: 5px 11px;
+  font-size: 9.5px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--cream);
+  background: var(--ink);
+}
+
+.wishlist-badge.is-sale {
+  background: var(--warm-deep);
+}
+
+.wishlist-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  padding: 13px 13px 14px;
+  min-width: 0;
+}
+
+.wishlist-name {
+  display: block;
+  font-size: 13.5px;
+  line-height: 1.45;
+  color: var(--ink);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  transition: color var(--dur-1) var(--ease-out);
+}
+
+.wishlist-name:hover,
+.wishlist-name:focus-visible {
+  color: var(--warm-hover);
+}
+
+.wishlist-meta {
+  font-size: 10.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.wishlist-price-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  margin-top: 3px;
+}
+
+.wishlist-price {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ink);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.wishlist-price-old {
+  font-family: var(--font-serif);
+  font-size: 13px;
+  color: var(--muted-light);
+  text-decoration: line-through;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.wishlist-off {
+  font-size: 10.5px;
+  letter-spacing: .08em;
+  color: var(--warm-text);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.wishlist-stock {
+  font-size: 11px;
+  letter-spacing: .04em;
+  color: var(--danger);
+}
+
+/* Nút thêm giỏ — gọn để không tràn thẻ ở 375px */
+.wishlist-add {
+  margin-top: auto;
+  padding-top: 11px !important;
+  padding-bottom: 11px !important;
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+  width: 100%;
+  letter-spacing: .1em;
+}
+
+/* ── Thanh tổng kết ────────────────────────────────────────── */
+.wishlist-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-top: clamp(36px, 5vw, 56px);
+  padding: clamp(20px, 3vw, 30px);
+  background: var(--cream-dark);
+  border: 1px solid var(--border);
+}
+
+.wishlist-summary-figures {
+  min-width: 0;
+}
+
+.wishlist-summary-label {
+  font-size: 11px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--warm-text);
+  margin-bottom: 6px;
+}
+
+.wishlist-summary-value {
+  font-family: var(--font-serif);
+  font-size: clamp(26px, 3.4vw, 36px);
+  font-weight: 400;
+  line-height: 1.1;
+  font-variant-numeric: lining-nums tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.wishlist-summary-note {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.wishlist-summary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
+
+@media (max-width: 575.98px) {
+  .wishlist-summary-actions {
+    width: 100%;
+  }
+
+  .wishlist-summary-actions>* {
+    width: 100%;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+}
+
+/* ── Gợi ý ─────────────────────────────────────────────────── */
+.wishlist-suggest {
+  margin-top: clamp(56px, 8vw, 104px);
+  padding-top: clamp(32px, 4vw, 48px);
+  border-top: 1px solid var(--border);
+}
+
+/* ── Modal xác nhận ────────────────────────────────────────── */
+.wishlist-modal-text {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--ink-2);
+}
+
+/* ── Giảm chuyển động ──────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+
+  .wishlist-card:hover .wishlist-card-link>.pic:not(.pic--hover) img {
+    transform: none;
+  }
+}

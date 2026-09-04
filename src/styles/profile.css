@@ -1,0 +1,377 @@
+/* src/styles/profile.css — trang Tài khoản (ProfilePage)
+   Chỉ bổ sung; các class .profile-layout / .profile-nav-item / .order-card /
+   .order-status-badge / .form-field-* / .chip đã có sẵn trong index.css. */
+
+/* ── Dải tiêu đề ─────────────────────────────────────────────── */
+.profile-head {
+  padding: clamp(36px, 5vw, 72px) 0 clamp(24px, 3.4vw, 40px);
+  border-bottom: 1px solid var(--border);
+}
+
+.profile-head .eyebrow {
+  margin-bottom: 14px;
+}
+
+.profile-title {
+  margin: 0 0 16px;
+}
+
+.profile-title em {
+  font-style: italic;
+  color: var(--warm-deep);
+}
+
+.profile-head-sub {
+  max-width: 54ch;
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--ink-2);
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────── */
+.profile-side-inner {
+  position: sticky;
+  top: calc(var(--nav-h) + 24px);
+}
+
+.profile-sidebar .profile-name {
+  margin: 0 0 3px;
+}
+
+.profile-sidebar .profile-email,
+.profile-sidebar .profile-since {
+  margin-top: 0;
+}
+
+.profile-side-foot {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.profile-nav-link {
+  color: var(--warm-text);
+}
+
+.profile-nav-link i {
+  color: var(--warm-text);
+}
+
+.profile-logout,
+.profile-logout i {
+  color: var(--danger);
+}
+
+.profile-logout:hover {
+  background: rgba(160, 58, 58, .07);
+}
+
+/* ── Tiêu đề từng tab ────────────────────────────────────────── */
+.profile-tab-head {
+  margin-bottom: 26px;
+}
+
+.profile-tab-head .eyebrow {
+  margin-bottom: 12px;
+}
+
+.profile-tab-head .profile-section-title {
+  margin: 0 0 8px;
+}
+
+.profile-tab-head .profile-section-sub {
+  margin: 0;
+  max-width: 56ch;
+  line-height: 1.7;
+}
+
+/* ── Dải số liệu tài khoản ───────────────────────────────────── */
+.profile-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 1px;
+  background: var(--border);
+  border: 1px solid var(--border);
+  margin-bottom: 26px;
+}
+
+.profile-stat {
+  background: var(--cream, #F7F4EF);
+  padding: 18px 20px;
+  min-width: 0;
+}
+
+.profile-stat-value {
+  display: block;
+  font-family: var(--font-serif);
+  font-size: 30px;
+  font-weight: 300;
+  line-height: 1.1;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.profile-stat-label {
+  display: block;
+  margin-top: 6px;
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--warm-text);
+}
+
+/* ── Bộ lọc đơn hàng ─────────────────────────────────────────── */
+.order-filter-row {
+  margin-bottom: 20px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.order-filter-row::-webkit-scrollbar {
+  height: 0;
+}
+
+.order-filter-row .chip {
+  white-space: nowrap;
+}
+
+/* ── Thẻ đơn hàng ────────────────────────────────────────────── */
+.order-card-list {
+  display: grid;
+  gap: 14px;
+}
+
+.order-card-list .order-card {
+  margin-bottom: 0;
+}
+
+.order-card .order-id,
+.order-card .order-date {
+  margin: 0;
+}
+
+.order-card .order-date {
+  margin-top: 4px;
+}
+
+.order-card-body {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.order-card-body .order-total-text {
+  margin: 0 0 0 auto;
+  font-family: var(--font-serif);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.order-more {
+  align-self: flex-end;
+  min-width: 34px;
+  height: 58px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-dark);
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: lining-nums;
+}
+
+.order-card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+/* ── Nút cảnh báo ────────────────────────────────────────────── */
+.btn-danger-outline {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.btn-danger-outline:hover,
+.btn-danger-outline:focus-visible {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.btn-lyra.btn-danger-solid {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.btn-lyra.btn-danger-solid:hover,
+.btn-lyra.btn-danger-solid:focus-visible {
+  background: #8A3030;
+  border-color: #8A3030;
+  color: #fff;
+}
+
+/* ── Nội dung modal ──────────────────────────────────────────── */
+.modal-text {
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: var(--ink-2);
+  margin: 0 0 12px;
+}
+
+.modal-text:last-child {
+  margin-bottom: 0;
+}
+
+.modal-text.muted {
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+/* ── Sổ địa chỉ ──────────────────────────────────────────────── */
+.address-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
+  gap: 14px;
+}
+
+.address-card {
+  border: 1.5px solid var(--border);
+  padding: 20px;
+  min-width: 0;
+  transition: border-color var(--dur-1) var(--ease-out);
+}
+
+.address-card:hover {
+  border-color: var(--border-dark);
+}
+
+.address-card.is-default {
+  border-color: var(--warm-deep);
+}
+
+.address-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.address-name {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.address-badge {
+  flex: none;
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  background: var(--warm-pale);
+  color: var(--warm-text);
+  border: 1px solid var(--warm-light);
+  white-space: nowrap;
+}
+
+.address-lines {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.8;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.address-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.address-form .field-block {
+  margin-bottom: 4px;
+}
+
+/* ── Biểu mẫu hồ sơ / mật khẩu ───────────────────────────────── */
+.profile-form {
+  max-width: 560px;
+}
+
+.profile-form-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.profile-form-note {
+  margin: 14px 0 0;
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--muted);
+  max-width: 52ch;
+}
+
+/* ── Lưới yêu thích trong khung tài khoản ────────────────────── */
+.profile-content .products-grid {
+  margin-bottom: 4px;
+}
+
+/* ── Responsive ──────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .profile-side-inner {
+    position: static;
+  }
+
+  .profile-side-foot {
+    margin-top: 12px;
+    padding-top: 12px;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .profile-side-foot .profile-nav-item {
+    width: auto;
+  }
+}
+
+@media (max-width: 576px) {
+  .profile-head {
+    padding-top: 28px;
+  }
+
+  .profile-stats {
+    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  }
+
+  .profile-stat {
+    padding: 14px;
+  }
+
+  .profile-stat-value {
+    font-size: 25px;
+  }
+
+  .order-card-body .order-total-text {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .order-card-foot .btn-outline-lyra {
+    flex: 1 1 140px;
+  }
+
+  .address-actions .btn-outline-lyra {
+    flex: 1 1 100px;
+  }
+}

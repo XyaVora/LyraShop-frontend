@@ -1,259 +1,454 @@
-// src/pages/NewArrivalsPage.jsx
-import { useState, useMemo } from 'react';
+// src/pages/NewArrivalsPage.jsx — trang "Mới về" của LYRA.
+// Hợp đồng: spec.md §4/§5 + pages.md (NewArrivalsPage). Chỉ dùng API context/component đã có.
+import { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { PRODUCTS, fmt } from '../data/products';
-import { ProductCard, Footer } from '../components/index.jsx';
+import { PRODUCTS, fmt, img, slugify } from '../data/products';
+import { buildUrl } from '../router.js';
+import { isEmail } from '../utils/validate.js';
+import {
+  ProductCard,
+  Footer,
+  Pic,
+  Reveal,
+  EmptyState,
+  isModifiedClick,
+} from '../components/index.jsx';
+import '../styles/new.css';
 
-// Sản phẩm mới
-const NEW_PRODUCTS = PRODUCTS.filter(p => p.badge === 'New');
+/* ------------------------------------------------------------------ */
+/* Dữ liệu dẫn xuất — tính MỘT LẦN ở tầng module, không nằm trong render */
+/* ------------------------------------------------------------------ */
 
-// Giả lập ngày ra mắt
-const WITH_DATES = NEW_PRODUCTS.map((p, i) => ({
-  ...p,
-  arrivedAt: new Date(Date.now() - i * 3 * 24 * 60 * 60 * 1000), // mỗi SP cách nhau 3 ngày
-  isLatest: i < 2,
-}));
+/** Mốc "hôm nay" (00:00) — tính một lần khi nạp module, không gọi trong render. */
+const TODAY = (() => {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+})();
 
-const WEEKS = [
-  { id: 'this',  label: 'Tuần này',   products: WITH_DATES.slice(0, 2) },
-  { id: 'last',  label: 'Tuần trước', products: WITH_DATES.slice(2, 5) },
-  { id: 'older', label: 'Tháng này',  products: WITH_DATES.slice(5) },
+/** Số ngày từ `createdAt` (chuỗi 'YYYY-MM-DD') tới hôm nay. */
+function daysAgo(iso) {
+  if (!iso) return Number.MAX_SAFE_INTEGER;
+  const d = new Date(`${iso}T00:00:00`);
+  if (Number.isNaN(d.getTime())) return Number.MAX_SAFE_INTEGER;
+  return Math.floor((TODAY.getTime() - d.getTime()) / 86400000);
+}
+
+/** 'YYYY-MM-DD' → 'DD/MM/YYYY'. */
+function formatDate(iso) {
+  if (!iso) return '';
+  const [y, m, d] = String(iso).slice(0, 10).split('-');
+  return y && m && d ? `${d}/${m}/${y}` : String(iso);
+}
+
+const byNewest = (a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''));
+
+/**
+ * Danh sách hàng mới: ưu tiên sản phẩm gắn badge "New";
+ * nếu chưa đủ 6 thì bổ sung bằng những thiết kế có `createdAt` mới nhất.
+ */
+const NEW_ARRIVALS = (() => {
+  const flagged = PRODUCTS.filter((p) => p.badge === 'New');
+  if (flagged.length >= 6) return [...flagged].sort(byNewest);
+  const chosen = new Set(flagged.map((p) => p.id));
+  const fillers = [...PRODUCTS]
+    .filter((p) => !chosen.has(p.id))
+    .sort(byNewest)
+    .slice(0, 6 - flagged.length);
+  return [...flagged, ...fillers].sort(byNewest);
+})();
+
+/** Sản phẩm mới nhất — dùng cho khối hero. */
+const FEATURED = NEW_ARRIVALS[0] || null;
+
+/** Danh mục thực sự có hàng mới (dựng từ dữ liệu, không hard-code). */
+const NEW_CATS = Array.from(new Set(NEW_ARRIVALS.map((p) => p.cat)));
+
+const CAT_SHORT = {
+  'Thời trang nữ': 'Nữ',
+  'Thời trang nam': 'Nam',
+  'Giày dép': 'Giày dép',
+  'Phụ kiện': 'Phụ kiện',
+};
+
+/** Ba nhóm thời gian theo `createdAt` thật. */
+const GROUP_DEFS = [
+  { id: 'this', label: 'Tuần này', note: 'Vừa lên kệ trong 7 ngày', test: (d) => d <= 7 },
+  { id: 'last', label: 'Tuần trước', note: 'Về kho 8 – 14 ngày trước', test: (d) => d > 7 && d <= 14 },
+  { id: 'month', label: 'Trong tháng', note: 'Những thiết kế mới còn lại', test: (d) => d > 14 },
 ];
 
-const LOOKBOOK_ITEMS = [
-  { title: 'Tối giản & Sang trọng', sub: 'Spring Collection 2025', color: '#C9B99A', icon: 'bi-bag-heart' },
-  { title: 'Năng động & Trẻ trung', sub: 'Urban Casual Series',   color: '#A8B8C0', icon: 'bi-person' },
-  { title: 'Thanh lịch & Nữ tính',  sub: 'Feminine Edit',         color: '#D4C8B8', icon: 'bi-bag' },
+/**
+ * Ảnh lookbook lấy THẲNG từ catalog LYRA (ảnh chính + màu của chính sản phẩm),
+ * để hình ảnh luôn khớp với danh mục mà thẻ dẫn tới và không bao giờ trưng
+ * logo của một thương hiệu khác dưới lời cam kết thủ công của LYRA.
+ */
+const lookOf = (name) => {
+  const p = PRODUCTS.find((x) => x.name === name);
+  return { image: p?.images?.[0], tint: p?.color };
+};
+
+/** Lookbook Thu – Đông 2026 — mỗi look trỏ tới một danh mục có thật. */
+const LOOKBOOK = [
+  {
+    title: 'Tối giản & Sang trọng',
+    sub: 'Lụa, blazer phom mềm cho ngày làm việc dài',
+    cat: 'Thời trang nữ',
+    image: img('1571513722275-4b41940f54b8', 900),
+    tint: '#E4DAD0',
+    icon: 'bi-bag-heart',
+  },
+  {
+    title: 'Năng động & Trẻ trung',
+    sub: 'Cotton, denim và những lớp mặc chồng nhẹ',
+    cat: 'Thời trang nam',
+    // Áo khoác denim trucker — đúng "denim" và "lớp mặc chồng" của phụ đề.
+    ...lookOf('Áo khoác denim'),
+    icon: 'bi-person',
+  },
+  {
+    title: 'Bước chân mùa mới',
+    sub: 'Da bê thật, đóng thủ công tại Bình Dương, form ôm chân người Việt',
+    cat: 'Giày dép',
+    // Mule da bê thật — có trong danh mục Giày dép, không nhãn hiệu ngoài.
+    ...lookOf('Giày mule da thật'),
+    icon: 'bi-bag',
+  },
 ];
+
+/* ------------------------------------------------------------------ */
+/* Trang                                                               */
+/* ------------------------------------------------------------------ */
 
 export default function NewArrivalsPage() {
   const { navigate } = useApp();
   const { showToast } = useCart();
-  const [activeFilter, setActiveFilter] = useState('all');
-  const [activeLook, setActiveLook] = useState(0);
 
-  const filtered = useMemo(() => {
-    if (activeFilter === 'all') return WITH_DATES;
-    return WITH_DATES.filter(p => p.cat === activeFilter);
-  }, [activeFilter]);
+  const [activeCat, setActiveCat] = useState('all');
+  const [email, setEmail] = useState('');
+  const [notifyError, setNotifyError] = useState('');
+  const [notifyDone, setNotifyDone] = useState(false);
 
-  const cats = ['all', ...new Set(NEW_PRODUCTS.map(p => p.cat))];
-  const catLabels = { all: 'Tất cả', 'Thời trang nữ': 'Nữ', 'Thời trang nam': 'Nam', 'Giày dép': 'Giày dép', 'Phụ kiện': 'Phụ kiện' };
+  const filtered = useMemo(
+    () => (activeCat === 'all' ? NEW_ARRIVALS : NEW_ARRIVALS.filter((p) => p.cat === activeCat)),
+    [activeCat],
+  );
+
+  /** Nhóm sản phẩm đã lọc theo mốc thời gian, bỏ nhóm rỗng. */
+  const groups = useMemo(
+    () =>
+      GROUP_DEFS.map((g) => ({
+        ...g,
+        products: filtered.filter((p) => g.test(daysAgo(p.createdAt))),
+      })).filter((g) => g.products.length > 0),
+    [filtered],
+  );
+
+  const go = (e, page, params = {}) => {
+    if (isModifiedClick(e)) return;
+    e.preventDefault();
+    navigate(page, params);
+  };
+
+  const submitNotify = (e) => {
+    e.preventDefault();
+    const value = email.trim();
+    if (!value) {
+      setNotifyDone(false);
+      setNotifyError('Vui lòng nhập địa chỉ email của bạn.');
+      return;
+    }
+    if (!isEmail(value)) {
+      setNotifyDone(false);
+      setNotifyError('Địa chỉ email chưa hợp lệ. Ví dụ: ten@lyra.vn');
+      return;
+    }
+    setNotifyError('');
+    setNotifyDone(true);
+    setEmail('');
+    showToast?.('Đã đăng ký nhận thông báo hàng mới.', 'bi-bell');
+  };
+
+  const featuredHref = FEATURED
+    ? buildUrl('detail', { product: FEATURED.slug || FEATURED.id })
+    : '#';
 
   return (
-    <div>
-      {/* ── HERO ── */}
-      <section style={{ padding: '72px 0 60px', borderBottom: '1px solid var(--border)' }}>
-        <div className="container">
-          <div className="row align-items-center">
-            <div className="col-lg-6">
-              <div style={{ fontSize: 11, letterSpacing: '.2em', textTransform: 'uppercase', color: 'var(--warm)', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ width: 28, height: 1, background: 'var(--warm)', display: 'block' }} />
-                Cập nhật liên tục
-              </div>
-              <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 'clamp(44px,5vw,72px)', fontWeight: 300, lineHeight: 1.08, marginBottom: 20 }}>
-                Mới về<br /><em style={{ fontStyle: 'italic', color: 'var(--warm)' }}>kho hàng</em>
+    <div className="new-page">
+      {/* ══════════ HERO ══════════ */}
+      <section className="new-hero section">
+        <div className="wrap">
+          <div className="new-hero-grid">
+            <Reveal className="new-hero-copy">
+              <p className="eyebrow">Cập nhật {formatDate(FEATURED?.createdAt)}</p>
+              <h1 className="t-h1">
+                Mới về
+                <br />
+                <em>kho hàng</em>
               </h1>
-              <p style={{ fontSize: 14, color: 'var(--muted)', lineHeight: 1.8, maxWidth: 400, marginBottom: 36 }}>
-                Khám phá những thiết kế vừa ra mắt — được tuyển chọn kỹ lưỡng từ các xu hướng thời trang quốc tế, phù hợp với phong cách Việt Nam.
+              <p className="new-hero-lead">
+                Những thiết kế vừa rời xưởng may Hà Nội của LYRA cho mùa Thu – Đông 2026. Số lượng
+                mỗi mẫu có hạn, chúng tôi bổ sung kho hằng tuần.
               </p>
-              <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap' }}>
-                {[
-                  { num: `${NEW_PRODUCTS.length}`, label: 'Sản phẩm mới' },
-                  { num: 'Hàng tuần',              label: 'Cập nhật mới' },
-                  { num: '2–3 ngày',               label: 'Giao hàng nhanh' },
-                ].map(({ num, label }) => (
-                  <div key={label}>
-                    <div style={{ fontFamily: 'var(--font-serif)', fontSize: 26, fontWeight: 300, color: 'var(--ink)' }}>{num}</div>
-                    <div style={{ fontSize: 11.5, color: 'var(--muted)', letterSpacing: '.04em' }}>{label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="col-lg-5 offset-lg-1 mt-5 mt-lg-0">
-              {/* Featured new product */}
-              <div style={{ position: 'relative' }}>
-                <div style={{
-                  background: WITH_DATES[0]?.color || '#E4DAD0',
-                  aspectRatio: '3/4', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexDirection: 'column', gap: 14, color: 'rgba(14,14,14,.18)',
-                  cursor: 'pointer',
-                }}
-                  onClick={() => navigate('detail', { product: WITH_DATES[0] })}
-                >
-                  <i className={`bi ${WITH_DATES[0]?.icon || 'bi-bag'}`} style={{ fontSize: 80 }} />
-                  <span style={{ fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase' }}>New Arrival</span>
-                </div>
-                {/* Badge */}
-                <div style={{
-                  position: 'absolute', top: 16, left: 16,
-                  background: 'var(--ink)', color: 'var(--cream)',
-                  fontSize: 10.5, letterSpacing: '.1em', textTransform: 'uppercase',
-                  padding: '6px 14px',
-                }}>
-                  Just In
-                </div>
-                {/* Info card */}
-                <div style={{
-                  position: 'absolute', bottom: 0, left: 0, right: 0,
-                  background: 'rgba(247,244,239,.95)', backdropFilter: 'blur(10px)',
-                  padding: '20px 24px',
-                }}>
-                  <div style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 300, marginBottom: 4 }}>
-                    {WITH_DATES[0]?.name}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: 13, color: 'var(--muted)' }}>{WITH_DATES[0]?.brand}</span>
-                    <span style={{ fontFamily: 'var(--font-serif)', fontSize: 20 }}>{fmt(WITH_DATES[0]?.price || 0)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
 
-      {/* ── LOOKBOOK STRIP ── */}
-      <section style={{ padding: '56px 0', background: 'var(--ink)' }}>
-        <div className="container-fluid px-4 px-lg-5">
-          <div style={{ textAlign: 'center', marginBottom: 36 }}>
-            <div style={{ fontSize: 11, letterSpacing: '.2em', textTransform: 'uppercase', color: 'var(--warm)', marginBottom: 10 }}>
-              Phong cách tuần này
-            </div>
-            <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 36, fontWeight: 300, color: 'var(--cream)' }}>
-              Lookbook <em style={{ fontStyle: 'italic', color: 'var(--warm)' }}>2025</em>
-            </h2>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
-            {LOOKBOOK_ITEMS.map((item, i) => (
-              <div
-                key={item.title}
-                onClick={() => setActiveLook(i)}
-                style={{
-                  background: item.color + (activeLook === i ? 'FF' : '88'),
-                  padding: '48px 32px',
-                  cursor: 'pointer', transition: 'all .3s',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12,
-                  border: activeLook === i ? `2px solid var(--warm)` : '2px solid transparent',
-                  color: 'rgba(14,14,14,.3)',
-                }}
-              >
-                <i className={`bi ${item.icon}`} style={{ fontSize: 52 }} />
-                <div style={{ textAlign: 'center', color: activeLook === i ? 'var(--ink)' : 'rgba(14,14,14,.5)' }}>
-                  <div style={{ fontFamily: 'var(--font-serif)', fontSize: 20, fontWeight: 300, marginBottom: 4 }}>{item.title}</div>
-                  <div style={{ fontSize: 11.5, letterSpacing: '.06em' }}>{item.sub}</div>
+              <dl className="new-stats">
+                <div className="new-stat">
+                  <dt className="new-stat-label">Thiết kế mới về</dt>
+                  <dd className="new-stat-value">{NEW_ARRIVALS.length}</dd>
                 </div>
-                {activeLook === i && (
-                  <button className="btn-lyra" style={{ marginTop: 8, fontSize: 11, padding: '8px 18px' }}
-                    onClick={e => { e.stopPropagation(); navigate('shop'); }}>
-                    Xem BST
-                  </button>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── WEEKLY TIMELINE ── */}
-      <section style={{ padding: '64px 0', borderBottom: '1px solid var(--border)' }}>
-        <div className="container-fluid px-4 px-lg-5">
-          <div style={{ marginBottom: 44 }}>
-            <h2 className="section-title">Theo <em>thời gian</em></h2>
-            <p style={{ fontSize: 13, color: 'var(--muted)', marginTop: 8 }}>Sản phẩm mới được cập nhật mỗi tuần</p>
-          </div>
-
-          {WEEKS.filter(w => w.products.length > 0).map((week, wi) => (
-            <div key={week.id} style={{ marginBottom: 52 }}>
-              {/* Week header */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 28 }}>
-                <div style={{
-                  background: wi === 0 ? 'var(--ink)' : 'var(--cream-dark)',
-                  color: wi === 0 ? 'var(--cream)' : 'var(--muted)',
-                  padding: '6px 18px', fontSize: 11.5, letterSpacing: '.1em', textTransform: 'uppercase',
-                  border: `1px solid ${wi === 0 ? 'var(--ink)' : 'var(--border)'}`,
-                }}>
-                  {week.label}
-                  {wi === 0 && <span style={{ marginLeft: 8, background: 'var(--warm)', padding: '1px 7px', fontSize: 9, borderRadius: 10 }}>● LIVE</span>}
+                <div className="new-stat">
+                  <dt className="new-stat-label">Danh mục</dt>
+                  <dd className="new-stat-value">{NEW_CATS.length}</dd>
                 </div>
-                <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>{week.products.length} sản phẩm</span>
-              </div>
+                <div className="new-stat">
+                  <dt className="new-stat-label">Lên kệ gần nhất</dt>
+                  <dd className="new-stat-value">{formatDate(FEATURED?.createdAt)}</dd>
+                </div>
+              </dl>
 
-              <div className="products-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
-                {week.products.map((p, i) => <ProductCard key={p.id} product={p} delay={i} />)}
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ── ALL NEW ── */}
-      <section style={{ padding: '56px 0' }}>
-        <div className="container-fluid px-4 px-lg-5">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 32, flexWrap: 'wrap', gap: 16 }}>
-            <h2 className="section-title">Xem <em>tất cả</em></h2>
-            {/* Filter tabs */}
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-              {cats.map(cat => (
-                <button key={cat}
-                  onClick={() => setActiveFilter(cat)}
-                  style={{
-                    padding: '7px 16px', fontSize: 11.5,
-                    border: '1.5px solid',
-                    borderColor: activeFilter === cat ? 'var(--ink)' : 'var(--border)',
-                    background: activeFilter === cat ? 'var(--ink)' : 'transparent',
-                    color: activeFilter === cat ? 'var(--cream)' : 'var(--ink)',
-                    cursor: 'pointer', fontFamily: 'var(--font-sans)', transition: 'all .2s',
+              <div className="new-hero-actions">
+                <a
+                  className="btn-lyra"
+                  href="#hang-moi"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document
+                      .getElementById('hang-moi')
+                      ?.scrollIntoView({ block: 'start', behavior: 'auto' });
                   }}
                 >
-                  {catLabels[cat] || cat}
-                </button>
-              ))}
-            </div>
-          </div>
+                  Xem tất cả hàng mới
+                </a>
+                <a
+                  className="link-underline new-hero-link"
+                  href={buildUrl('shop', {})}
+                  onClick={(e) => go(e, 'shop')}
+                >
+                  Toàn bộ cửa hàng
+                </a>
+              </div>
+            </Reveal>
 
-          <div className="products-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
-            {filtered.map((p, i) => <ProductCard key={p.id} product={p} delay={i % 4} />)}
+            {FEATURED && (
+              <Reveal className="new-hero-feature" delay={1}>
+                <a
+                  className="new-feature-card"
+                  href={featuredHref}
+                  onClick={(e) => go(e, 'detail', { product: FEATURED })}
+                  aria-label={`Xem chi tiết ${FEATURED.name}`}
+                >
+                  <Pic
+                    as="span"
+                    src={FEATURED.images?.[0]}
+                    alt={FEATURED.name}
+                    tint={FEATURED.color}
+                    icon={FEATURED.icon}
+                    ratio="3/4"
+                    eager
+                    sizes="(max-width: 900px) 100vw, 40vw"
+                  />
+                  <span className="new-feature-tag">Vừa lên kệ</span>
+                  <span className="new-feature-info">
+                    <span className="new-feature-name">{FEATURED.name}</span>
+                    <span className="new-feature-meta">
+                      <span className="new-feature-cat">{FEATURED.cat}</span>
+                      <span className="new-feature-price price">{fmt(FEATURED.price)}</span>
+                    </span>
+                  </span>
+                </a>
+              </Reveal>
+            )}
           </div>
         </div>
       </section>
 
-      {/* ── NOTIFY ME ── */}
-      <section style={{ padding: '0 0 64px' }}>
-        <div className="container-fluid px-4 px-lg-5">
-          <div style={{
-            background: 'var(--cream-dark)', border: '1px solid var(--border)',
-            padding: '48px 56px', display: 'grid', gridTemplateColumns: '1fr auto',
-            gap: 32, alignItems: 'center',
-          }}>
-            <div>
-              <div style={{ fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--warm)', marginBottom: 10 }}>
-                Không bỏ lỡ
-              </div>
-              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 30, fontWeight: 300, marginBottom: 8 }}>
-                Nhận thông báo khi có <em style={{ fontStyle: 'italic' }}>hàng mới</em>
-              </h3>
-              <p style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.7 }}>
-                Đăng ký để được thông báo sớm nhất khi có sản phẩm mới về kho. Thành viên được ưu tiên mua trước 24 giờ.
+      {/* ══════════ LOOKBOOK ══════════ */}
+      <section className="new-lookbook grain">
+        <div className="wrap">
+          <div className="new-lookbook-head">
+            <p className="eyebrow on-ink">Phong cách tuần này</p>
+            <h2 className="new-lookbook-title">
+              Lookbook <em>2026</em>
+            </h2>
+            <p className="new-lookbook-sub">
+              Ba hướng phối đồ cho mùa mới — bấm để xem những thiết kế thuộc từng nhóm.
+            </p>
+          </div>
+
+          <div className="new-look-grid">
+            {LOOKBOOK.map((look, i) => {
+              const cat = slugify(look.cat);
+              return (
+                <Reveal key={look.title} delay={i} className="new-look-cell">
+                  <a
+                    className="new-look-card"
+                    href={buildUrl('shop', { cat })}
+                    onClick={(e) => go(e, 'shop', { cat })}
+                    aria-label={`Lookbook ${look.title} — xem danh mục ${look.cat}`}
+                  >
+                    <Pic
+                      as="span"
+                      src={look.image}
+                      alt={look.title}
+                      tint={look.tint}
+                      icon={look.icon}
+                      ratio="4/5"
+                      sizes="(max-width: 900px) 100vw, 33vw"
+                      className="new-look-pic"
+                    />
+                    <span className="new-look-body">
+                      <span className="new-look-title">{look.title}</span>
+                      <span className="new-look-sub">{look.sub}</span>
+                      <span className="new-look-cta">
+                        Xem BST
+                        <i className="bi bi-arrow-right" aria-hidden="true" />
+                      </span>
+                    </span>
+                  </a>
+                </Reveal>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ══════════ DÒNG THỜI GIAN + BỘ LỌC ══════════ */}
+      <section className="new-timeline section" id="hang-moi">
+        <div className="wrap">
+          <div className="new-timeline-head">
+            <div className="new-timeline-heading">
+              <p className="eyebrow">Theo thứ tự về kho</p>
+              <h2 className="section-title">
+                Theo <em>thời gian</em>
+              </h2>
+              <p className="new-timeline-sub">
+                {filtered.length} thiết kế đang hiển thị
+                {activeCat === 'all' ? '' : ` trong ${activeCat.toLowerCase()}`}.
               </p>
             </div>
-            <div style={{ display: 'flex', gap: 0 }}>
-              <input
-                style={{ border: '1.5px solid var(--border)', borderRight: 'none', padding: '13px 18px', fontSize: 13, fontFamily: 'var(--font-sans)', outline: 'none', width: 260 }}
-                placeholder="Email của bạn..."
-              />
-              <button className="btn-lyra" style={{ borderRadius: 0 }}
-                onClick={() => showToast('Đã đăng ký thông báo hàng mới!', 'bi-bell-fill')}>
-                Đăng ký
+
+            <div className="chip-row new-cat-filter" role="group" aria-label="Lọc theo danh mục">
+              <button
+                type="button"
+                className={`chip${activeCat === 'all' ? ' active' : ''}`}
+                aria-pressed={activeCat === 'all'}
+                onClick={() => setActiveCat('all')}
+              >
+                Tất cả
+                <span className="new-chip-count">{NEW_ARRIVALS.length}</span>
               </button>
+              {NEW_CATS.map((cat) => {
+                const count = NEW_ARRIVALS.filter((p) => p.cat === cat).length;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    className={`chip${activeCat === cat ? ' active' : ''}`}
+                    aria-pressed={activeCat === cat}
+                    onClick={() => setActiveCat(cat)}
+                  >
+                    {CAT_SHORT[cat] || cat}
+                    <span className="new-chip-count">{count}</span>
+                  </button>
+                );
+              })}
             </div>
           </div>
+
+          {groups.length === 0 ? (
+            <EmptyState
+              icon="bi-calendar3"
+              title="Chưa có hàng mới trong danh mục này"
+              sub="Hãy xem toàn bộ những thiết kế vừa về kho của LYRA."
+              action={{ label: 'Xem tất cả hàng mới', onClick: () => setActiveCat('all') }}
+            />
+          ) : (
+            groups.map((group, gi) => (
+              <div className="new-week" key={group.id}>
+                <div className="new-week-head">
+                  <span className={`new-week-tag${gi === 0 ? ' is-latest' : ''}`}>
+                    {group.label}
+                  </span>
+                  <span className="new-week-note">{group.note}</span>
+                  <span className="new-week-rule" aria-hidden="true" />
+                  <span className="new-week-count">{group.products.length} sản phẩm</span>
+                </div>
+
+                <div className="products-grid">
+                  {group.products.map((p, i) => (
+                    <ProductCard key={p.id} product={p} index={i} />
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </section>
 
-      <Footer navigate={navigate} />
+      {/* ══════════ NHẬN THÔNG BÁO ══════════ */}
+      <section className="new-notify-section">
+        <div className="wrap">
+          <Reveal className="new-notify">
+            <div className="new-notify-copy">
+              <p className="eyebrow">Không bỏ lỡ</p>
+              <h2 className="new-notify-title">
+                Nhận thông báo khi có <em>hàng mới</em>
+              </h2>
+              <p className="new-notify-sub">
+                Đăng ký để biết trước ngày lên kệ của bộ sưu tập kế tiếp. Thành viên LYRA được ưu
+                tiên đặt mua sớm 24 giờ.
+              </p>
+            </div>
+
+            <form className="new-notify-form" onSubmit={submitNotify} noValidate>
+              <label className="sr-only" htmlFor="new-notify-email">
+                Địa chỉ email nhận thông báo hàng mới
+              </label>
+              <input
+                id="new-notify-email"
+                className="new-notify-input"
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                placeholder="Email của bạn..."
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  if (notifyError) setNotifyError('');
+                  if (notifyDone) setNotifyDone(false);
+                }}
+                aria-invalid={notifyError ? 'true' : undefined}
+                aria-describedby="new-notify-msg"
+              />
+              <button type="submit" className="btn-lyra new-notify-btn">
+                Đăng ký
+              </button>
+
+              <p className="new-notify-msg" id="new-notify-msg" role="status">
+                {notifyError && (
+                  <span className="field-error">
+                    <i className="bi bi-exclamation-circle" aria-hidden="true" /> {notifyError}
+                  </span>
+                )}
+                {!notifyError && notifyDone && (
+                  <span className="new-notify-ok">
+                    <i className="bi bi-check2" aria-hidden="true" /> Đã ghi nhận. Hẹn gặp bạn ở bộ
+                    sưu tập kế tiếp.
+                  </span>
+                )}
+                {!notifyError && !notifyDone && (
+                  <span className="new-notify-hint">
+                    Không spam. Có thể huỷ đăng ký bất kỳ lúc nào.
+                  </span>
+                )}
+              </p>
+            </form>
+          </Reveal>
+        </div>
+      </section>
+
+      <Footer />
     </div>
   );
 }

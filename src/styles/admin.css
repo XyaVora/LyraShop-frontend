@@ -1,0 +1,540 @@
+/* =========================================================
+   LYRA — CSS riêng của trang Quản trị (src/pages/AdminPage.jsx)
+   Nền tảng đã có trong index.css: .admin-layout, .admin-sidebar,
+   .admin-nav-item, .admin-main, .admin-table, .status-pill,
+   .stats-grid, .stat-card, .admin-chart, .admin-gate, .table-scroll.
+   File này CHỈ bổ sung những gì index.css chưa có.
+   Bo góc = 0 ở mọi nơi, chuyển động chậm một chiều.
+   ========================================================= */
+
+/* ── Sidebar ─────────────────────────────────────────────── */
+.admin-sidebar-tag {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: var(--warm);
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+/* Hai mục "lối ra" tách khỏi nhóm quản lý khi sidebar thành tab ngang */
+@media (max-width: 1024px) {
+  a.admin-nav-item.admin-nav-exit {
+    box-shadow: inset 1px 0 0 rgba(255, 255, 255, .14);
+  }
+
+  a.admin-nav-item.admin-nav-exit.active {
+    box-shadow: inset 1px 0 0 rgba(255, 255, 255, .14);
+    border-bottom-color: var(--warm);
+  }
+}
+
+/* ── Thanh tiêu đề khu vực nội dung ──────────────────────── */
+.admin-topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.admin-topbar-text {
+  min-width: 0;
+}
+
+.admin-topbar-text .eyebrow {
+  margin-bottom: 10px;
+}
+
+.admin-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid var(--border);
+  padding: 10px 16px;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.admin-user-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.admin-user-meta strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.admin-user-meta span {
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-avatar {
+  flex: none;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  background: var(--warm-pale);
+  color: var(--warm-text);
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 1;
+}
+
+.admin-avatar.sm {
+  width: 30px;
+  height: 30px;
+  font-size: 14px;
+}
+
+/* ── Panel chặn quyền ────────────────────────────────────── */
+.admin-gate-title {
+  margin: 4px 0 0;
+  max-width: 16ch;
+}
+
+.admin-gate-title em {
+  font-style: italic;
+  color: var(--warm-deep);
+}
+
+.admin-gate-text {
+  max-width: 52ch;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--ink-2);
+  margin: 0;
+}
+
+.admin-gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  width: 100%;
+  max-width: 520px;
+}
+
+@media (max-width: 400px) {
+  .admin-gate-actions>* {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ── Thẻ số liệu ─────────────────────────────────────────── */
+.stat-card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.stat-card-head i {
+  font-size: 18px;
+  color: var(--warm);
+  flex: none;
+}
+
+.stat-note {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* ── Đầu thẻ nội dung ────────────────────────────────────── */
+.admin-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.admin-card-head .admin-table-title {
+  margin-bottom: 0;
+}
+
+.admin-card-note {
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.admin-card-link {
+  font-size: 11.5px;
+  letter-spacing: .06em;
+  color: var(--warm-text);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid transparent;
+  transition: border-color var(--dur-1) var(--ease-out);
+}
+
+.admin-card-link:hover,
+.admin-card-link:focus-visible {
+  color: var(--warm-hover);
+  border-bottom-color: currentColor;
+}
+
+/* ── Bố cục hai cột ──────────────────────────────────────── */
+.admin-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+}
+
+@media (min-width: 1200px) {
+  .admin-split {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+/* ── Biểu đồ 12 tháng ────────────────────────────────────── */
+.admin-chart-col {
+  justify-content: flex-end;
+  gap: 5px;
+}
+
+.admin-chart-value {
+  font-size: 9.5px;
+  color: var(--warm-text);
+  white-space: nowrap;
+  min-height: 12px;
+}
+
+.admin-chart-bar {
+  background: var(--warm-light);
+  border-top: 2px solid var(--warm);
+}
+
+.admin-chart-col:hover .admin-chart-bar,
+.admin-chart-col:focus-within .admin-chart-bar {
+  background: var(--warm);
+}
+
+@media (max-width: 640px) {
+  .admin-chart {
+    height: 190px;
+  }
+
+  .admin-chart-value {
+    display: none;
+  }
+
+  .admin-chart-label {
+    font-size: 8.5px;
+    letter-spacing: 0;
+  }
+}
+
+/* ── Danh sách sản phẩm bán chạy ─────────────────────────── */
+.admin-top-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.admin-top-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  min-width: 0;
+}
+
+.admin-top-item:last-child {
+  border-bottom: none;
+}
+
+.admin-top-rank {
+  flex: none;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  color: var(--warm-text);
+  width: 22px;
+}
+
+.admin-top-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.admin-top-name,
+.admin-product-name {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-top-sub {
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Ảnh nhỏ trong bảng ──────────────────────────────────── */
+.admin-thumb {
+  flex: none;
+  width: 34px;
+}
+
+/* ── Hàng hành động phía trên bảng ───────────────────────── */
+.admin-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+
+/* ── Thanh công cụ lọc ───────────────────────────────────── */
+.admin-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.admin-search {
+  position: relative;
+  flex: 1 1 220px;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.admin-search i {
+  position: absolute;
+  left: 12px;
+  font-size: 13px;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.admin-search input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  background: var(--paper);
+  padding: 9px 14px 9px 34px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color var(--dur-1) var(--ease-out);
+}
+
+.admin-search input:focus {
+  border-color: var(--warm);
+}
+
+.admin-select {
+  border: 1px solid var(--border);
+  background: var(--paper);
+  padding: 9px 14px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  color: var(--ink);
+  outline: none;
+  max-width: 100%;
+  cursor: pointer;
+  transition: border-color var(--dur-1) var(--ease-out);
+}
+
+.admin-select:focus {
+  border-color: var(--warm);
+}
+
+.admin-toolbar .admin-select {
+  flex: 1 1 170px;
+  min-width: 0;
+}
+
+.admin-status-select {
+  padding: 6px 10px;
+  font-size: 11.5px;
+  min-width: 118px;
+}
+
+.admin-status-select.delivered {
+  color: var(--success);
+}
+
+.admin-status-select.cancelled {
+  color: var(--danger);
+}
+
+.admin-status-select.shipping {
+  color: var(--warm-text);
+}
+
+.admin-chip-row {
+  margin-bottom: 18px;
+}
+
+/* ── Ô nội dung trong bảng ───────────────────────────────── */
+.admin-product-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  max-width: 320px;
+}
+
+.admin-product-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.admin-mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px;
+  letter-spacing: .02em;
+}
+
+.admin-coupon-code {
+  font-weight: 600;
+  letter-spacing: .06em;
+  color: var(--ink);
+}
+
+.admin-dim {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.admin-amount {
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+/* ── Nút nhỏ trong bảng (dùng cho cả <a> và <button>) ────── */
+.admin-row-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.admin-mini-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 1px solid var(--border-dark);
+  padding: 5px 12px;
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  color: var(--ink);
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out),
+    border-color var(--dur-1) var(--ease-out);
+}
+
+.admin-mini-btn:hover,
+.admin-mini-btn:focus-visible {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--cream);
+}
+
+/* ── Cài đặt ─────────────────────────────────────────────── */
+.admin-settings {
+  display: block;
+}
+
+.admin-field {
+  margin-bottom: 16px;
+}
+
+.admin-field label {
+  display: block;
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.admin-input {
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  background: var(--paper);
+  padding: 10px 14px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: var(--ink);
+  outline: none;
+  transition: border-color var(--dur-1) var(--ease-out);
+}
+
+.admin-input:focus {
+  border-color: var(--warm);
+}
+
+.admin-input.has-error {
+  border-color: var(--danger);
+}
+
+.admin-field-hint {
+  font-size: 11px;
+  color: var(--warm-text);
+  margin: 6px 0 0;
+}
+
+.admin-settings-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+@media (max-width: 400px) {
+  .admin-settings-foot>* {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .admin-action-row .btn-lyra {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ── Empty state trong thẻ trắng ─────────────────────────── */
+.admin-table-card .empty-state {
+  padding: 32px 12px;
+}

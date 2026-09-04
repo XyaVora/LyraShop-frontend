@@ -1,0 +1,536 @@
+/* src/styles/brands.css — CSS riêng của trang "Thương hiệu".
+   Chỉ dùng token/class đã có trong index.css; mọi lưới đều responsive,
+   không có cột cố định để trang không tràn ngang ở 375px. */
+
+/* ══════════════════════════════════════════════
+   HERO
+   ══════════════════════════════════════════════ */
+.brands-hero {
+  background: var(--ink);
+  color: var(--cream);
+  padding: clamp(56px, 9vw, 112px) 0 clamp(48px, 7vw, 88px);
+}
+
+.brands-hero-inner {
+  max-width: 900px;
+}
+
+.brands-hero .eyebrow {
+  margin-bottom: 18px;
+}
+
+.brands-hero-title {
+  color: var(--cream);
+  margin: 0 0 20px;
+}
+
+.brands-hero-title em {
+  color: var(--warm);
+}
+
+.brands-hero-lead {
+  font-size: 14.5px;
+  line-height: 1.8;
+  color: rgba(247, 244, 239, .62);
+  max-width: 56ch;
+  margin: 0;
+}
+
+.brands-hero-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 22px 28px;
+  margin: clamp(32px, 5vw, 56px) 0 0;
+  padding-top: clamp(24px, 4vw, 36px);
+  border-top: 1px solid rgba(247, 244, 239, .16);
+}
+
+.brands-hero-stat dt {
+  font-size: 10.5px;
+  font-weight: 400;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: rgba(247, 244, 239, .5);
+  margin-bottom: 8px;
+}
+
+.brands-hero-stat dd {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: clamp(26px, 3vw, 40px);
+  font-weight: 300;
+  line-height: 1;
+  color: var(--warm);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* ══════════════════════════════════════════════
+   CHỌN THƯƠNG HIỆU
+   ══════════════════════════════════════════════ */
+.brands-picker-section {
+  padding: clamp(26px, 4vw, 44px) 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.brand-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.brand-pick {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  width: 100%;
+  min-width: 0;
+  padding: clamp(18px, 2.4vw, 28px);
+  background: var(--paper);
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--dur-2) var(--ease-out), border-color var(--dur-2) var(--ease-out),
+    color var(--dur-2) var(--ease-out);
+}
+
+.brand-pick:hover {
+  border-color: var(--ink);
+}
+
+.brand-pick[aria-pressed="true"] {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--cream);
+}
+
+.brand-pick-swatch {
+  display: block;
+  width: 32px;
+  height: 3px;
+  flex: none;
+  margin-bottom: 5px;
+}
+
+.brand-pick[aria-pressed="true"] .brand-pick-swatch {
+  box-shadow: 0 0 0 1px rgba(247, 244, 239, .5);
+}
+
+.brand-pick-name {
+  font-family: var(--font-serif);
+  font-size: clamp(18px, 2vw, 22px);
+  font-weight: 300;
+  line-height: 1.15;
+  letter-spacing: .05em;
+  overflow-wrap: anywhere;
+}
+
+.brand-pick-meta {
+  font-size: 11px;
+  letter-spacing: .08em;
+  color: var(--muted);
+}
+
+.brand-pick[aria-pressed="true"] .brand-pick-meta {
+  color: rgba(247, 244, 239, .6);
+}
+
+.brand-pick-count {
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--warm-text);
+}
+
+.brand-pick[aria-pressed="true"] .brand-pick-count {
+  color: var(--warm);
+}
+
+/* ══════════════════════════════════════════════
+   CHI TIẾT THƯƠNG HIỆU
+   ══════════════════════════════════════════════ */
+.brands-detail-section {
+  border-bottom: 1px solid var(--border);
+}
+
+.brand-detail {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(28px, 4vw, 64px);
+}
+
+@media (min-width: 900px) {
+  .brand-detail {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    align-items: start;
+  }
+}
+
+.brand-visual-col,
+.brand-info-col {
+  min-width: 0;
+}
+
+.brand-visual {
+  position: relative;
+}
+
+.brand-visual-tag {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  padding: 9px 16px;
+  background: var(--ink);
+  color: var(--cream);
+  font-size: 10.5px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+}
+
+.brand-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(126px, 1fr));
+  gap: 1px;
+  margin: 0;
+  background: var(--border);
+  border: 1px solid var(--border);
+  border-top: 0;
+}
+
+.brand-stat {
+  display: flex;
+  flex-direction: column-reverse;
+  padding: 16px 14px;
+  background: var(--paper);
+  text-align: center;
+}
+
+.brand-stat-label {
+  font-size: 10.5px;
+  letter-spacing: .07em;
+  color: var(--muted);
+  margin: 0;
+}
+
+.brand-stat-val {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 1.2;
+  color: var(--ink);
+  margin: 0 0 4px;
+  font-variant-numeric: lining-nums tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.brand-info-col .eyebrow {
+  margin-bottom: 16px;
+}
+
+.brand-title {
+  font-family: var(--font-serif);
+  font-size: clamp(36px, 4.2vw, 60px);
+  font-weight: 300;
+  line-height: 1.04;
+  letter-spacing: .01em;
+  margin: 0 0 12px;
+  overflow-wrap: anywhere;
+}
+
+.brand-tagline {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-style: italic;
+  color: var(--warm-text);
+  margin: 0 0 22px;
+}
+
+.brand-desc {
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--ink-2);
+  max-width: 58ch;
+  margin: 0 0 24px;
+}
+
+.brand-tags {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 28px;
+  padding: 0;
+}
+
+.brand-tag {
+  font-size: 11.5px;
+  letter-spacing: .06em;
+  color: var(--ink-2);
+  border: 1px solid var(--border);
+  padding: 6px 14px;
+}
+
+.brand-story {
+  border-top: 1px solid var(--border);
+  padding-top: 22px;
+  margin-bottom: 26px;
+}
+
+.brand-story-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: none;
+  border: 0;
+  padding: 4px 0;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  letter-spacing: .07em;
+  color: var(--ink);
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-out);
+}
+
+.brand-story-toggle:hover {
+  color: var(--warm-text);
+}
+
+.brand-story-text {
+  font-size: 13.5px;
+  line-height: 1.85;
+  color: var(--ink-2);
+  max-width: 60ch;
+  margin: 16px 0 0;
+}
+
+.brand-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+@media (max-width: 420px) {
+  .brand-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .brand-actions>* {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ══════════════════════════════════════════════
+   SẢN PHẨM / TRẠNG THÁI SẮP CÓ
+   ══════════════════════════════════════════════ */
+.brands-products-section {
+  border-bottom: 1px solid var(--border);
+}
+
+.brand-soon {
+  background: var(--cream-dark);
+}
+
+/* ══════════════════════════════════════════════
+   DANH SÁCH TẤT CẢ THƯƠNG HIỆU
+   ══════════════════════════════════════════════ */
+.brands-list-section {
+  border-bottom: 1px solid var(--border);
+}
+
+.brand-list {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+}
+
+.brand-list-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  min-width: 0;
+  padding: 16px 18px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--dur-2) var(--ease-out), background var(--dur-2) var(--ease-out);
+}
+
+.brand-list-item:hover {
+  border-color: var(--ink);
+}
+
+.brand-list-item[aria-pressed="true"] {
+  border-color: var(--ink);
+  background: var(--cream-dark);
+}
+
+.brand-list-thumb {
+  display: block;
+  width: 56px;
+  flex: none;
+}
+
+.brand-list-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.brand-list-name {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-family: var(--font-serif);
+  font-size: 18px;
+  font-weight: 300;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.brand-list-flag {
+  font-size: 9.5px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  background: var(--warm-pale);
+  color: var(--warm-text);
+}
+
+.brand-list-tagline {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+
+.brand-list-meta {
+  font-size: 11.5px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.brand-list-arrow {
+  flex: none;
+  font-size: 14px;
+  color: var(--muted);
+  transition: transform var(--dur-2) var(--ease-out);
+}
+
+.brand-list-item:hover .brand-list-arrow {
+  transform: translateX(4px);
+}
+
+/* ══════════════════════════════════════════════
+   CAM KẾT
+   ══════════════════════════════════════════════ */
+.brands-promise-section .promise-row {
+  gap: 28px;
+}
+
+/* ══════════════════════════════════════════════
+   HỢP TÁC
+   ══════════════════════════════════════════════ */
+.brands-partner-section {
+  padding: 0 0 clamp(56px, 8vw, 104px);
+}
+
+.partner-panel {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(24px, 4vw, 44px);
+  align-items: center;
+  padding: clamp(28px, 5vw, 64px);
+  background: var(--ink);
+  color: var(--cream);
+}
+
+@media (min-width: 900px) {
+  .partner-panel {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  }
+}
+
+.partner-copy {
+  min-width: 0;
+}
+
+.partner-title {
+  font-family: var(--font-serif);
+  font-size: clamp(28px, 3.4vw, 46px);
+  font-weight: 300;
+  line-height: 1.12;
+  margin: 14px 0 14px;
+  color: var(--cream);
+}
+
+.partner-title em {
+  font-style: italic;
+  color: var(--warm);
+}
+
+.partner-lead {
+  font-size: 13.5px;
+  line-height: 1.8;
+  color: rgba(247, 244, 239, .6);
+  max-width: 54ch;
+  margin: 0;
+}
+
+.partner-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  min-width: 0;
+}
+
+.partner-contact {
+  font-size: 12px;
+  color: rgba(247, 244, 239, .5);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.partner-contact span {
+  color: var(--warm);
+}
+
+@media (max-width: 420px) {
+  .partner-actions {
+    align-self: stretch;
+  }
+
+  .partner-actions .btn-warm {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* ══════════════════════════════════════════════
+   FORM TRONG MODAL
+   ══════════════════════════════════════════════ */
+.brand-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.brand-form-lead {
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--ink-2);
+  margin: 0;
+}

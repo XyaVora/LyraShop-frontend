@@ -1,133 +1,138 @@
+# LYRA — Frontend thương mại điện tử thời trang
 
-# MAISON — Fashion E-Commerce Frontend
-
-Nền tảng mua sắm thời trang cao cấp xây dựng bằng React 18 + Bootstrap 5.
+Nền tảng mua sắm thời trang cao cấp, xây dựng bằng **React 18 + Vite 5**, CSS thuần trên nền hệ thống thiết kế riêng. Toàn bộ giao diện bằng tiếng Việt.
 
 ---
 
 ## Khởi động nhanh
 
 ```bash
-# 1. Cài dependencies
-npm install
-
-# 2. Chạy dev server
-npm run dev
-
-# 3. Build production
-npm run build
-```
-
-Mở trình duyệt tại: http://localhost:3000
-
----
-
-## Cấu trúc thư mục
-
-```
-maison-shop/
-├── public/
-│   └── favicon.svg
-├── src/
-│   ├── components/
-│   │   ├── Navbar.jsx         # Navigation bar (responsive, mobile drawer)
-│   │   └── index.jsx          # Shared components:
-│   │                          #   ProductCard, Stars, Marquee,
-│   │                          #   Newsletter, Footer, ToastContainer
-│   ├── context/
-│   │   ├── AppContext.jsx     # App state: page nav, auth, selected product
-│   │   └── CartContext.jsx    # Cart state: add/remove/qty, wishlist, coupon, toast
-│   ├── data/
-│   │   └── products.js        # Mock data: 16 products, categories, coupons, orders
-│   ├── pages/
-│   │   ├── HomePage.jsx       # Trang chủ: Hero, Categories, Featured, Newsletter
-│   │   ├── ShopPage.jsx       # Trang shop: Filter sidebar, product grid, pagination
-│   │   ├── ProductDetailPage.jsx  # Chi tiết SP: Gallery, options, reviews, related
-│   │   ├── CartPage.jsx       # Giỏ hàng + Checkout + Order success
-│   │   ├── AuthPage.jsx       # Đăng nhập / Đăng ký
-│   │   ├── ProfilePage.jsx    # Hồ sơ: Đơn hàng, Wishlist, Địa chỉ, Cài đặt
-│   │   ├── AdminPage.jsx      # Admin: Dashboard, Products, Orders, Customers, Coupons
-│   │   └── NotFoundPage.jsx   # 404 + Loading Screen
-│   ├── App.jsx                # Root component, page routing
-│   ├── main.jsx               # Entry point
-│   └── index.css              # Global styles (CSS variables, all component styles)
-├── index.html
-├── vite.config.js
-└── package.json
+npm install     # cài dependencies
+npm run dev     # chạy dev server tại http://localhost:3000
+npm run build   # build production vào dist/
+npm run preview # xem thử bản build
 ```
 
 ---
 
-## Design System
+## Kiến trúc
 
-| Token | Giá trị |
+### Định tuyến
+
+Dự án **không dùng thư viện router**. `src/router.js` chứa toàn bộ ánh xạ URL ↔ trang dưới dạng hàm thuần (`parseLocation`, `buildUrl`, `pageTitle`, `slugify`, `deburr`); `AppContext` dùng `history.pushState` / `popstate` để đồng bộ. Nhờ vậy mọi trang đều có URL thật, chia sẻ được, tải lại được, và nút Back của trình duyệt hoạt động đúng.
+
+| Trang | URL |
 |---|---|
-| `--cream` | `#F7F4EF` — Background chính |
-| `--ink` | `#0E0E0E` — Text & button |
-| `--warm` | `#C8A97E` — Accent vàng camel |
-| `--muted` | `#8A8680` — Text phụ |
-| `--border` | `#E2DDD8` — Viền |
-| Font Serif | Cormorant Garamond |
-| Font Sans | DM Sans |
+| Trang chủ | `/` |
+| Cửa hàng | `/shop?cat=&sort=&color=&min=&max=&rating=&sale=1&stock=1&view=list&page=2` |
+| Khuyến mãi | `/sale` |
+| Hàng mới về | `/new` |
+| Thương hiệu | `/brands?brand=` |
+| Tìm kiếm | `/search?q=` |
+| Chi tiết sản phẩm | `/product/<slug>` |
+| Giỏ hàng | `/cart` |
+| Thanh toán | `/checkout` |
+| Đăng nhập / Đăng ký | `/auth?mode=register&next=/profile` |
+| Yêu thích | `/wishlist` |
+| Tài khoản | `/profile?tab=` |
+| Chi tiết đơn hàng | `/orders/<mã đơn>` |
+| Quản trị | `/admin?tab=` |
+| Không tìm thấy | mọi đường dẫn khác |
 
----
+### Cấu trúc thư mục
 
-## Các trang
-
-| Trang | Mô tả |
-|---|---|
-| **Home** | Hero, marquee, categories grid, featured products, sale banner, new arrivals, perks, newsletter, footer |
-| **Shop** | Filter sidebar (danh mục, giá, màu, rating), sort, grid/list view, pagination |
-| **Product Detail** | Gallery 4 thumbnail, chọn màu/size/qty, tabs (mô tả/thông số/đánh giá), related products |
-| **Cart** | Danh sách sản phẩm, cập nhật số lượng, coupon, order summary |
-| **Checkout** | 4-bước: địa chỉ giao hàng, phương thức thanh toán, xác nhận đơn |
-| **Auth** | Login/Register, social auth (UI), forgot password |
-| **Profile** | Đơn hàng, wishlist, địa chỉ, thông tin cá nhân, đổi mật khẩu |
-| **Admin** | Dashboard + charts, quản lý sản phẩm, đơn hàng, khách hàng, coupon, settings |
-| **404** | Not found page + Loading screen |
-
----
-
-## Kết nối Backend (Python Flask/Django)
-
-Thay mock data trong `src/data/products.js` bằng API calls thực:
-
-```js
-// Ví dụ dùng axios để fetch products
-import axios from 'axios';
-
-const API_BASE = 'http://localhost:5000/api';
-
-export const fetchProducts = () => axios.get(`${API_BASE}/products`);
-export const fetchProduct  = (id) => axios.get(`${API_BASE}/products/${id}`);
-export const createOrder   = (data) => axios.post(`${API_BASE}/orders`, data);
-export const loginUser     = (data) => axios.post(`${API_BASE}/auth/login`, data);
+```
+src/
+├── router.js               # ánh xạ URL ↔ trang (hàm thuần, không phụ thuộc React)
+├── App.jsx                 # bảng route, mount Navbar / CartDrawer / Toast
+├── main.jsx                # điểm vào
+├── index.css               # hệ thống thiết kế toàn cục (token, lưới, component chung)
+├── context/
+│   ├── AppContext.jsx      # điều hướng + URL + xác thực (có chế độ demo offline)
+│   └── CartContext.jsx     # giỏ hàng, yêu thích, coupon, đơn hàng, toast, đã xem gần đây
+├── hooks/
+│   └── useReveal.js        # hiệu ứng nội dung vào màn (một IntersectionObserver dùng chung)
+├── data/
+│   ├── products.js         # 16 sản phẩm, danh mục, coupon, đơn mẫu, đánh giá
+│   └── brand.js            # thông tin thương hiệu dùng chung (mùa, hotline, cam kết)
+├── services/
+│   └── api.js              # axios client + tokenStore + isOffline()
+├── components/
+│   ├── index.jsx           # Pic, ProductCard, Stars, SectionHeader, EmptyState,
+│   │                       # Marquee, Newsletter, Footer, ToastContainer, Reveal
+│   ├── Navbar.jsx          # điều hướng, tìm kiếm Ctrl+K, drawer mobile
+│   ├── CartDrawer.jsx      # giỏ hàng dạng ngăn kéo trượt
+│   ├── SearchModal.jsx     # tìm kiếm nhanh (bỏ dấu, điều hướng bằng phím)
+│   └── Modal.jsx           # modal dùng chung (ESC, khoá cuộn, quản lý focus)
+├── pages/                  # 14 trang
+└── styles/                 # CSS riêng cho từng trang/component
 ```
 
-Tạo `src/services/api.js` và thay thế từng hàm trong context.
+---
+
+## Hệ thống thiết kế
+
+| Token | Giá trị | Dùng cho |
+|---|---|---|
+| `--cream` | `#F7F4EF` | nền chính |
+| `--ink` | `#0E0E0E` | chữ & nút chính |
+| `--ink-2` | `#3A3632` | chữ nội dung |
+| `--warm` | `#C8A97E` | mảng màu, viền, badge |
+| `--warm-text` | `#8B6840` | **chữ camel cỡ nhỏ** (đủ tương phản 4.6:1) |
+| `--warm-deep` | `#A67F50` | chữ nghiêng trong tiêu đề lớn |
+| `--muted` | `#6E6A64` | chữ phụ |
+| `--border` | `#E2DDD8` | đường kẻ |
+| `--gutter` / `--section` | `clamp(...)` | lề ngang / khoảng cách dọc |
+
+Chữ: **Cormorant Garamond** (tiêu đề, giá) + **DM Sans** (giao diện). Bo góc luôn bằng 0. Chuyển động chậm, một chiều, dùng `--ease-out`; toàn bộ animation tự tắt khi hệ điều hành bật "giảm chuyển động".
+
+Ảnh sản phẩm dùng Unsplash qua helper `img(id, w)`; mọi ảnh render qua `<Pic>` — có khung tỉ lệ cố định (không nhảy layout), ảnh thứ hai hiện khi rê chuột, và tự rơi về ô màu nếu ảnh lỗi.
 
 ---
 
-## Mã coupon demo
+## Tài khoản & dữ liệu demo
 
-| Mã | Ưu đãi |
-|---|---|
-| `MAISON10` | Giảm 10% |
-| `MAISON20` | Giảm 20% |
-| `FREESHIP` | Miễn phí vận chuyển |
-| `SAVE100K` | Giảm 100.000đ |
+Backend chưa có thật. Khi gọi API thất bại vì không kết nối được, ứng dụng **tự chuyển sang chế độ demo**:
+
+| Tài khoản | Mật khẩu | Quyền |
+|---|---|---|
+| `admin@lyra.vn` | `lyra2026` | quản trị (vào được `/admin`) |
+| bất kỳ email hợp lệ nào | từ 6 ký tự | khách hàng |
+
+Mã giảm giá:
+
+| Mã | Ưu đãi | Điều kiện |
+|---|---|---|
+| `LYRA10` | giảm 10% | không |
+| `LYRA20` | giảm 20% | đơn từ 1.000.000đ |
+| `FREESHIP` | miễn phí vận chuyển | không |
+| `SAVE100K` | giảm 100.000đ | đơn từ 800.000đ |
+
+Miễn phí vận chuyển cho đơn từ **500.000đ**, ngược lại phí **30.000đ**.
+
+Dữ liệu lưu trong `localStorage` với tiền tố `lyra_`: `lyra_cart`, `lyra_wishlist`, `lyra_coupon`, `lyra_orders`, `lyra_recent`, `lyra_user`, `lyra_addresses`, `lyra_settings`, `lyra_search_history`, `lyra_followed_brands`.
+
+---
+
+## Kết nối backend thật
+
+`src/services/api.js` đã sẵn sàng: đọc `VITE_API_URL` (mặc định `http://localhost:8080/api`), tự gắn `Authorization: Bearer <token>`, timeout 4 giây, và xoá token khi gặp 401.
+
+```bash
+cp .env.example .env      # rồi sửa VITE_API_URL trỏ tới backend của bạn
+```
+
+Các nhóm endpoint đã khai báo sẵn: `authApi` (register/login/me), `productApi`, `cartApi`, `wishlistApi`, `couponApi`, `orderApi`. Khi backend hoạt động, lỗi có `response` sẽ được ném ra cho trang xử lý; chỉ khi **không kết nối được** ứng dụng mới rơi về chế độ demo.
 
 ---
 
 ## Dependencies
 
-```
-react@18          — UI framework
-react-dom@18      — DOM rendering
-react-router-dom  — (cài sẵn, có thể dùng thay routing hiện tại)
-bootstrap@5.3     — CSS grid & utilities
-bootstrap-icons   — Icon set
-axios             — HTTP client cho API calls
-vite              — Dev server & build tool
-```
+| Gói | Vai trò |
+|---|---|
+| `react`, `react-dom` | framework giao diện |
+| `bootstrap`, `bootstrap-icons` | tiện ích lưới/utility và bộ icon |
+| `axios` | HTTP client |
+| `vite`, `@vitejs/plugin-react` | dev server & build |
 
+`react-router-dom` có trong dependencies nhưng **không được dùng** — định tuyến do `src/router.js` đảm nhiệm.

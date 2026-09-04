@@ -1,0 +1,926 @@
+/* =============================================================
+   LYRA — Trang chi tiết đơn hàng (/orders/:id)
+   Chỉ chứa class riêng của trang; token & tiện ích dùng chung
+   (.wrap, .eyebrow, .t-h1, .btn-*, .order-timeline, .table-scroll,
+   .empty-state, @media print) nằm ở src/index.css.
+   ============================================================= */
+
+.order-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 60vh;
+}
+
+/* ── 1. Đầu trang ─────────────────────────────────────────── */
+.order-head {
+  background: var(--cream-dark);
+  border-bottom: 1px solid var(--border);
+  padding: clamp(28px, 4vw, 52px) 0 clamp(24px, 3.5vw, 40px);
+}
+
+.order-crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 11.5px;
+  letter-spacing: .04em;
+  color: var(--muted);
+  margin-bottom: 20px;
+}
+
+.order-crumbs a {
+  color: var(--muted);
+  text-decoration: none;
+  transition: color var(--dur-1) var(--ease-out);
+}
+
+.order-crumbs a:hover,
+.order-crumbs a:focus-visible {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.order-crumbs i {
+  font-size: 9px;
+  color: var(--border-dark);
+}
+
+.order-crumbs span[aria-current] {
+  color: var(--ink);
+}
+
+.order-head-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+
+.order-head-main {
+  min-width: 0;
+}
+
+.order-title {
+  font-size: clamp(32px, 4.2vw, 58px);
+  margin: 12px 0 8px;
+  word-break: break-word;
+}
+
+.order-title em {
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.order-head-meta {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* Huy hiệu trạng thái bản lớn (dùng chung .order-status-badge của index.css) */
+.order-status-lg {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 18px;
+  font-size: 11.5px;
+  letter-spacing: .12em;
+  margin-top: 6px;
+}
+
+.order-status-lg i {
+  font-size: 15px;
+}
+
+/* Dải thông tin nhanh */
+.order-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 20px 28px;
+  margin-top: clamp(24px, 3vw, 36px);
+  padding-top: 22px;
+  border-top: 1px solid var(--border-dark);
+}
+
+.order-fact dt {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--warm-text);
+  margin-bottom: 7px;
+}
+
+.order-fact dd {
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+
+.order-fact dd.is-strong {
+  font-family: var(--font-serif);
+  font-size: 26px;
+  line-height: 1.1;
+  color: var(--ink);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.order-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.btn-outline-lyra.is-danger {
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.btn-outline-lyra.is-danger:hover,
+.btn-outline-lyra.is-danger:focus-visible {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.btn-lyra.is-danger {
+  background: var(--danger);
+  border-color: var(--danger);
+  color: #fff;
+}
+
+.btn-lyra.is-danger:hover,
+.btn-lyra.is-danger:focus-visible {
+  background: #8B2F2F;
+  border-color: #8B2F2F;
+  color: #fff;
+}
+
+.order-cancel-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 22px;
+  padding: 13px 18px;
+  background: rgba(160, 58, 58, .07);
+  border-left: 2px solid var(--danger);
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--ink-2);
+}
+
+.order-cancel-note i {
+  color: var(--danger);
+  margin-top: 3px;
+}
+
+/* ── 2. Dải tab ───────────────────────────────────────────── */
+.order-tabs-bar {
+  position: sticky;
+  top: var(--nav-h);
+  z-index: 5;
+  background: var(--cream);
+  border-bottom: 1px solid var(--border);
+}
+
+.order-tabs {
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.order-tabs::-webkit-scrollbar {
+  height: 0;
+}
+
+.order-tab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  padding: 16px 22px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  letter-spacing: .06em;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+}
+
+.order-tab:first-child {
+  padding-left: 0;
+}
+
+.order-tab:hover {
+  color: var(--ink);
+}
+
+.order-tab.is-active {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+.order-tab i {
+  font-size: 14px;
+  color: var(--warm-text);
+}
+
+/* ── 3. Khung nội dung ────────────────────────────────────── */
+.order-body {
+  padding: clamp(30px, 4.5vw, 60px) 0 clamp(52px, 8vw, 96px);
+}
+
+.order-panel:focus-visible {
+  outline: 2px solid var(--warm);
+  outline-offset: 6px;
+}
+
+.order-block-label {
+  margin-bottom: 18px;
+}
+
+.order-muted {
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--muted);
+}
+
+/* Bố cục hai cột — xếp chồng ở ≤1024px */
+.order-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: clamp(24px, 3vw, 48px);
+  align-items: start;
+}
+
+.order-col-main,
+.order-col-side {
+  min-width: 0;
+}
+
+.order-col-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: sticky;
+  top: calc(var(--nav-h) + 76px);
+}
+
+/* ── 4. Danh sách sản phẩm đã đặt ─────────────────────────── */
+.order-lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: var(--paper);
+}
+
+.order-line {
+  display: grid;
+  grid-template-columns: 84px minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: start;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.order-line:last-child {
+  border-bottom: none;
+}
+
+.order-line-thumb {
+  display: block;
+  width: 84px;
+  overflow: hidden;
+  background: var(--sand);
+}
+
+.order-line-thumb .pic img {
+  transition: transform var(--dur-3) var(--ease-out);
+}
+
+.order-line-thumb:hover .pic img {
+  transform: scale(1.04);
+}
+
+.order-line-info {
+  min-width: 0;
+}
+
+.order-line-name {
+  display: inline-block;
+  font-size: 14.5px;
+  line-height: 1.4;
+  color: var(--ink);
+  text-decoration: none;
+  transition: color var(--dur-1) var(--ease-out);
+}
+
+a.order-line-name:hover,
+a.order-line-name:focus-visible {
+  color: var(--warm-text);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.order-line-meta {
+  margin-top: 5px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.order-line-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 9px;
+  text-align: right;
+}
+
+.order-line-total {
+  font-family: var(--font-serif);
+  font-size: 19px;
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+.order-review-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 13px;
+  background: none;
+  border: 1px solid var(--border-dark);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: var(--transition);
+}
+
+.order-review-btn:hover:not(:disabled) {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.order-review-btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.order-review-btn i {
+  color: var(--warm-text);
+}
+
+.order-note-card {
+  margin-top: 20px;
+  padding: 15px 20px;
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--warm);
+}
+
+.order-note-card p {
+  margin-top: 10px;
+  font-size: 13.5px;
+  line-height: 1.75;
+  color: var(--ink-2);
+}
+
+/* ── 5. Thẻ tóm tắt / địa chỉ / thanh toán ────────────────── */
+.order-card-box {
+  border: 1px solid var(--border);
+  background: var(--paper);
+  padding: 20px 22px;
+}
+
+.order-card-box .eyebrow {
+  margin-bottom: 16px;
+}
+
+.order-sum-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.order-sum-row> :last-child {
+  color: var(--ink);
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+.order-sum-row .is-warm {
+  color: var(--warm-text);
+}
+
+.order-sum-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 14px;
+  padding-top: 16px;
+  font-size: 13.5px;
+  color: var(--ink);
+}
+
+.order-sum-total strong {
+  font-family: var(--font-serif);
+  font-size: 25px;
+  font-weight: 400;
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+.order-address {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-style: normal;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.order-address-name {
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.order-pay {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+
+.order-pay i {
+  font-size: 17px;
+  color: var(--warm-text);
+}
+
+.order-pay-state {
+  margin-top: 10px;
+  font-size: 10.5px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.order-pay-state.is-paid {
+  color: var(--success);
+}
+
+/* ── 6. Theo dõi vận chuyển ───────────────────────────────── */
+.order-track {
+  max-width: 760px;
+  margin-inline: auto;
+}
+
+.order-progress {
+  position: relative;
+  height: 32px;
+  margin: 6px 0 clamp(28px, 4vw, 46px);
+}
+
+.order-progress-track,
+.order-progress-fill {
+  position: absolute;
+  top: 15px;
+  left: 16px;
+  height: 1px;
+}
+
+.order-progress-track {
+  right: 16px;
+  background: var(--border-dark);
+}
+
+.order-progress-fill {
+  width: calc((100% - 32px) * var(--p, 0));
+  background: var(--warm-text);
+  transition: width var(--dur-3) var(--ease-out);
+}
+
+.order-progress-dots {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 32px;
+}
+
+.order-progress-dot {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border-dark);
+  background: var(--cream);
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.order-progress-dot.is-done {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--cream);
+}
+
+/* .order-timeline / .timeline-* đã có ở index.css — chỉ bổ sung */
+.order-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.timeline-note {
+  margin-top: 3px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--ink-2);
+}
+
+.timeline-step:not(.done) .timeline-note {
+  color: var(--muted-light);
+}
+
+.timeline-now {
+  display: inline-block;
+  margin-left: 9px;
+  padding: 2px 8px;
+  background: var(--ink);
+  color: var(--cream);
+  font-size: 9.5px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  vertical-align: 2px;
+}
+
+.order-ship-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 20px 26px;
+  margin-top: clamp(20px, 3vw, 34px);
+  padding: 20px 24px;
+  background: var(--paper);
+  border: 1px solid var(--border);
+}
+
+.order-ship-facts dd {
+  font-variant-numeric: lining-nums tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.order-track-help {
+  margin-top: 18px;
+}
+
+/* ── 7. Hoá đơn ───────────────────────────────────────────── */
+.order-invoice-wrap {
+  max-width: 820px;
+  margin-inline: auto;
+}
+
+.invoice {
+  border: 1px solid var(--border);
+  background: var(--paper);
+  padding: clamp(20px, 4vw, 44px);
+}
+
+.invoice-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 20px;
+  padding-bottom: 24px;
+  margin-bottom: 26px;
+  border-bottom: 1px solid var(--border);
+}
+
+.invoice-brand {
+  font-family: var(--font-serif);
+  font-size: 30px;
+  font-weight: 300;
+  letter-spacing: .18em;
+  line-height: 1;
+}
+
+.invoice-brand-sub {
+  margin-top: 10px;
+  font-size: 12px;
+  line-height: 1.75;
+  color: var(--muted);
+}
+
+.invoice-meta {
+  min-width: 0;
+}
+
+@media (min-width: 561px) {
+  .invoice-meta {
+    text-align: right;
+  }
+}
+
+.invoice-id {
+  margin: 8px 0 4px;
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.invoice-parties {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.invoice-parties .eyebrow {
+  margin-bottom: 12px;
+}
+
+.invoice-pay .is-paid {
+  color: var(--success);
+}
+
+.invoice-pay .is-unpaid {
+  color: var(--warning);
+}
+
+.invoice-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.invoice-table th {
+  padding: 0 12px 9px 0;
+  text-align: left;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--warm-text);
+  border-bottom: 1px solid var(--border-dark);
+  white-space: nowrap;
+}
+
+.invoice-table td {
+  padding: 12px 12px 12px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink-2);
+  vertical-align: top;
+}
+
+.invoice-table th:last-child,
+.invoice-table td:last-child {
+  padding-right: 0;
+}
+
+.invoice-table .ta-r {
+  text-align: right;
+  font-variant-numeric: lining-nums tabular-nums;
+  white-space: nowrap;
+}
+
+.invoice-totals {
+  max-width: 320px;
+  margin: 24px 0 0 auto;
+}
+
+.invoice-foot {
+  margin-top: 30px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 11.5px;
+  line-height: 1.85;
+  color: var(--muted);
+}
+
+/* ── 8. Modal đánh giá ────────────────────────────────────── */
+.order-review-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.order-review-product {
+  font-family: var(--font-serif);
+  font-size: 20px;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.order-rating {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.order-rating-star {
+  padding: 3px;
+  background: none;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--border-dark);
+  cursor: pointer;
+  transition: color var(--dur-1) var(--ease-out);
+}
+
+.order-rating-star.is-on {
+  color: var(--warm);
+}
+
+.order-rating-value {
+  margin-left: 10px;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.order-review-label {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--warm-text);
+}
+
+.order-review-text {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--cream);
+  border: 1px solid var(--border-dark);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.7;
+  color: var(--ink);
+  resize: vertical;
+}
+
+.order-review-text:focus-visible {
+  outline: 2px solid var(--warm);
+  outline-offset: 2px;
+}
+
+.order-review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.order-review-actions>* {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ── 9. Responsive ────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .order-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .order-col-side {
+    position: static;
+    top: auto;
+  }
+}
+
+@media (max-width: 768px) {
+  .order-status-lg {
+    margin-top: 0;
+  }
+
+  .order-fact dd.is-strong {
+    font-size: 22px;
+  }
+
+  .order-tab {
+    padding: 14px 16px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 560px) {
+  .order-line {
+    grid-template-columns: 68px minmax(0, 1fr);
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .order-line-thumb {
+    width: 68px;
+  }
+
+  .order-line-side {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    text-align: left;
+    padding-top: 4px;
+    border-top: 1px solid var(--border);
+  }
+
+  .order-actions .btn-lyra,
+  .order-actions .btn-outline-lyra {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+
+  .order-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 18px;
+  }
+
+  .order-progress-dot {
+    width: 28px;
+    height: 28px;
+    font-size: 11px;
+  }
+
+  .order-progress-track,
+  .order-progress-fill {
+    top: 13px;
+    left: 14px;
+  }
+
+  .order-progress-track {
+    right: 14px;
+  }
+
+  .order-progress-fill {
+    width: calc((100% - 28px) * var(--p, 0));
+  }
+
+  .invoice-head {
+    flex-direction: column;
+  }
+
+  .invoice-totals {
+    max-width: none;
+  }
+}
+
+/* ── 10. In hoá đơn (bổ sung cho @media print của index.css) ── */
+@media print {
+
+  .order-head,
+  .order-tabs-bar,
+  .order-actions,
+  .order-page .no-print {
+    display: none !important;
+  }
+
+  .order-body {
+    padding: 0 !important;
+  }
+
+  .order-invoice-wrap,
+  .order-panel {
+    max-width: none !important;
+  }
+
+  .invoice {
+    border: none !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .invoice-table {
+    min-width: 0 !important;
+  }
+
+  .table-scroll {
+    overflow: visible !important;
+  }
+}
