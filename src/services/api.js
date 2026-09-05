@@ -206,12 +206,12 @@ export const adminApi = {
   // Product management
   createProduct: (payload) => api.post('/admin/products', payload),
   updateProduct: (id, payload) => api.put(`/admin/products/${id}`, payload),
-  deactivateProduct: (id) => api.patch(`/admin/products/${id}/deactivate`),
+  deactivateProduct: (id) => api.post(`/admin/products/${id}/deactivate`),
 
   // Variant management
   createVariant: (productId, payload) => api.post(`/admin/products/${productId}/variants`, payload),
   updateVariant: (productId, variantId, payload) => api.put(`/admin/products/${productId}/variants/${variantId}`, payload),
-  deactivateVariant: (productId, variantId) => api.patch(`/admin/products/${productId}/variants/${variantId}/deactivate`),
+  deactivateVariant: (productId, variantId) => api.post(`/admin/products/${productId}/variants/${variantId}/deactivate`),
 };
 
 /* ── Utility ─────────────────────────────────── */
