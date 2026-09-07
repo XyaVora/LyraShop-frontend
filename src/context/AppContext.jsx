@@ -9,7 +9,6 @@ export function AppProvider({ children }) {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [selectedOrder, setSelectedOrder]     = useState(null);
   const [searchQuery, setSearchQuery]         = useState('');
-  const [adminTab, setAdminTab]               = useState('dashboard');
   const [profileTab, setProfileTab]           = useState('orders');
   const [checkoutStep, setCheckoutStep]       = useState('cart');
 
@@ -35,7 +34,6 @@ export function AppProvider({ children }) {
     if (extra.product)    setSelectedProduct(extra.product);
     if (extra.order)      setSelectedOrder(extra.order);
     if (extra.query !== undefined) setSearchQuery(extra.query);
-    if (extra.adminTab)   setAdminTab(extra.adminTab);
     if (extra.profileTab) setProfileTab(extra.profileTab);
     if (page === 'cart')  setCheckoutStep('cart');
   }, []);
@@ -120,7 +118,6 @@ export function AppProvider({ children }) {
       searchQuery, setSearchQuery,
       isLoggedIn, user, authLoading, authError,
       login, register, logout,
-      adminTab, setAdminTab,
       profileTab, setProfileTab,
       checkoutStep, setCheckoutStep,
     }}>

@@ -36,7 +36,6 @@ Dự án **không dùng thư viện router**. `src/router.js` chứa toàn bộ 
 | Yêu thích | `/wishlist` |
 | Tài khoản | `/profile?tab=` |
 | Chi tiết đơn hàng | `/orders/<mã đơn>` |
-| Quản trị | `/admin?tab=` |
 | Không tìm thấy | mọi đường dẫn khác |
 
 ### Cấu trúc thư mục
@@ -64,7 +63,7 @@ src/
 │   ├── CartDrawer.jsx      # giỏ hàng dạng ngăn kéo trượt
 │   ├── SearchModal.jsx     # tìm kiếm nhanh (bỏ dấu, điều hướng bằng phím)
 │   └── Modal.jsx           # modal dùng chung (ESC, khoá cuộn, quản lý focus)
-├── pages/                  # 14 trang
+├── pages/                  # 13 trang
 └── styles/                 # CSS riêng cho từng trang/component
 ```
 
@@ -96,8 +95,9 @@ Backend chưa có thật. Khi gọi API thất bại vì không kết nối đư
 
 | Tài khoản | Mật khẩu | Quyền |
 |---|---|---|
-| `admin@lyra.vn` | `lyra2026` | quản trị (vào được `/admin`) |
 | bất kỳ email hợp lệ nào | từ 6 ký tự | khách hàng |
+
+Quản trị nằm ở repo **LyraShop-admin**, không còn route `/admin` trên storefront.
 
 Mã giảm giá:
 
