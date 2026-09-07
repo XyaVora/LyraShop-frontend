@@ -16,7 +16,6 @@ import ProductDetailPage  from './pages/ProductDetailPage';
 import CartPage           from './pages/CartPage';
 import AuthPage           from './pages/AuthPage';
 import ProfilePage        from './pages/ProfilePage';
-import AdminPage          from './pages/AdminPage';
 import NotFoundPage       from './pages/NotFoundPage';
 import SearchPage         from './pages/SearchPage';
 import WishlistPage       from './pages/WishlistPage';
@@ -42,10 +41,7 @@ export default function App() {
 
   if (loading) return <LoadingScreen />;
 
-  // Pages that don't show the navbar
-  const noNavbar = ['admin'];
-  // Pages that don't show top padding
-  const noPageWrapper = ['admin', 'auth'];
+  const noPageWrapper = ['auth'];
 
   const renderPage = () => {
     switch (currentPage) {
@@ -61,17 +57,15 @@ export default function App() {
       case 'wishlist':     return <WishlistPage />;
       case 'order-detail': return <OrderDetailPage />;
       case 'profile':      return isLoggedIn ? <ProfilePage /> : <AuthPage />;
-      case 'admin':        return <AdminPage />;
       default:             return <NotFoundPage />;
     }
   };
 
-  const showNav = !noNavbar.includes(currentPage);
   const showWrapper = !noPageWrapper.includes(currentPage);
 
   return (
     <>
-      {showNav && <Navbar />}
+      <Navbar />
       {showWrapper
         ? <div className="page-wrapper">{renderPage()}</div>
         : renderPage()

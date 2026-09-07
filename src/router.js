@@ -4,7 +4,7 @@
 /** Trang hợp lệ của ứng dụng. */
 export const PAGES = [
   'home', 'shop', 'sale', 'new', 'brands', 'search', 'detail',
-  'cart', 'checkout', 'auth', 'wishlist', 'profile', 'order-detail', 'admin', '404',
+  'cart', 'checkout', 'auth', 'wishlist', 'profile', 'order-detail', '404',
 ];
 
 /** Bỏ dấu tiếng Việt + tạo slug an toàn cho URL. */
@@ -79,8 +79,6 @@ export function parseLocation(loc = {}) {
       return { page: 'profile', params };
     case 'orders':
       return segs[1] ? { page: 'order-detail', params: { ...params, order: segs[1] } } : { page: 'profile', params };
-    case 'admin':
-      return { page: 'admin', params };
     default:
       return { page: '404', params };
   }
@@ -135,7 +133,6 @@ const TITLES = {
   wishlist: 'Yêu thích',
   profile: 'Tài khoản',
   'order-detail': 'Chi tiết đơn hàng',
-  admin: 'Quản trị',
   '404': 'Không tìm thấy trang',
 };
 

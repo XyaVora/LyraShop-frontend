@@ -198,22 +198,6 @@ export const categoryApi = {
   get: (id) => api.get(`/categories/${id}`),
 };
 
-/* ── Admin API ───────────────────────────────── */
-export const adminApi = {
-  // Category management
-  createCategory: (payload) => api.post('/admin/categories', payload),
-
-  // Product management
-  createProduct: (payload) => api.post('/admin/products', payload),
-  updateProduct: (id, payload) => api.put(`/admin/products/${id}`, payload),
-  deactivateProduct: (id) => api.post(`/admin/products/${id}/deactivate`),
-
-  // Variant management
-  createVariant: (productId, payload) => api.post(`/admin/products/${productId}/variants`, payload),
-  updateVariant: (productId, variantId, payload) => api.put(`/admin/products/${productId}/variants/${variantId}`, payload),
-  deactivateVariant: (productId, variantId) => api.post(`/admin/products/${productId}/variants/${variantId}/deactivate`),
-};
-
 /* ── Utility ─────────────────────────────────── */
 /**
  * Trích xuất message lỗi từ ApiErrorResponse của backend
