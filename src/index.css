@@ -2810,16 +2810,15 @@ body.lock-scroll {
   height: 32px;
   border-radius: 50%;
   border: 1px solid var(--border-dark);
-  outline: 2px solid transparent;
-  outline-offset: 3px;
+  box-shadow: 0 0 0 3px transparent;
   cursor: pointer;
   padding: 0;
-  transition: outline-color var(--dur-1) var(--ease-out);
+  transition: box-shadow var(--dur-1) var(--ease-out);
 }
 
-.color-option-btn[aria-pressed="true"],
+.color-option-btn[aria-checked="true"],
 .color-option-btn.active {
-  outline-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--cream), 0 0 0 5px var(--ink);
 }
 
 .size-grid {
