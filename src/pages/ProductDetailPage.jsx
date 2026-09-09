@@ -11,7 +11,6 @@ import { useCatalog } from '../context/CatalogContext';
 import {
   REVIEWS_MOCK,
   fmt,
-  relatedProducts,
   slugify,
 } from '../data/products';
 import { BRAND } from '../data/brand';
@@ -250,7 +249,7 @@ export default function ProductDetailPage() {
 
   const { wearWith, related: relatedFromCatalog } = useCatalog();
   const related = useMemo(
-    () => (product ? relatedFromCatalog(product, 4) : relatedProducts(product, 4)),
+    () => (product ? relatedFromCatalog(product, 4) : []),
     [product, relatedFromCatalog],
   );
   const withLooks = useMemo(

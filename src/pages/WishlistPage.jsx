@@ -5,7 +5,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { PRODUCTS, fmt, relatedProducts } from '../data/products';
+import { fmt } from '../data/products';
+import { useCatalog } from '../context/CatalogContext';
 import { buildUrl } from '../router.js';
 import {
   EmptyState,
@@ -30,6 +31,7 @@ const SORTS = [
 export default function WishlistPage() {
   const { navigate } = useApp();
   const { wishlist, toggleWishlist, addToCart, openCart, showToast } = useCart();
+  const { products, related } = useCatalog();
 
   const [sortBy, setSortBy] = useState('added');
   const [catFilter, setCatFilter] = useState('all');
@@ -169,10 +171,10 @@ export default function WishlistPage() {
     const saved = new Set(wishlist.map((p) => p.id));
     const seed = wishlist.length ? wishlist[wishlist.length - 1] : null;
     const pool = seed
-      ? relatedProducts(seed, 12)
-      : [...PRODUCTS].sort((a, b) => b.sold - a.sold);
+      ? related(seed, 12)
+      : [...products].sort((a, b) => (b.sold || 0) - (a.sold || 0));
     return pool.filter((p) => !saved.has(p.id)).slice(0, 4);
-  }, [wishlist]);
+  }, [wishlist, products, related]);
 
   const isEmpty = wishlist.length === 0;
 

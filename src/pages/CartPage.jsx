@@ -9,10 +9,7 @@ import { useCart } from '../context/CartContext';
 import {
   COUPONS,
   FREE_SHIPPING_THRESHOLD,
-  PRODUCTS,
-  findProduct,
   fmt,
-  relatedProducts,
 } from '../data/products';
 import {
   EmptyState,
@@ -524,6 +521,7 @@ function CartEmptySuggest() {
 
 function CartView() {
   const { navigate } = useApp();
+  const { find, related, products } = useCatalog();
   const ctx = useCart();
   const {
     cart, cartCount, subtotal, shipping, discount, total, freeShipRemaining,
@@ -551,7 +549,7 @@ function CartView() {
   };
 
   const undoRemove = (row) => {
-    const product = findProduct(row.item.productId) || (row.item.variantId
+    const product = find(row.item.productId) || (row.item.variantId
       ? {
         ...row.item,
         id: row.item.productId || row.item.variantId,
@@ -571,12 +569,12 @@ function CartView() {
   // Gợi ý: cùng danh mục với món đầu giỏ, bỏ những món đã có trong giỏ.
   const suggestions = useMemo(() => {
     const inCart = new Set(cart.map((i) => String(i.productId)));
-    const seed = cart.length ? findProduct(cart[0].productId) : null;
+    const seed = cart.length ? find(cart[0].productId) : null;
     const pool = seed
-      ? relatedProducts(seed, 12)
-      : [...PRODUCTS].sort((a, b) => b.sold - a.sold);
+      ? related(seed, 12)
+      : [...products].sort((a, b) => (b.sold || 0) - (a.sold || 0));
     return pool.filter((p) => !inCart.has(String(p.id))).slice(0, 4);
-  }, [cart]);
+  }, [cart, find, related, products]);
 
   const goDetail = (e, item) => {
     if (isModifiedClick(e)) return;
@@ -602,7 +600,7 @@ function CartView() {
       action: {
         label: 'Hoàn tác',
         onClick: () => {
-          const product = findProduct(item.productId) || (item.variantId
+          const product = find(item.productId) || (item.variantId
             ? { ...item, id: item.productId || item.variantId, variants: [{ id: item.variantId, size: item.size, color: item.variantColor }] }
             : null);
           if (product) addToCart(product, item.qty, item.size, item.variantColor, { openDrawer: false });

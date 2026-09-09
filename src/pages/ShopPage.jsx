@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { fmt } from '../data/products';
 import { useCatalog } from '../context/CatalogContext';
 import {
+  CatalogEmpty,
   EmptyState,
   Footer,
   ProductCard,
@@ -292,7 +293,7 @@ function Filters({ id, state, actions }) {
 
 export default function ShopPage() {
   const { params, navigate } = useApp();
-  const { products: catalog, categories, colorFacets } = useCatalog();
+  const { products: catalog, categories, colorFacets, ready, empty: catalogEmpty } = useCatalog();
   const saleCount = catalog.filter((p) => p.discount > 0).length;
   const stockCount = catalog.filter((p) => p.stock > 0).length;
   const maxDiscount = catalog.reduce((m, p) => Math.max(m, p.discount || 0), 0);
@@ -574,7 +575,11 @@ export default function ShopPage() {
             </div>
           )}
 
-          {paged.length === 0 ? (
+          {!ready && catalog.length === 0 ? (
+            <p className="shop-filter-note">Đang tải bộ sưu tập…</p>
+          ) : catalogEmpty ? (
+            <CatalogEmpty />
+          ) : paged.length === 0 ? (
             <EmptyState
               icon="bi-search"
               title="Không có thiết kế nào khớp bộ lọc"

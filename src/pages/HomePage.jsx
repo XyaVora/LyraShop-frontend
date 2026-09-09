@@ -11,6 +11,7 @@ import { REVIEWS_MOCK, findProduct, img, fmt } from '../data/products';
 import { BRAND } from '../data/brand';
 import { buildUrl } from '../router.js';
 import {
+  CatalogEmpty,
   Pic,
   ProductCard,
   Stars,
@@ -81,7 +82,7 @@ function toDMY(iso) {
 export default function HomePage() {
   const { navigate } = useApp();
   const { recentlyViewed = [] } = useCart();
-  const { products, categories } = useCatalog();
+  const { products, categories, empty: catalogEmpty } = useCatalog();
 
   const featured = useMemo(
     () => [...products].sort((a, b) => (b.sold || 0) - (a.sold || 0)).slice(0, 8),
@@ -196,6 +197,8 @@ export default function HomePage() {
             link={{ label: 'Tất cả sản phẩm', page: 'shop' }}
           />
 
+          {catalogEmpty && <CatalogEmpty />}
+
           <div className="cat-grid">
             {categories.map((cat, i) => (
               <a
@@ -261,6 +264,7 @@ export default function HomePage() {
       )}
 
       {/* ── 4. NỔI BẬT TUẦN NÀY ────────────────────────────────── */}
+      {featured.length > 0 && (
       <section className="section home-featured">
         <div className="wrap">
           <SectionHeader
@@ -282,6 +286,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── 5. CÂU CHUYỆN LYRA ─────────────────────────────────── */}
       <section className="section home-story">
@@ -350,6 +355,7 @@ export default function HomePage() {
       </section>
 
       {/* ── 6. SALE CUỐI MÙA — copy + 4 mẫu giảm sâu ───────────── */}
+      {salePicks.length > 0 && (
       <section className="section home-sale-edit">
         <div className="wrap">
           <div className="sale-edit" data-reveal>
@@ -398,8 +404,10 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── 7. MỚI VỀ KHO ──────────────────────────────────────── */}
+      {newest.length > 0 && (
       <section className="section home-new">
         <div className="wrap">
           <SectionHeader
@@ -421,6 +429,7 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── 8. ĐÃ XEM GẦN ĐÂY (chỉ khi có) ─────────────────────── */}
       {recent.length > 0 && (

@@ -56,26 +56,18 @@ export async function loadProductDetail(id) {
 
 export async function loadShopCatalog() {
   const [listRes, catRes] = await Promise.all([
-    productApi.list({ page: 0, size: 48, sort: 'createdAt,desc' }),
+    productApi.list({ page: 0, size: 100, sort: 'createdAt,desc' }),
     categoryApi.list().catch(() => ({ data: [] })),
   ]);
   const content = Array.isArray(listRes.data?.content) ? listRes.data.content : [];
   const categories = Array.isArray(catRes.data) ? catRes.data : [];
   const categoryName = (id) => categories.find((c) => String(c.id) === String(id))?.name || 'LYRA';
 
-  const details = await Promise.all(content.map(async (item) => {
-    try {
-      const { data } = await productApi.get(item.id);
-      return rememberProduct(mapProductDetail(data, { categoryName: categoryName(data.categoryId) }));
-    } catch {
-      return rememberProduct(mapProductDetail({
-        ...item,
-        variants: [],
-        images: [],
-      }, { categoryName: categoryName(item.categoryId) }));
-    }
-  }));
-  return details.filter(Boolean);
+  return content
+    .map((item) => rememberProduct(mapProductDetail(item, {
+      categoryName: categoryName(item.categoryId),
+    })))
+    .filter(Boolean);
 }
 
 /** Ghép ảnh/mô tả lookbook khi API chưa trả media đầy đủ. */
@@ -127,6 +119,7 @@ export function categoriesFrom(products) {
     const name = p.cat || 'LYRA';
     counts.set(name, (counts.get(name) || 0) + 1);
   });
+  if (!counts.size) return [];
   const base = CATEGORIES.map((c) => ({
     ...c,
     count: counts.get(c.name) || 0,
@@ -145,7 +138,7 @@ export function categoriesFrom(products) {
       });
     }
   });
-  return base.filter((c) => c.count > 0 || !counts.size);
+  return base.filter((c) => c.count > 0);
 }
 
 export function relatedFrom(list, product, n = 4) {
