@@ -234,9 +234,9 @@ export default function SalePage() {
 
 
   return (
-    <div className="sale-page">
+    <div className="sale-page sale-snap">
       {/* ═══════════ HERO ═══════════ */}
-      <section className="sale-hero" aria-labelledby="sale-hero-title">
+      <section className="sale-hero sale-screen" aria-labelledby="sale-hero-title">
         <Pic
           className="sale-hero-media"
           src={HERO_IMAGE}
@@ -303,11 +303,24 @@ export default function SalePage() {
             </a>
           </div>
         </div>
+
+        <div className="sale-strip grain sale-hero-strip">
+          <div className="wrap">
+            <ul className="sale-strip-list">
+              {STRIP_ITEMS.map((s) => (
+                <li key={s.text}>
+                  <i className={`bi ${s.icon}`} aria-hidden="true" />
+                  {s.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
       </section>
 
       {/* ═══════════ GIẢM SÂU NHẤT ═══════════ */}
       {FLASH_PRODUCTS.length > 0 && (
-        <section className="section sale-flash" aria-labelledby="sale-flash-title">
+        <section className="section sale-flash sale-screen" aria-labelledby="sale-flash-title">
           <div className="wrap">
             <div className="section-header">
               <div className="section-header-text">
@@ -338,22 +351,8 @@ export default function SalePage() {
         </section>
       )}
 
-      {/* ═══════════ DẢI CAM KẾT ═══════════ */}
-      <div className="sale-strip grain">
-        <div className="wrap">
-          <ul className="sale-strip-list">
-            {STRIP_ITEMS.map((s) => (
-              <li key={s.text}>
-                <i className={`bi ${s.icon}`} aria-hidden="true" />
-                {s.text}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
-
       {/* ═══════════ TẤT CẢ ƯU ĐÃI ═══════════ */}
-      <section className="section sale-all" id="tat-ca-uu-dai" aria-labelledby="sale-all-title">
+      <section className="section sale-all sale-screen" id="tat-ca-uu-dai" aria-labelledby="sale-all-title">
         <div className="wrap">
           <div className="section-header">
             <div className="section-header-text">
@@ -421,7 +420,7 @@ export default function SalePage() {
       </section>
 
       {/* ═══════════ MÃ GIẢM THÊM ═══════════ */}
-      <section className="sale-coupons" aria-labelledby="sale-coupon-title">
+      <section className="sale-coupons sale-screen" aria-labelledby="sale-coupon-title">
         <div className="wrap">
           <Reveal className="sale-coupon-panel">
             <div className="sale-coupon-intro">

@@ -21,6 +21,7 @@ import {
   isModifiedClick,
 } from '../components/index.jsx';
 import Modal from '../components/Modal.jsx';
+import ImageLoupe from '../components/ImageLoupe.jsx';
 import { buildUrl } from '../router.js';
 import '../styles/detail.css';
 
@@ -287,25 +288,19 @@ export default function ProductDetailPage() {
       <div className="detail-layout">
         {/* ── Gallery ──────────────────────────────────────────── */}
         <div className="detail-gallery-col">
-          <button
-            type="button"
-            className="gallery-main-view"
-            onClick={() => setLightbox(activeImg)}
-            aria-label={`Phóng to ảnh ${activeImg + 1} của ${product.name}`}
-          >
-            <Pic
-              as="span"
+          <div className="gallery-main-view">
+            <ImageLoupe
               src={images[activeImg]}
               alt={`${product.name} — ảnh ${activeImg + 1}`}
               tint={product.color}
               icon={product.icon}
-              eager
               sizes="(max-width: 1024px) 100vw, 50vw"
+              onFallbackClick={() => setLightbox(activeImg)}
             />
             <span className="gallery-zoom-hint" aria-hidden="true">
-              <i className="bi bi-arrows-fullscreen" /> Phóng to
+              <i className="bi bi-search" /> Di chuột để phóng to
             </span>
-          </button>
+          </div>
 
           {images.length > 1 && (
             <div className="gallery-thumbnails" role="group" aria-label="Chọn ảnh sản phẩm">

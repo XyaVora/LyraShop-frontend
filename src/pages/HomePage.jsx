@@ -100,8 +100,9 @@ export default function HomePage() {
   const recent = recentlyViewed.slice(0, 8);
 
   return (
-    <div className="home-page">
-      {/* ── 1. HERO ────────────────────────────────────────────── */}
+    <div className="home-page home-snap">
+      {/* ── 1. HERO + MARQUEE: vừa một viewport ────────────────── */}
+      <div className="home-screen home-screen-hero">
       <section className="hero home-hero" aria-labelledby="home-hero-title">
         <div className="hero-media">
           <Pic
@@ -150,9 +151,10 @@ export default function HomePage() {
 
       {/* ── 2. MARQUEE ─────────────────────────────────────────── */}
       <Marquee />
+      </div>
 
       {/* ── 3. DANH MỤC ────────────────────────────────────────── */}
-      <section className="section home-cats">
+      <section className="section home-cats home-screen">
         <div className="wrap">
           <SectionHeader
             eyebrow="Tủ đồ LYRA"
@@ -198,7 +200,7 @@ export default function HomePage() {
       </section>
 
       {/* ── 4. NỔI BẬT TUẦN NÀY ────────────────────────────────── */}
-      <section className="section home-featured">
+      <section className="section home-featured home-screen">
         <div className="wrap">
           <SectionHeader
             eyebrow="Được chọn nhiều nhất"
@@ -221,7 +223,7 @@ export default function HomePage() {
       </section>
 
       {/* ── 5. CÂU CHUYỆN LYRA ─────────────────────────────────── */}
-      <section className="section home-story">
+      <section className="section home-story home-screen">
         <div className="wrap">
           <div className="story-grid">
             <Reveal className="story-media">
@@ -271,7 +273,7 @@ export default function HomePage() {
       </section>
 
       {/* ── 6. BANNER SALE ─────────────────────────────────────── */}
-      <section className="home-sale">
+      <section className="home-sale home-screen">
         <div className="wrap">
           <div className="sale-banner" data-reveal>
             <Pic
@@ -306,7 +308,7 @@ export default function HomePage() {
       </section>
 
       {/* ── 7. MỚI VỀ KHO ──────────────────────────────────────── */}
-      <section className="section home-new">
+      <section className="section home-new home-screen">
         <div className="wrap">
           <SectionHeader
             eyebrow="Vừa cập bến"
@@ -330,7 +332,7 @@ export default function HomePage() {
 
       {/* ── 8. ĐÃ XEM GẦN ĐÂY (chỉ khi có) ─────────────────────── */}
       {recent.length > 0 && (
-        <section className="section home-recent">
+        <section className="section home-recent home-screen">
           <div className="wrap">
             <SectionHeader
               eyebrow="Dấu chân của bạn"
@@ -355,7 +357,7 @@ export default function HomePage() {
 
       {/* ── 9. CẢM NHẬN KHÁCH HÀNG ─────────────────────────────── */}
       {TESTIMONIALS.length > 0 && (
-        <section className="section home-quotes">
+        <section className="section home-quotes home-screen">
           <div className="wrap">
             <SectionHeader
               eyebrow="Cảm nhận"
@@ -389,7 +391,7 @@ export default function HomePage() {
       )}
 
       {/* ── 10. #LYRASTYLE ─────────────────────────────────────── */}
-      <section className="section home-style">
+      <section className="section home-style home-screen">
         <div className="wrap">
           <SectionHeader
             eyebrow="Cộng đồng"
@@ -430,6 +432,7 @@ export default function HomePage() {
       </section>
 
       {/* ── 11. CAM KẾT + NEWSLETTER + FOOTER ──────────────────── */}
+      <div className="home-screen home-screen-end">
       <section className="section-sm home-promises">
         <div className="wrap">
           <div className="promise-row">
@@ -448,6 +451,7 @@ export default function HomePage() {
 
       <Newsletter />
       <Footer />
+      </div>
     </div>
   );
 }

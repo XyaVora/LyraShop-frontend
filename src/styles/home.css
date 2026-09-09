@@ -14,6 +14,107 @@
 }
 
 /* ══════════════════════════════════════════════
+   SNAP: mỗi mục vừa một màn hình, cuộn một nhịp = một mục
+   ══════════════════════════════════════════════ */
+html:has(.home-snap) {
+  scroll-snap-type: y mandatory;
+  scroll-padding-top: var(--nav-h);
+}
+
+.home-snap .home-screen {
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  scroll-margin-top: var(--nav-h);
+  min-height: calc(100dvh - var(--nav-h));
+  box-sizing: border-box;
+}
+
+/* Hero + marquee: đúng một viewport, marquee luôn thấy dưới chân. */
+.home-screen-hero {
+  height: calc(100dvh - var(--nav-h));
+  min-height: calc(100dvh - var(--nav-h));
+  max-height: calc(100dvh - var(--nav-h));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.home-screen-hero .home-hero {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto;
+  max-height: none;
+  overflow: hidden;
+}
+
+.home-screen-hero .home-hero .t-display {
+  font-size: clamp(40px, 7.2vh, 92px);
+}
+
+.home-screen-hero .marquee-bar {
+  flex: none;
+}
+
+.home-snap .home-screen:not(.home-screen-hero):not(.home-screen-end) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.home-snap .home-screen.section {
+  padding-block: clamp(28px, 5vh, 64px);
+}
+
+.home-snap .home-sale {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-block: clamp(20px, 4vh, 40px);
+}
+
+.home-snap .home-sale .wrap {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  width: 100%;
+}
+
+.home-snap .home-sale .sale-banner {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+}
+
+.home-screen-end {
+  min-height: calc(100dvh - var(--nav-h));
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+@media (max-width: 1024px) {
+  html:has(.home-snap) {
+    scroll-snap-type: y proximity;
+  }
+
+  .home-screen-hero {
+    height: auto;
+    max-height: none;
+    min-height: calc(100dvh - var(--nav-h));
+  }
+
+  .home-screen-hero .home-hero {
+    overflow: visible;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html:has(.home-snap) {
+    scroll-snap-type: none;
+  }
+}
+
+/* ══════════════════════════════════════════════
    1. HERO
    ══════════════════════════════════════════════ */
 .home-hero {
