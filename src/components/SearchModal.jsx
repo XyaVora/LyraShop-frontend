@@ -1,356 +1,359 @@
-// src/components/SearchModal.jsx
-import { useState, useEffect, useRef, useCallback } from 'react';
+// src/components/SearchModal.jsx — hộp tìm kiếm nhanh (Ctrl + K).
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { productApi, categoryApi } from '../services/api';
-import { normalizeProduct, fmt } from '../data/products';
-import { Stars } from './index.jsx';
+import { PRODUCTS, fmt } from '../data/products';
+import { deburr } from '../router.js';
+import { Pic, Stars, useBodyScrollLock, useDialogA11y } from './index.jsx';
+import '../styles/components.css';
 
+// Gợi ý phải khớp dữ liệu thật (tránh chip bấm vào ra 0 kết quả).
+const SUGGESTIONS = ['Áo lụa', 'Váy midi', 'Blazer', 'Sneaker', 'Túi', 'Quần jean'];
 const MAX_HISTORY = 6;
+const MAX_RESULTS = 8;
+
+// Sắp xếp trên BẢN SAO — không bao giờ mutate mảng PRODUCTS dùng chung.
+const TRENDING = [...PRODUCTS].sort((a, b) => (b.reviews || 0) - (a.reviews || 0)).slice(0, 3);
+
+/** Chuỗi tìm kiếm gộp của một sản phẩm, đã bỏ dấu. */
+function haystack(p) {
+  return deburr(
+    [p.name, p.cat, p.brand, p.desc, ...(Array.isArray(p.tags) ? p.tags : [])].filter(Boolean).join(' ')
+  );
+}
 
 export default function SearchModal({ open, onClose }) {
   const { navigate } = useApp();
   const { addToCart } = useCart();
-  const [query, setQuery]           = useState('');
-  const [results, setResults]       = useState([]);
-  const [loading, setLoading]       = useState(false);
-  const [trending, setTrending]     = useState([]);
-  const [categoryNames, setCategoryNames] = useState([]);
-  const [history, setHistory]       = useState(() => {
-    try { return JSON.parse(localStorage.getItem('lyra_search_history') || '[]'); }
-    catch { return []; }
+
+  const [query, setQuery] = useState('');
+  const [activeIdx, setActiveIdx] = useState(-1);
+  const [history, setHistory] = useState(() => {
+    try {
+      // Dùng CHUNG khoá với trang Tìm kiếm (SearchPage) — trước đây mỗi nơi
+      // lưu một khoá riêng nên cùng một tính năng lại hiện hai danh sách khác nhau.
+      const raw = JSON.parse(localStorage.getItem('lyra_recent_searches') || '[]');
+      return Array.isArray(raw) ? raw : [];
+    } catch {
+      return [];
+    }
   });
-  const [activeIdx, setActiveIdx]   = useState(-1);
+
+  const panelRef = useRef(null);
   const inputRef = useRef(null);
 
-  // Focus input when modal opens & load trending + categories
+  useBodyScrollLock(open);
+  useDialogA11y(open, panelRef, onClose, { initialFocus: inputRef });
+
+  // Reset nội dung mỗi lần mở lại.
   useEffect(() => {
     if (open) {
-      setTimeout(() => inputRef.current?.focus(), 80);
       setQuery('');
-      setResults([]);
       setActiveIdx(-1);
-
-      productApi.list({ size: 4, sort: 'createdAt,desc' })
-        .then(res => {
-          const list = (res.data?.content || []).map((p, idx) => normalizeProduct(p, idx));
-          setTrending(list);
-        })
-        .catch(() => {});
-
-      categoryApi.list()
-        .then(res => {
-          const names = (res.data || []).map(c => c.name);
-          setCategoryNames(names);
-        })
-        .catch(() => {});
     }
   }, [open]);
 
-  // Close on Escape
-  useEffect(() => {
-    const handler = (e) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, [onClose]);
-
-  // Live search debounced
-  useEffect(() => {
-    const q = query.trim();
-    if (!q) {
-      setResults([]);
-      setLoading(false);
-      return;
-    }
-
-    setLoading(true);
-    const timer = setTimeout(() => {
-      productApi.list({ keyword: q, size: 8 })
-        .then(res => {
-          const list = (res.data?.content || []).map((p, idx) => normalizeProduct(p, idx));
-          setResults(list);
-        })
-        .catch(() => setResults([]))
-        .finally(() => setLoading(false));
-    }, 300);
-
-    return () => clearTimeout(timer);
+  // Tìm kiếm bỏ dấu; giữ TỔNG số khớp riêng với danh sách đã cắt.
+  const { results, total } = useMemo(() => {
+    const q = deburr(query.trim());
+    if (!q) return { results: [], total: 0 };
+    const matched = PRODUCTS.filter((p) => haystack(p).includes(q));
+    return { results: matched.slice(0, MAX_RESULTS), total: matched.length };
   }, [query]);
 
-  // Keyboard nav
-  const handleKeyDown = (e) => {
-    if (!results.length) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, results.length - 1)); }
-    if (e.key === 'ArrowUp')   { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, -1)); }
-    if (e.key === 'Enter') {
-      if (activeIdx >= 0) openProduct(results[activeIdx]);
-      else if (query.trim()) goSearchPage(query.trim());
-    }
-  };
+  useEffect(() => {
+    setActiveIdx(-1);
+  }, [query]);
 
   const saveHistory = useCallback((q) => {
-    const trimmed = q.trim();
+    const trimmed = String(q || '').trim();
     if (!trimmed) return;
-    const updated = [trimmed, ...history.filter(h => h !== trimmed)].slice(0, MAX_HISTORY);
-    setHistory(updated);
-    try { localStorage.setItem('lyra_search_history', JSON.stringify(updated)); } catch {}
-  }, [history]);
+    setHistory((prev) => {
+      const updated = [trimmed, ...prev.filter((h) => h !== trimmed)].slice(0, MAX_HISTORY);
+      try {
+        localStorage.setItem('lyra_recent_searches', JSON.stringify(updated));
+      } catch { /* localStorage bị chặn — bỏ qua */ }
+      return updated;
+    });
+  }, []);
 
-  const openProduct = (product) => {
-    saveHistory(query || product.name);
-    onClose();
-    navigate('detail', { product });
-  };
+  const openProduct = useCallback(
+    (product) => {
+      saveHistory(query || product.name);
+      onClose();
+      navigate('detail', { product });
+    },
+    [navigate, onClose, query, saveHistory]
+  );
 
-  const goSearchPage = (q) => {
-    saveHistory(q);
-    onClose();
-    navigate('search', { query: q });
+  const goSearchPage = useCallback(
+    (q) => {
+      saveHistory(q);
+      onClose();
+      navigate('search', { q });   // router dùng tham số ?q=
+    },
+    [navigate, onClose, saveHistory]
+  );
+
+  const handleKeyDown = (e) => {
+    // Enter luôn hoạt động, kể cả khi chưa có kết quả trực tiếp.
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (activeIdx >= 0 && results[activeIdx]) openProduct(results[activeIdx]);
+      else if (query.trim()) goSearchPage(query.trim());
+      return;
+    }
+    if (!results.length) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIdx((i) => Math.min(i + 1, results.length - 1));
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIdx((i) => Math.max(i - 1, -1));
+    }
   };
 
   const clearHistory = () => {
     setHistory([]);
-    try { localStorage.removeItem('lyra_search_history'); } catch {}
+    try {
+      localStorage.removeItem('lyra_recent_searches');
+    } catch { /* bỏ qua */ }
   };
 
-  const removeHistoryItem = (item, e) => {
-    e.stopPropagation();
-    const updated = history.filter(h => h !== item);
-    setHistory(updated);
-    try { localStorage.setItem('lyra_search_history', JSON.stringify(updated)); } catch {}
+  const removeHistoryItem = (item) => {
+    setHistory((prev) => {
+      const updated = prev.filter((h) => h !== item);
+      try {
+        localStorage.setItem('lyra_recent_searches', JSON.stringify(updated));
+      } catch { /* bỏ qua */ }
+      return updated;
+    });
   };
 
-  if (!open) return null;
+  if (!open || typeof document === 'undefined') return null;
 
-  return (
-    <>
-      {/* Backdrop */}
-      <div className="search-backdrop" onClick={onClose} />
+  return createPortal(
+    <div className="search-overlay">
+      <div className="search-scrim" onClick={onClose} aria-hidden="true" />
 
-      {/* Modal */}
-      <div className="search-panel">
-        {/* Search input row */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 0,
-          borderBottom: '1px solid var(--border)',
-          padding: '0 40px',
-          height: 72,
-        }}>
-          <i className="bi bi-search" style={{ fontSize: 20, color: 'var(--muted)', marginRight: 16, flexShrink: 0 }} />
+      <div
+        ref={panelRef}
+        className="search-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Tìm kiếm sản phẩm"
+        tabIndex={-1}
+      >
+        {/* ── Ô nhập ── */}
+        <div className="search-modal-bar">
+          <i className="bi bi-search search-bar-icon" aria-hidden="true" />
           <input
             ref={inputRef}
-            className="search-input"
+            className="search-modal-input"
             value={query}
-            onChange={e => setQuery(e.target.value)}
+            onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Tìm kiếm sản phẩm, danh mục..."
-            style={{
-              flex: 1, border: 'none', outline: 'none',
-              fontSize: 18, fontFamily: 'var(--font-sans)',
-              background: 'transparent', color: 'var(--ink)',
-            }}
+            placeholder="Tìm sản phẩm, danh mục, thương hiệu..."
+            aria-label="Tìm kiếm sản phẩm"
+            role="combobox"
+            aria-expanded={results.length > 0}
+            aria-controls="search-results"
+            aria-activedescendant={activeIdx >= 0 ? `search-result-${activeIdx}` : undefined}
+            autoComplete="off"
           />
           {query && (
-            <button
-              onClick={() => { setQuery(''); inputRef.current?.focus(); }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', padding: 8 }}
-            >
-              <i className="bi bi-x-lg" />
+            <button type="button" className="search-x-btn" onClick={() => setQuery('')} aria-label="Xoá từ khoá">
+              <i className="bi bi-x-lg" aria-hidden="true" />
             </button>
           )}
-          <button
-            onClick={onClose}
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: 'var(--ink)', fontSize: 13, fontFamily: 'var(--font-sans)',
-              letterSpacing: '.08em', textTransform: 'uppercase',
-              marginLeft: 16, padding: '6px 12px',
-              borderLeft: '1px solid var(--border)',
-            }}
-          >
-            Đóng <span style={{ opacity: .4, fontSize: 11 }}>(ESC)</span>
+          <button type="button" className="search-esc-btn" onClick={onClose}>
+            ESC
           </button>
         </div>
 
-        {/* Content area */}
-        <div style={{ padding: '32px 40px 40px', maxWidth: 1100, margin: '0 auto' }}>
+        <div className="search-modal-body">
+          {/* Thông báo số kết quả cho trình đọc màn hình */}
+          <p className="sr-only" role="status" aria-live="polite">
+            {query ? `${total} kết quả cho ${query}` : ''}
+          </p>
 
-          {/* If query has input */}
-          {query ? (
+          {/* ── Kết quả ── */}
+          {query && results.length > 0 && (
             <div>
-              <div style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                marginBottom: 20,
-              }}>
-                <span style={{ fontSize: 12, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--muted)' }}>
-                  {loading ? 'Đang tìm kiếm...' : `Kết quả tìm kiếm (${results.length})`}
-                </span>
-                {results.length > 0 && (
-                  <a
-                    onClick={() => goSearchPage(query)}
-                    style={{ fontSize: 12.5, color: 'var(--warm)', cursor: 'pointer', textDecoration: 'underline' }}
+              <div className="eyebrow">{total} kết quả cho “{query}”</div>
+              <ul className="search-results" id="search-results" role="listbox" aria-label="Kết quả tìm kiếm">
+                {results.map((p, i) => (
+                  <li
+                    key={p.id}
+                    id={`search-result-${i}`}
+                    role="option"
+                    aria-selected={activeIdx === i}
+                    className={`search-result${activeIdx === i ? ' active' : ''}`}
                   >
-                    Xem tất cả kết quả →
-                  </a>
-                )}
-              </div>
-
-              {results.length === 0 && !loading ? (
-                <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)' }}>
-                  <i className="bi bi-search" style={{ fontSize: 36, display: 'block', marginBottom: 12, opacity: .4 }} />
-                  <div style={{ fontSize: 15 }}>Không tìm thấy sản phẩm cho "{query}"</div>
-                </div>
-              ) : (
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
-                  {results.map((p, i) => (
-                    <div
-                      key={p.id}
+                    <button
+                      type="button"
+                      className="search-result-main"
                       onClick={() => openProduct(p)}
-                      style={{
-                        padding: 12, border: '1px solid',
-                        borderColor: activeIdx === i ? 'var(--ink)' : 'var(--border)',
-                        background: activeIdx === i ? '#fff' : 'transparent',
-                        cursor: 'pointer', transition: 'all .15s',
-                        display: 'flex', gap: 12, alignItems: 'center',
-                      }}
                       onMouseEnter={() => setActiveIdx(i)}
                     >
-                      <div style={{
-                        width: 48, height: 56, background: p.color,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0,
-                      }}>
-                        <i className={`bi ${p.icon}`} style={{ fontSize: 20, color: 'rgba(14,14,14,.25)' }} />
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{
-                          fontSize: 13, fontWeight: 500,
-                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                          marginBottom: 3,
-                        }}>
-                          {p.name}
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--muted)', marginBottom: 4 }}>
-                          {p.brand}
-                        </div>
-                        <div style={{ fontFamily: 'var(--font-serif)', fontSize: 14, color: 'var(--ink)' }}>
-                          {fmt(p.price)}
-                        </div>
-                      </div>
-                    </div>
+                      <Pic
+                        src={p.images?.[0]}
+                        alt={p.name}
+                        tint={p.color}
+                        icon={p.icon}
+                        ratio="3/4"
+                        as="span"
+                        className="search-result-pic"
+                      />
+                      <span className="search-result-info">
+                        <span className="search-result-name">
+                          <HighlightText text={p.name} query={query} />
+                        </span>
+                        <span className="search-result-meta">
+                          {p.brand} · {p.cat}
+                        </span>
+                      </span>
+                      <span className="search-result-price">
+                        {fmt(p.price)}
+                        {p.badge && <span className={`product-badge ${String(p.badge).toLowerCase()}`}>{p.badge}</span>}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="search-result-add"
+                      /* Đóng hộp tìm kiếm TRƯỚC khi thêm vào giỏ: addToCart mở
+                         ngăn kéo giỏ hàng, mà ngăn kéo nằm dưới lớp phủ tìm
+                         kiếm — focus sẽ nhảy vào một hộp thoại bị che khuất. */
+                      onClick={() => { onClose(); addToCart(p, 1); }}
+                      aria-label={`Thêm nhanh ${p.name} vào giỏ hàng`}
+                    >
+                      <i className="bi bi-bag-plus" aria-hidden="true" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+
+              <button type="button" className="search-viewall" onClick={() => goSearchPage(query.trim())}>
+                Xem tất cả {total} kết quả cho “{query}”
+                <i className="bi bi-arrow-right" aria-hidden="true" />
+              </button>
+            </div>
+          )}
+
+          {/* ── Không có kết quả ── */}
+          {query && results.length === 0 && (
+            <div className="search-empty">
+              <i className="bi bi-search" aria-hidden="true" />
+              <h3>Không tìm thấy “{query}”</h3>
+              <p>Thử từ khoá khác, hoặc khám phá toàn bộ bộ sưu tập Thu – Đông 2026.</p>
+              <button
+                type="button"
+                className="btn-lyra"
+                onClick={() => {
+                  onClose();
+                  navigate('shop');
+                }}
+              >
+                Xem tất cả sản phẩm
+              </button>
+            </div>
+          )}
+
+          {/* ── Chưa nhập gì: lịch sử + gợi ý + trending ── */}
+          {!query && (
+            <div className="search-idle">
+              <section className="search-col">
+                <div className="search-col-head">
+                  <div className="eyebrow">Tìm kiếm gần đây</div>
+                  {history.length > 0 && (
+                    <button type="button" className="search-textbtn" onClick={clearHistory}>
+                      Xoá tất cả
+                    </button>
+                  )}
+                </div>
+                {history.length === 0 ? (
+                  <p className="search-muted">Chưa có lịch sử tìm kiếm.</p>
+                ) : (
+                  <ul className="search-history">
+                    {history.map((item) => (
+                      <li key={item}>
+                        <button type="button" className="search-history-main" onClick={() => setQuery(item)}>
+                          <i className="bi bi-clock-history" aria-hidden="true" />
+                          <span>{item}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="search-x-btn"
+                          onClick={() => removeHistoryItem(item)}
+                          aria-label={`Xoá “${item}” khỏi lịch sử`}
+                        >
+                          <i className="bi bi-x" aria-hidden="true" />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                <div className="eyebrow search-col-gap">Gợi ý tìm kiếm</div>
+                <div className="search-chips">
+                  {SUGGESTIONS.map((s) => (
+                    <button key={s} type="button" className="search-chip" onClick={() => setQuery(s)}>
+                      {s}
+                    </button>
                   ))}
                 </div>
-              )}
-            </div>
-          ) : (
-            /* Default: Suggestions from backend categories & History */
-            <div className="row g-4">
-              {/* Left: Recent searches */}
-              {history.length > 0 && (
-                <div className="col-md-5">
-                  <div style={{
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                    marginBottom: 14,
-                  }}>
-                    <span style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--muted)' }}>
-                      Tìm kiếm gần đây
-                    </span>
-                    <button
-                      onClick={clearHistory}
-                      style={{ background: 'none', border: 'none', fontSize: 11, color: 'var(--muted)', cursor: 'pointer' }}
-                    >
-                      Xóa tất cả
-                    </button>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                    {history.map(item => (
-                      <div
-                        key={item}
-                        onClick={() => setQuery(item)}
-                        style={{
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          padding: '8px 12px', borderRadius: 4, cursor: 'pointer',
-                          fontSize: 13.5, transition: 'background .15s',
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = 'rgba(14,14,14,.04)'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                      >
-                        <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <i className="bi bi-clock-history" style={{ color: 'var(--muted)', fontSize: 12 }} />
-                          {item}
+              </section>
+
+              <section className="search-col">
+                <div className="eyebrow">Được quan tâm nhất</div>
+                <ul className="search-trending">
+                  {TRENDING.map((p, i) => (
+                    <li key={p.id}>
+                      <button type="button" className="search-trending-row" onClick={() => openProduct(p)}>
+                        <span className="search-trending-rank" aria-hidden="true">
+                          {i + 1}
                         </span>
-                        <i
-                          className="bi bi-x"
-                          onClick={(e) => removeHistoryItem(item, e)}
-                          style={{ color: 'var(--muted)', cursor: 'pointer', fontSize: 16 }}
+                        <Pic
+                          src={p.images?.[0]}
+                          alt={p.name}
+                          tint={p.color}
+                          icon={p.icon}
+                          ratio="3/4"
+                          as="span"
+                          className="search-trending-pic"
                         />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Suggestions from backend categories */}
-              <div className={history.length > 0 ? 'col-md-7' : 'col-12'}>
-                {categoryNames.length > 0 && (
-                  <>
-                    <div style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 14 }}>
-                      Danh mục nổi bật
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {categoryNames.map(name => (
-                        <button
-                          key={name}
-                          onClick={() => setQuery(name)}
-                          style={{
-                            padding: '7px 16px', border: '1px solid var(--border)',
-                            background: 'transparent', cursor: 'pointer',
-                            fontSize: 13, fontFamily: 'var(--font-sans)', color: 'var(--ink)',
-                            transition: 'all .2s',
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--warm)'; e.currentTarget.style.color = 'var(--warm)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink)'; }}
-                        >
-                          {name}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-
-                {/* Trending */}
-                {trending.length > 0 && (
-                  <div style={{ marginTop: 28 }}>
-                    <div style={{ fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 14 }}>
-                      Sản phẩm mới
-                    </div>
-                    {trending.slice(0, 3).map((p, i) => (
-                      <div
-                        key={p.id}
-                        onClick={() => openProduct(p)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 12,
-                          padding: '8px 0', borderBottom: i < 2 ? '1px solid var(--border)' : 'none',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18, color: 'var(--warm)', width: 24 }}>{i + 1}</span>
-                        <div style={{ width: 36, height: 44, background: p.color, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <i className={`bi ${p.icon}`} style={{ fontSize: 14, color: 'rgba(14,14,14,.25)' }} />
-                        </div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 400, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name}</div>
-                        </div>
-                        <span style={{ fontFamily: 'var(--font-serif)', fontSize: 14, flexShrink: 0 }}>{fmt(p.price)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                        <span className="search-trending-info">
+                          <span className="search-trending-name">{p.name}</span>
+                          <Stars rating={p.rating} size={10} />
+                        </span>
+                        <span className="search-trending-price">{fmt(p.price)}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </section>
             </div>
           )}
         </div>
       </div>
-    </>
+    </div>,
+    document.body
+  );
+}
+
+/* ── Tô sáng phần khớp (so khớp bỏ dấu để vẫn đúng vị trí) ── */
+function HighlightText({ text, query }) {
+  const q = deburr(String(query || '').trim());
+  if (!q) return <span>{text}</span>;
+  const idx = deburr(text).indexOf(q);
+  if (idx === -1) return <span>{text}</span>;
+  return (
+    <span>
+      {text.slice(0, idx)}
+      <mark>{text.slice(idx, idx + q.length)}</mark>
+      {text.slice(idx + q.length)}
+    </span>
   );
 }

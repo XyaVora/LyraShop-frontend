@@ -20,6 +20,14 @@ export const tokenStore = {
   clear: ()      => localStorage.removeItem(TOKEN_KEY),
 };
 
+/** Lỗi mạng / timeout — không có HTTP status từ backend. */
+export const isOffline = (error) =>
+  !error?.response && (
+    error?.code === 'ERR_NETWORK'
+    || error?.code === 'ECONNABORTED'
+    || error?.message === 'Network Error'
+  );
+
 export const csrfStore = {
   get: ()        => sessionStorage.getItem(CSRF_KEY),
   set: (token)   => {
