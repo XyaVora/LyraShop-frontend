@@ -6,6 +6,7 @@ import useReveal from './hooks/useReveal';
 
 import Navbar from './components/Navbar';
 import CartDrawer from './components/CartDrawer';
+import BackToTop from './components/BackToTop';
 import { ToastContainer } from './components/index.jsx';
 
 import HomePage from './pages/HomePage';
@@ -106,6 +107,7 @@ export default function App() {
 
       {/* Mount một lần cho toàn app */}
       <CartDrawer />
+      <BackToTop />
       <ToastContainer />
     </>
   );

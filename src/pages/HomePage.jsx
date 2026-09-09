@@ -5,7 +5,7 @@
 
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { PRODUCTS, CATEGORIES, REVIEWS_MOCK, findProduct, img } from '../data/products';
+import { PRODUCTS, CATEGORIES, REVIEWS_MOCK, findProduct, img, fmt } from '../data/products';
 import { BRAND } from '../data/brand';
 import { buildUrl } from '../router.js';
 import {
@@ -34,13 +34,30 @@ const SALE_IMG = img('1509319117193-57bab727e09d', 1600); // giá treo quần á
 const MAX_OFF = Math.max(...PRODUCTS.map((p) => p.discount || 0)); // hiện tại: 32
 const SALE_COUNT = PRODUCTS.filter((p) => (p.discount || 0) > 0).length; // hiện tại: 8
 
-/** 4 sản phẩm bán chạy nhất (mảng mới — không mutate PRODUCTS). */
-const FEATURED = [...PRODUCTS].sort((a, b) => b.sold - a.sold).slice(0, 4);
+/** 8 sản phẩm bán chạy nhất (mảng mới — không mutate PRODUCTS). */
+const FEATURED = [...PRODUCTS].sort((a, b) => b.sold - a.sold).slice(0, 8);
 
-/** 4 sản phẩm về kho gần nhất — createdAt dạng 'YYYY-MM-DD' nên so sánh chuỗi là đủ. */
+/** 8 sản phẩm về kho gần nhất — createdAt dạng 'YYYY-MM-DD' nên so sánh chuỗi là đủ. */
 const NEWEST = [...PRODUCTS]
   .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+  .slice(0, 8);
+
+/** 4 mẫu giảm sâu nhất — dùng cho dải sale trên trang chủ. */
+const SALE_PICKS = [...PRODUCTS]
+  .filter((p) => (p.discount || 0) > 0 && p.oldPrice > p.price)
+  .sort((a, b) => b.discount - a.discount)
   .slice(0, 4);
+
+const SALE_SAVING = SALE_PICKS.reduce(
+  (sum, p) => sum + Math.max(0, (p.oldPrice || 0) - p.price),
+  0,
+);
+
+const MATERIALS = [
+  { icon: 'bi-droplet', title: 'Lụa Bảo Lộc', text: 'Tơ tằm dệt satin, đổ sáng chậm, may tại xưởng Hà Nội.' },
+  { icon: 'bi-tree', title: 'Da thảo mộc', text: 'Thuộc tannin thực vật, không chrome, già đẹp theo năm tháng.' },
+  { icon: 'bi-snow', title: 'Len merino', text: 'Sợi mịn giữ ấm, không ngứa — nền tảng của Thu – Đông 2026.' },
+];
 
 /** 6 ảnh cho mosaic #LYRAstyle — chọn tay để đa dạng danh mục và sắc độ. */
 const MOSAIC = [1, 13, 5, 3, 14, 6].map((id) => findProduct(id)).filter(Boolean);
@@ -101,7 +118,8 @@ export default function HomePage() {
 
   return (
     <div className="home-page">
-      {/* ── 1. HERO ────────────────────────────────────────────── */}
+      {/* ── 1. HERO + MARQUEE: vừa một viewport ────────────────── */}
+      <div className="home-screen home-screen-hero">
       <section className="hero home-hero" aria-labelledby="home-hero-title">
         <div className="hero-media">
           <Pic
@@ -150,6 +168,7 @@ export default function HomePage() {
 
       {/* ── 2. MARQUEE ─────────────────────────────────────────── */}
       <Marquee />
+      </div>
 
       {/* ── 3. DANH MỤC ────────────────────────────────────────── */}
       <section className="section home-cats">
@@ -209,7 +228,7 @@ export default function HomePage() {
                 <em>tuần này</em>
               </>
             }
-            sub="Bốn thiết kế có lượt mua cao nhất trong danh mục hiện hành."
+            sub={`${FEATURED.length} thiết kế có lượt mua cao nhất — đủ để chọn một tủ đồ tuần này.`}
             link={{ label: 'Tất cả sản phẩm', page: 'shop' }}
           />
           <div className="products-grid">
@@ -262,6 +281,18 @@ export default function HomePage() {
                 ))}
               </dl>
 
+              <ul className="material-list">
+                {MATERIALS.map((m) => (
+                  <li key={m.title}>
+                    <i className={`bi ${m.icon}`} aria-hidden="true" />
+                    <div>
+                      <strong>{m.title}</strong>
+                      <span>{m.text}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+
               <a className="btn-outline-lyra" href={buildUrl('brands')} onClick={go('brands')}>
                 Về LYRA <i className="bi bi-arrow-right" aria-hidden="true" />
               </a>
@@ -270,20 +301,20 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── 6. BANNER SALE ─────────────────────────────────────── */}
-      <section className="home-sale">
+      {/* ── 6. SALE CUỐI MÙA — copy + 4 mẫu giảm sâu ───────────── */}
+      <section className="section home-sale-edit">
         <div className="wrap">
-          <div className="sale-banner" data-reveal>
-            <Pic
-              className="sale-banner-media"
-              src={SALE_IMG}
-              alt=""
-              ratio="auto"
-              tint="#6B5A45"
-              icon="bi-tag"
-              sizes="100vw"
-            />
-            <div className="sale-banner-body">
+          <div className="sale-edit" data-reveal>
+            <div className="sale-edit-copy">
+              <Pic
+                className="sale-edit-bg"
+                src={SALE_IMG}
+                alt=""
+                ratio="auto"
+                tint="#6B5A45"
+                icon="bi-tag"
+                sizes="50vw"
+              />
               <span className="eyebrow on-ink">Ưu đãi cuối mùa</span>
               <h2 className="sale-banner-title">
                 Sale cuối mùa
@@ -291,16 +322,31 @@ export default function HomePage() {
                 <em>giảm đến {MAX_OFF}%</em>
               </h2>
               <p className="sale-banner-sub">
-                {SALE_COUNT} thiết kế đang giảm giá, số lượng còn lại theo tồn kho thật.
+                {SALE_COUNT} thiết kế đang giảm — hết size là dừng. Bốn mẫu sâu nhất mùa này nằm bên cạnh.
               </p>
+              <dl className="sale-edit-stats">
+                <div>
+                  <dt>{SALE_COUNT}</dt>
+                  <dd>mẫu đang sale</dd>
+                </div>
+                <div>
+                  <dt>{MAX_OFF}%</dt>
+                  <dd>giảm sâu nhất</dd>
+                </div>
+                <div>
+                  <dt>{fmt(SALE_SAVING)}</dt>
+                  <dd>tiết kiệm 4 mẫu này</dd>
+                </div>
+              </dl>
+              <a className="btn-lyra" href={buildUrl('sale')} onClick={go('sale')}>
+                Xem tất cả ưu đãi <i className="bi bi-arrow-right" aria-hidden="true" />
+              </a>
             </div>
-            <a
-              className="btn-lyra sale-banner-cta"
-              href={buildUrl('sale')}
-              onClick={go('sale')}
-            >
-              Mua ngay <i className="bi bi-arrow-right" aria-hidden="true" />
-            </a>
+            <div className="sale-edit-rail">
+              {SALE_PICKS.map((p, i) => (
+                <ProductCard key={p.id} product={p} index={i} />
+              ))}
+            </div>
           </div>
         </div>
       </section>

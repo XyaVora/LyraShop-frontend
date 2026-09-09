@@ -286,6 +286,36 @@ export default function SalePage() {
             </li>
           </ul>
 
+          {FLASH_PRODUCTS.length > 0 && (
+            <div className="sale-hero-picks">
+              {FLASH_PRODUCTS.slice(0, 3).map((p) => (
+                <a
+                  key={p.id}
+                  className="sale-hero-pick"
+                  href={buildUrl('detail', { product: p.slug })}
+                  onClick={(e) => {
+                    if (isModifiedClick(e)) return;
+                    e.preventDefault();
+                    navigate('detail', { product: p.slug });
+                  }}
+                >
+                  <Pic
+                    as="span"
+                    src={p.images?.[0]}
+                    alt={p.name}
+                    ratio="3/4"
+                    tint={p.color}
+                    icon={p.icon}
+                    sizes="120px"
+                  />
+                  <span className="sale-hero-pick-off">−{p.discount}%</span>
+                  <span className="sale-hero-pick-name">{p.name}</span>
+                  <span className="sale-hero-pick-price">{fmt(p.price)}</span>
+                </a>
+              ))}
+            </div>
+          )}
+
           <div className="sale-hero-actions">
             <a className="btn-warm" href="#tat-ca-uu-dai">
               Xem tất cả ưu đãi
@@ -301,6 +331,19 @@ export default function SalePage() {
             >
               Xem toàn bộ bộ sưu tập
             </a>
+          </div>
+        </div>
+
+        <div className="sale-strip grain sale-hero-strip">
+          <div className="wrap">
+            <ul className="sale-strip-list">
+              {STRIP_ITEMS.map((s) => (
+                <li key={s.text}>
+                  <i className={`bi ${s.icon}`} aria-hidden="true" />
+                  {s.text}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>
@@ -337,20 +380,6 @@ export default function SalePage() {
           </div>
         </section>
       )}
-
-      {/* ═══════════ DẢI CAM KẾT ═══════════ */}
-      <div className="sale-strip grain">
-        <div className="wrap">
-          <ul className="sale-strip-list">
-            {STRIP_ITEMS.map((s) => (
-              <li key={s.text}>
-                <i className={`bi ${s.icon}`} aria-hidden="true" />
-                {s.text}
-              </li>
-            ))}
-          </ul>
-        </div>
-      </div>
 
       {/* ═══════════ TẤT CẢ ƯU ĐÃI ═══════════ */}
       <section className="section sale-all" id="tat-ca-uu-dai" aria-labelledby="sale-all-title">

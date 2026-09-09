@@ -477,6 +477,10 @@ p {
   will-change: opacity, transform;
 }
 
+html[data-scroll="up"] [data-reveal]:not(.in) {
+  transform: translateY(-18px);
+}
+
 [data-reveal].in {
   opacity: 1;
   transform: none;
