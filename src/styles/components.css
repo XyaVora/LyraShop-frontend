@@ -128,10 +128,51 @@ a.product-name:hover {
 }
 
 /* ── CartDrawer: phần index.css chưa có ────────────────── */
+.cart-drawer {
+  --drawer-pad: 24px;
+}
+
+.cart-drawer-head {
+  padding: 22px var(--drawer-pad);
+}
+
+.cart-drawer-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  line-height: 1.2;
+}
+
 .cart-drawer-count {
   font-family: var(--font-sans);
   font-size: 13px;
+  font-weight: 400;
   color: var(--muted);
+  margin-left: 6px;
+}
+
+/* Freeship nằm giữa head và body — phải cùng lề 2 bên, không dính mép trái. */
+.cart-drawer .freeship {
+  margin: 0;
+  padding: 16px var(--drawer-pad) 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.cart-drawer .freeship-text {
+  margin: 0 0 10px;
+  text-align: center;
+}
+
+.cart-drawer .freeship-track {
+  width: 100%;
+}
+
+.cart-drawer-body {
+  padding: 18px var(--drawer-pad);
+}
+
+.cart-drawer-foot {
+  padding: 18px var(--drawer-pad) calc(18px + env(safe-area-inset-bottom, 0px));
 }
 
 .drawer-list {
