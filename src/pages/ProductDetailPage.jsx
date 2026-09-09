@@ -6,6 +6,7 @@ import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { isUuid } from '../services/shopContract.mjs';
 import { loadProductDetail } from '../services/catalog';
+import { extractErrorMessage, reviewApi, tokenStore } from '../services/api';
 import { useCatalog } from '../context/CatalogContext';
 import {
   REVIEWS_MOCK,
@@ -19,6 +20,7 @@ import {
   Footer,
   Pic,
   ProductCard,
+  RecentMarquee,
   SectionHeader,
   Stars,
   isModifiedClick,
@@ -168,7 +170,8 @@ export default function ProductDetailPage() {
   const [lightbox, setLightbox] = useState(-1);       // -1 = đóng
   const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [myReviews, setMyReviews] = useState([]);      // đánh giá vừa viết (state cục bộ)
+  const [myReviews, setMyReviews] = useState([]);
+  const [apiReviews, setApiReviews] = useState([]);
 
   const uid = useId();
   const tabsRef = useRef(null);
@@ -202,10 +205,36 @@ export default function ProductDetailPage() {
   }, [lightbox, images.length]);
 
   /* ── Đánh giá ──────────────────────────────────────────────────── */
+  useEffect(() => {
+    if (!isUuid(product?.id)) {
+      setApiReviews([]);
+      return undefined;
+    }
+    let cancelled = false;
+    reviewApi.list(product.id)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : [];
+        setApiReviews(list.map((row) => ({
+          id: row.id,
+          name: 'Khách LYRA',
+          rating: row.rating,
+          text: row.comment || '',
+          date: row.createdAt,
+          mine: Boolean(user?.id && String(row.userId) === String(user.id)),
+        })));
+      })
+      .catch(() => {
+        if (!cancelled) setApiReviews([]);
+      });
+    return () => { cancelled = true; };
+  }, [product?.id, user?.id]);
+
   const baseReviews = useMemo(() => {
+    if (isUuid(product?.id)) return apiReviews;
     const list = product ? REVIEWS_MOCK[product.id] : null;
     return Array.isArray(list) ? list : [];
-  }, [product]);
+  }, [product, apiReviews]);
 
   const reviews = useMemo(() => [...myReviews, ...baseReviews], [myReviews, baseReviews]);
 
@@ -709,11 +738,7 @@ export default function ProductDetailPage() {
         <section className="section-sm detail-recent">
           <div className="wrap">
             <SectionHeader eyebrow="Lịch sử" title={<>Đã xem <em>gần đây</em></>} />
-            <div className="scroll-row">
-              {recent.map((p, i) => (
-                <ProductCard key={p.id} product={p} index={i} />
-              ))}
-            </div>
+            <RecentMarquee products={recent} />
           </div>
         </section>
       )}
@@ -815,8 +840,28 @@ export default function ProductDetailPage() {
         onClose={() => setReviewOpen(false)}
         defaultName={user?.name || ''}
         productName={product.name}
-        onSubmit={(review) => {
-          setMyReviews((prev) => [review, ...prev]);
+        onSubmit={async (review) => {
+          if (isUuid(product?.id) && tokenStore.get()) {
+            try {
+              const { data } = await reviewApi.create(product.id, {
+                rating: review.rating,
+                comment: review.text,
+              });
+              setApiReviews((prev) => [{
+                id: data.id,
+                name: user?.name || 'Bạn',
+                rating: data.rating,
+                text: data.comment || review.text,
+                date: data.createdAt,
+                mine: true,
+              }, ...prev]);
+            } catch (error) {
+              showToast(extractErrorMessage(error, 'Chỉ đánh giá được sau khi đơn đã giao.'), 'bi-exclamation-circle');
+              return;
+            }
+          } else {
+            setMyReviews((prev) => [review, ...prev]);
+          }
           setReviewOpen(false);
           setActiveTab('review');
           showToast('Cảm ơn bạn đã gửi đánh giá!', 'bi-chat-heart');

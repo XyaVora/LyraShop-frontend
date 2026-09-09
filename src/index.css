@@ -5708,6 +5708,7 @@ body.lock-scroll {
 
   /* Dừng mọi chuyển động lặp vô hạn */
   .marquee-content,
+  .recent-marquee-track,
   .loader-bar::after,
   .week-label-live::after,
   .scroll-line,

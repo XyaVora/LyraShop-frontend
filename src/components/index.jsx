@@ -411,6 +411,41 @@ export function Marquee() {
   );
 }
 
+/* ══════════════════════════════════════════════════════════════
+   RecentMarquee — đã xem gần đây: chạy chậm phải → trái, dừng khi hover
+   ══════════════════════════════════════════════════════════════ */
+export function RecentMarquee({ products, label = 'Sản phẩm bạn đã xem gần đây' }) {
+  const list = Array.isArray(products) ? products.filter(Boolean) : [];
+  const copies = list.length >= 5 ? 2 : 4;
+  if (!list.length) return null;
+
+  return (
+    <div
+      className="recent-marquee"
+      role="region"
+      aria-label={label}
+      style={{ '--recent-n': list.length, '--recent-copies': copies }}
+    >
+      <div className="recent-marquee-track">
+        {Array.from({ length: copies }, (_, copy) => (
+          <div
+            key={copy}
+            className="recent-marquee-set"
+            role={copy === 0 ? 'list' : undefined}
+            aria-hidden={copy === 0 ? undefined : true}
+          >
+            {list.map((p, i) => (
+              <div key={`${copy}-${p.id || p.slug || i}`} role={copy === 0 ? 'listitem' : undefined}>
+                <ProductCard product={p} index={i} />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /* ══════════════════════════════════════════════
    Newsletter — controlled + validate + toast
    ══════════════════════════════════════════════ */

@@ -16,6 +16,7 @@ import {
   Stars,
   SectionHeader,
   Marquee,
+  RecentMarquee,
   Newsletter,
   Footer,
   Reveal,
@@ -435,13 +436,7 @@ export default function HomePage() {
                 </>
               }
             />
-            <div className="scroll-row" role="list" aria-label="Sản phẩm bạn đã xem gần đây">
-              {recent.map((p, i) => (
-                <div role="listitem" key={p.id}>
-                  <ProductCard product={p} index={i} />
-                </div>
-              ))}
-            </div>
+            <RecentMarquee products={recent} />
           </div>
         </section>
       )}

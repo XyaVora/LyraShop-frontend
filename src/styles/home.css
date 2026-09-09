@@ -422,10 +422,8 @@
 /* ══════════════════════════════════════════════
    8. ĐÃ XEM GẦN ĐÂY
    ══════════════════════════════════════════════ */
-.home-recent .scroll-row {
-  /* chừa chỗ cho vòng focus của thẻ sản phẩm */
-  padding: 4px 4px 14px;
-  margin-inline: -4px;
+.home-recent .recent-marquee {
+  margin-top: 4px;
 }
 
 /* ══════════════════════════════════════════════
