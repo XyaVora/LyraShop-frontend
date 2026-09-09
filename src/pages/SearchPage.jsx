@@ -5,7 +5,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { deburr } from '../data/products';
 import { useCatalog } from '../context/CatalogContext';
-import { ProductCard, Footer, EmptyState, Reveal, SectionHeader } from '../components/index.jsx';
+import { CatalogEmpty, ProductCard, Footer, EmptyState, Reveal, SectionHeader } from '../components/index.jsx';
 import '../styles/search.css';
 
 /* ── Tiện ích ─────────────────────────────────────────────────────── */
@@ -83,7 +83,7 @@ const SORTS = [
 
 export default function SearchPage() {
   const { navigate, searchQuery } = useApp();
-  const { products: catalog } = useCatalog();
+  const { products: catalog, empty: catalogEmpty } = useCatalog();
   const searchIndex = useMemo(() => buildSearchIndex(catalog), [catalog]);
   const suggestedTags = useMemo(() => suggestedTagsFrom(catalog), [catalog]);
   const bestSellers = useMemo(
@@ -297,7 +297,9 @@ export default function SearchPage() {
             </div>
           )}
 
-          {noResult ? (
+          {catalogEmpty ? (
+            <CatalogEmpty />
+          ) : noResult ? (
             <>
               <EmptyState
                 icon="bi-search"
@@ -332,10 +334,11 @@ export default function SearchPage() {
           )}
 
           {/* ── Gợi ý từ khoá: dựng từ tags có thật nên luôn ra kết quả ── */}
+          {!catalogEmpty && (
           <Reveal className="search-related">
             <div className="eyebrow">Có thể bạn cũng tìm</div>
             <div className="chip-row search-related-chips">
-              {SUGGESTED_TAGS.map((t) => (
+              {suggestedTags.map((t) => (
                 <button key={t} type="button" className="chip search-chip" onClick={() => runSearch(t)}>
                   {capitalize(t)}
                 </button>
@@ -350,6 +353,7 @@ export default function SearchPage() {
               </button>
             </div>
           </Reveal>
+          )}
         </div>
       </section>
 

@@ -4,7 +4,8 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { PRODUCTS, fmt, img } from '../data/products';
+import { fmt, img } from '../data/products';
+import { useCatalog } from '../context/CatalogContext';
 import { BRAND } from '../data/brand';
 import {
   EmptyState,
@@ -27,8 +28,9 @@ const FOLLOW_KEY = 'lyra_followed_brands';
 /** So khớp tên thương hiệu: bỏ khoảng trắng thừa, KHÔNG phân biệt hoa thường. */
 const norm = (s) => String(s || '').trim().toLowerCase();
 
-/** Sản phẩm của một thương hiệu — luôn trả mảng mới, không mutate PRODUCTS. */
-const productsOfBrand = (name) => PRODUCTS.filter((p) => norm(p.brand) === norm(name));
+/** Sản phẩm của một thương hiệu — luôn trả mảng mới. */
+const productsOfBrand = (products, name) =>
+  (products || []).filter((p) => norm(p.brand) === norm(name));
 
 /** Điểm đánh giá trung bình có trọng số theo số lượt đánh giá. */
 function ratingOf(items) {
@@ -100,22 +102,21 @@ const BRAND_META = [
   },
 ];
 
-/** Thương hiệu đã gắn số liệu thật (đếm một lần ở tầng module — dữ liệu tĩnh). */
-const BRANDS = BRAND_META.map((b) => {
-  const items = productsOfBrand(b.name);
-  const prices = items.map((p) => p.price);
-  return {
-    ...b,
-    image: img(b.imageId, 1600),
-    items,
-    count: items.length,
-    reviews: items.reduce((a, p) => a + (p.reviews || 0), 0),
-    rating: ratingOf(items),
-    minPrice: prices.length ? Math.min(...prices) : null,
-  };
-});
-
-const TOTAL_PRODUCTS = PRODUCTS.length;
+function brandsFrom(products) {
+  return BRAND_META.map((b) => {
+    const items = productsOfBrand(products, b.name);
+    const prices = items.map((p) => p.price);
+    return {
+      ...b,
+      image: img(b.imageId, 1600),
+      items,
+      count: items.length,
+      reviews: items.reduce((a, p) => a + (p.reviews || 0), 0),
+      rating: ratingOf(items),
+      minPrice: prices.length ? Math.min(...prices) : null,
+    };
+  });
+}
 
 /* ── localStorage an toàn ────────────────────────────────────────────── */
 function readFollowed() {
@@ -135,11 +136,13 @@ function readFollowed() {
 export default function BrandsPage() {
   const { navigate, params } = useApp();
   const { showToast } = useCart();
+  const { products } = useCatalog();
+  const brands = useMemo(() => brandsFrom(products), [products]);
 
   // Thương hiệu đang chọn suy ra từ URL — không lưu trùng vào state.
   const brand = useMemo(
-    () => BRANDS.find((b) => b.id === params.brand) || BRANDS[0],
-    [params.brand],
+    () => brands.find((b) => b.id === params.brand) || brands[0],
+    [params.brand, brands],
   );
 
   const detailRef = useRef(null);
@@ -269,11 +272,11 @@ export default function BrandsPage() {
             <dl className="brands-hero-stats">
               <div className="brands-hero-stat">
                 <dt>Thương hiệu giới thiệu</dt>
-                <dd>{BRANDS.length}</dd>
+                <dd>{brands.length}</dd>
               </div>
               <div className="brands-hero-stat">
                 <dt>Thiết kế đang bán</dt>
-                <dd>{TOTAL_PRODUCTS}</dd>
+                <dd>{products.length}</dd>
               </div>
               <div className="brands-hero-stat">
                 <dt>Xưởng riêng từ</dt>
@@ -288,7 +291,7 @@ export default function BrandsPage() {
       <section className="brands-picker-section">
         <div className="wrap">
           <div className="brand-picker" role="group" aria-label="Chọn thương hiệu để xem chi tiết">
-            {BRANDS.map((b) => (
+            {brands.map((b) => (
               <button
                 key={b.id}
                 type="button"
@@ -456,7 +459,7 @@ export default function BrandsPage() {
             sub="Bấm để xem chi tiết từng thương hiệu."
           />
           <ul className="brand-list">
-            {BRANDS.map((b, i) => (
+            {brands.map((b, i) => (
               <li key={b.id}>
                 <button
                   type="button"

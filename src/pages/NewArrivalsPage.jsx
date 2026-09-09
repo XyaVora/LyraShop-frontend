@@ -8,6 +8,7 @@ import { useCatalog } from '../context/CatalogContext';
 import { buildUrl } from '../router.js';
 import { isEmail } from '../utils/validate.js';
 import {
+  CatalogEmpty,
   ProductCard,
   Footer,
   Pic,
@@ -120,7 +121,7 @@ const LOOKBOOK = [
 export default function NewArrivalsPage() {
   const { navigate } = useApp();
   const { showToast } = useCart();
-  const { products } = useCatalog();
+  const { products, empty: catalogEmpty } = useCatalog();
   const arrivals = useMemo(() => arrivalsFrom(products), [products]);
   const featured = arrivals[0] || null;
   const newCats = useMemo(() => Array.from(new Set(arrivals.map((p) => p.cat))), [arrivals]);
@@ -356,7 +357,9 @@ export default function NewArrivalsPage() {
             </div>
           </div>
 
-          {groups.length === 0 ? (
+          {catalogEmpty ? (
+            <CatalogEmpty />
+          ) : groups.length === 0 ? (
             <EmptyState
               icon="bi-calendar3"
               title="Chưa có hàng mới trong danh mục này"

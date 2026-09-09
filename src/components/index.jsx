@@ -365,6 +365,21 @@ export function EmptyState({ icon = 'bi-inbox', title, sub, action, children }) 
   );
 }
 
+/** API trả catalog rỗng — không thế bằng lookbook mock. */
+export function CatalogEmpty() {
+  return (
+    <EmptyState
+      icon="bi-bag"
+      title="Bộ sưu tập đang được cập nhật"
+      sub="Hiện chưa có thiết kế nào trên kệ. Tải lại trang sau ít phút, hoặc đọc câu chuyện LYRA."
+      action={{
+        label: 'Tải lại',
+        onClick: () => { if (typeof window !== 'undefined') window.location.reload(); },
+      }}
+    />
+  );
+}
+
 /* ══════════════════════════════════════════════
    Marquee — chỉ đọc một lượt cho screen reader
    ══════════════════════════════════════════════ */

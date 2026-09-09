@@ -13,7 +13,7 @@ import {
 const CatalogContext = createContext(null);
 
 export function CatalogProvider({ children }) {
-  const [products, setProducts] = useState(PRODUCTS);
+  const [products, setProducts] = useState([]);
   const [fromApi, setFromApi] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -39,9 +39,12 @@ export function CatalogProvider({ children }) {
       categories,
       fromApi,
       ready,
-      find: (idOrSlug) =>
-        products.find((p) => String(p.id) === String(idOrSlug) || p.slug === idOrSlug)
-        || findMock(idOrSlug),
+      empty: ready && products.length === 0,
+      find: (idOrSlug) => {
+        const found = products.find((p) => String(p.id) === String(idOrSlug) || p.slug === idOrSlug);
+        if (found) return found;
+        return fromApi ? null : findMock(idOrSlug);
+      },
       related: (product, n = 4) => relatedFrom(products, product, n),
       wearWith: (product, n = 3) => wearWithFrom(products, product, n),
       colorFacets: colorFacetsFrom(products),
@@ -59,6 +62,7 @@ export function useCatalog() {
       categories: categoriesFrom(PRODUCTS),
       fromApi: false,
       ready: true,
+      empty: false,
       find: findMock,
       related: (p, n) => relatedFrom(PRODUCTS, p, n),
       wearWith: (p, n) => wearWithFrom(PRODUCTS, p, n),

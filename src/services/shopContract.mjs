@@ -108,6 +108,17 @@ export function formatShippingAddress(address) {
   return [address.street, address.district, address.city].filter(Boolean).join(', ');
 }
 
+function collectImageUrls(raw) {
+  const list = Array.isArray(raw?.images) ? raw.images : [];
+  if (list.length && typeof list[0] === 'string') return list.filter(Boolean);
+  const fromObjects = [...list]
+    .sort((a, b) => Number(b?.primary) - Number(a?.primary) || num(a?.sortOrder) - num(b?.sortOrder))
+    .map((image) => image?.url)
+    .filter(Boolean);
+  if (fromObjects.length) return fromObjects;
+  return [raw?.imageUrl, raw?.thumbnail, raw?.image].filter((url) => typeof url === 'string' && url);
+}
+
 export function mapProductDetail(raw, extras = {}) {
   if (!raw || typeof raw !== 'object') return null;
   const variants = Array.isArray(raw.variants) ? raw.variants.map((variant) => ({
@@ -118,10 +129,7 @@ export function mapProductDetail(raw, extras = {}) {
     price: num(variant.price, num(raw.basePrice)),
     stock: Math.max(0, num(variant.stock)),
   })) : [];
-  const images = (Array.isArray(raw.images) ? [...raw.images] : [])
-    .sort((a, b) => Number(b.primary) - Number(a.primary) || num(a.sortOrder) - num(b.sortOrder))
-    .map((image) => image?.url)
-    .filter(Boolean);
+  const images = collectImageUrls(raw);
   const sizes = [...new Set(variants.map((v) => v.size).filter(Boolean))];
   const colors = [...new Map(
     variants

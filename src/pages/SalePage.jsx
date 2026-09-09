@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { COUPONS, FREE_SHIPPING_THRESHOLD, fmt, img } from '../data/products';
 import { useCatalog } from '../context/CatalogContext';
-import { ProductCard, Pic, EmptyState, Footer, Reveal, isModifiedClick } from '../components/index.jsx';
+import { CatalogEmpty, ProductCard, Pic, EmptyState, Footer, Reveal, isModifiedClick } from '../components/index.jsx';
 import { buildUrl } from '../router.js';
 import '../styles/sale.css';
 
@@ -170,7 +170,7 @@ function legacyCopy(text) {
 export default function SalePage() {
   const { navigate } = useApp();
   const { showToast, applyCoupon } = useCart();
-  const { products, categories } = useCatalog();
+  const { products, categories, empty: catalogEmpty } = useCatalog();
   const saleProducts = useMemo(() => saleFrom(products), [products]);
   const flashProducts = useMemo(
     () => saleProducts.filter((p) => p.discount >= FLASH_THRESHOLD),
@@ -437,7 +437,9 @@ export default function SalePage() {
             </div>
           </div>
 
-          {filtered.length > 0 ? (
+          {catalogEmpty ? (
+            <CatalogEmpty />
+          ) : filtered.length > 0 ? (
             <div className="products-grid">
               {filtered.map((p, i) => (
                 <ProductCard product={p} key={p.id} index={i} />

@@ -3,7 +3,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { PRODUCTS, fmt } from '../data/products';
+import { fmt } from '../data/products';
+import { useCatalog } from '../context/CatalogContext';
 import { deburr } from '../router.js';
 import { Pic, Stars, useBodyScrollLock, useDialogA11y } from './index.jsx';
 import '../styles/components.css';
@@ -13,8 +14,7 @@ const SUGGESTIONS = ['Áo lụa', 'Váy midi', 'Blazer', 'Sneaker', 'Túi', 'Qu�
 const MAX_HISTORY = 6;
 const MAX_RESULTS = 8;
 
-// Sắp xếp trên BẢN SAO — không bao giờ mutate mảng PRODUCTS dùng chung.
-const TRENDING = [...PRODUCTS].sort((a, b) => (b.reviews || 0) - (a.reviews || 0)).slice(0, 3);
+
 
 /** Chuỗi tìm kiếm gộp của một sản phẩm, đã bỏ dấu. */
 function haystack(p) {
@@ -26,6 +26,11 @@ function haystack(p) {
 export default function SearchModal({ open, onClose }) {
   const { navigate } = useApp();
   const { addToCart } = useCart();
+  const { products } = useCatalog();
+  const trending = useMemo(
+    () => [...products].sort((a, b) => (b.reviews || 0) - (a.reviews || 0)).slice(0, 3),
+    [products],
+  );
 
   const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(-1);
@@ -58,9 +63,9 @@ export default function SearchModal({ open, onClose }) {
   const { results, total } = useMemo(() => {
     const q = deburr(query.trim());
     if (!q) return { results: [], total: 0 };
-    const matched = PRODUCTS.filter((p) => haystack(p).includes(q));
+    const matched = products.filter((p) => haystack(p).includes(q));
     return { results: matched.slice(0, MAX_RESULTS), total: matched.length };
-  }, [query]);
+  }, [query, products]);
 
   useEffect(() => {
     setActiveIdx(-1);
@@ -309,7 +314,7 @@ export default function SearchModal({ open, onClose }) {
               <section className="search-col">
                 <div className="eyebrow">Được quan tâm nhất</div>
                 <ul className="search-trending">
-                  {TRENDING.map((p, i) => (
+                  {trending.map((p, i) => (
                     <li key={p.id}>
                       <button type="button" className="search-trending-row" onClick={() => openProduct(p)}>
                         <span className="search-trending-rank" aria-hidden="true">

@@ -1,19 +1,22 @@
 // src/components/CartDrawer.jsx — giỏ hàng trượt từ mép phải.
 // Mount MỘT LẦN ở App; mở/đóng qua CartContext (cartOpen / openCart / closeCart).
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { PRODUCTS, fmt, FREE_SHIPPING_THRESHOLD } from '../data/products';
+import { fmt, FREE_SHIPPING_THRESHOLD } from '../data/products';
+import { useCatalog } from '../context/CatalogContext';
 import { buildUrl } from '../router.js';
 import { Pic, useBodyScrollLock, useDialogA11y, isModifiedClick } from './index.jsx';
 import '../styles/components.css';
 
-// Gợi ý cố định cho giỏ rỗng — tính một lần ở module scope, KHÔNG mutate PRODUCTS.
-const SUGGESTED = [...PRODUCTS].sort((a, b) => (b.sold || 0) - (a.sold || 0)).slice(0, 3);
-
 export default function CartDrawer() {
   const { navigate } = useApp();
+  const { products } = useCatalog();
+  const suggested = useMemo(
+    () => [...products].sort((a, b) => (b.sold || 0) - (a.sold || 0)).slice(0, 3),
+    [products],
+  );
   const {
     cart = [],
     cartCount = 0,
@@ -130,9 +133,10 @@ export default function CartDrawer() {
                 Khám phá sản phẩm
               </button>
 
+              {suggested.length > 0 && (
               <div className="cart-suggest">
                 <div className="eyebrow">Gợi ý cho bạn</div>
-                {SUGGESTED.map((p) => (
+                {suggested.map((p) => (
                   <a
                     key={p.id}
                     className="cart-suggest-row"
@@ -155,6 +159,7 @@ export default function CartDrawer() {
                   </a>
                 ))}
               </div>
+              )}
             </div>
           ) : (
             <ul className="drawer-list">
