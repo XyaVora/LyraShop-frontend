@@ -37,6 +37,27 @@ a.product-name:hover {
   margin-right: 6px;
 }
 
+.card-swatches {
+  display: flex;
+  gap: 5px;
+  margin: 8px 0 2px;
+}
+
+.card-swatch {
+  width: 11px;
+  height: 11px;
+  border: 1px solid rgba(14, 14, 14, .18);
+  flex: none;
+}
+
+.card-stock {
+  margin: 6px 0 0;
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--warm-text);
+}
+
 /* ── SectionHeader ─────────────────────────────────────── */
 .section-header-text {
   min-width: 0;

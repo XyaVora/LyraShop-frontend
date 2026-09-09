@@ -280,12 +280,27 @@ export function ProductCard({ product, index = 0, delay = 0 }) {
       <div className="product-brand">
         {product.brand} · {product.cat}
       </div>
+      {(product.colors || []).length > 0 && (
+        <div className="card-swatches" aria-label="Màu sắc">
+          {product.colors.slice(0, 4).map((c) => (
+            <span
+              key={c.name}
+              className="card-swatch"
+              style={{ background: c.hex || product.color }}
+              title={c.name}
+            />
+          ))}
+        </div>
+      )}
       <div className="product-price-row">
         <span className="product-price">{fmt(product.price)}</span>
         {product.oldPrice > product.price && (
           <span className="product-price-old">{fmt(product.oldPrice)}</span>
         )}
       </div>
+      {product.stock > 0 && product.stock <= 12 && (
+        <p className="card-stock">Còn {product.stock} cái</p>
+      )}
       {/* Chỉ hiển thị ở chế độ danh sách (.products-grid.list-view) */}
       {product.desc && <p className="product-card-desc">{product.desc}</p>}
     </article>

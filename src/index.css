@@ -551,12 +551,16 @@ html[data-scroll="up"] [data-reveal]:not(.in) {
   object-fit: cover;
   display: block;
   opacity: 0;
-  transition: opacity 480ms var(--ease-out), transform var(--dur-3) var(--ease-out);
+  filter: blur(10px);
+  transform: scale(1.04);
+  transition: opacity 560ms var(--ease-out), filter 560ms var(--ease-out), transform var(--dur-3) var(--ease-out);
 }
 
 .pic img.loaded,
 .pic.is-loaded img {
   opacity: 1;
+  filter: none;
+  transform: none;
 }
 
 /* Ảnh lỗi: ẩn img, giữ ô màu tint + icon */
@@ -5698,6 +5702,8 @@ body.lock-scroll {
 
   .pic img {
     opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
   }
 
   /* Dừng mọi chuyển động lặp vô hạn */

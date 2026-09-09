@@ -6,6 +6,7 @@ import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { isUuid } from '../services/shopContract.mjs';
 import { loadProductDetail } from '../services/catalog';
+import { useCatalog } from '../context/CatalogContext';
 import {
   REVIEWS_MOCK,
   fmt,
@@ -218,7 +219,15 @@ export default function ProductDetailPage() {
     return counts;
   }, [reviews]);
 
-  const related = useMemo(() => (product ? relatedProducts(product, 4) : []), [product]);
+  const { wearWith, related: relatedFromCatalog } = useCatalog();
+  const related = useMemo(
+    () => (product ? relatedFromCatalog(product, 4) : relatedProducts(product, 4)),
+    [product, relatedFromCatalog],
+  );
+  const withLooks = useMemo(
+    () => (product ? wearWith(product, 3) : []),
+    [product, wearWith],
+  );
   const recent = useMemo(
     () => (recentlyViewed || []).filter((p) => p.id !== product?.id).slice(0, 8),
     [recentlyViewed, product],
@@ -343,6 +352,9 @@ export default function ProductDetailPage() {
           </div>
 
           {images.length > 1 && (
+            <p className="look-strip-label">Form trên người — {images.length} góc chụp</p>
+          )}
+          {images.length > 1 && (
             <div className="gallery-thumbnails" role="group" aria-label="Chọn ảnh sản phẩm">
               {images.map((src, i) => (
                 <button
@@ -443,6 +455,19 @@ export default function ProductDetailPage() {
               </button>
             ))}
           </div>
+          {guide?.rows?.length > 0 && (
+            <div className="size-visual" aria-label="Gợi ý số đo theo size">
+              {guide.rows.map((row) => (
+                <div
+                  key={row[0]}
+                  className={`size-visual-row${row[0] === selectedSize ? ' is-active' : ''}`}
+                >
+                  <span className="size-visual-size">{row[0]}</span>
+                  <span className="size-visual-hint">{row[row.length - 1]}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Số lượng */}
           <div className="option-row-label" id={`${uid}-qty`}>Số lượng</div>
@@ -643,6 +668,23 @@ export default function ProductDetailPage() {
           </div>
         </div>
       </div>
+
+      {withLooks.length > 0 && (
+        <section className="section detail-wear">
+          <div className="wrap">
+            <SectionHeader
+              eyebrow="Mặc với"
+              title={<>Ghép cùng<br /><em>tủ đồ này</em></>}
+              sub="Những món khác danh mục — cùng chất liệu hoặc cùng dịp mặc."
+            />
+            <div className="products-grid">
+              {withLooks.map((p, i) => (
+                <ProductCard key={p.id} product={p} index={i} />
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* ── Gợi ý ──────────────────────────────────────────────── */}
       {related.length > 0 && (

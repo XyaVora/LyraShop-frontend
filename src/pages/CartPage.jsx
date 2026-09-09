@@ -26,6 +26,7 @@ import {
 import { buildUrl } from '../router.js';
 import { isEmail, isPhone, normPhone } from '../utils/validate.js';
 import { extractErrorMessage } from '../services/api';
+import { useCatalog } from '../context/CatalogContext';
 import '../styles/cart.css';
 
 /* ══════════════════════════════════════════════════════════════════
@@ -501,6 +502,26 @@ function UndoNotice({ row, onUndo, onDismiss, undoRef }) {
   );
 }
 
+function CartEmptySuggest() {
+  const { recentlyViewed = [] } = useCart();
+  const { products } = useCatalog();
+  const picks = (recentlyViewed.length ? recentlyViewed : [...products].sort((a, b) => (b.sold || 0) - (a.sold || 0))).slice(0, 4);
+  if (!picks.length) return null;
+  return (
+    <div className="cart-empty-suggest">
+      <SectionHeader
+        eyebrow="Gợi ý cho bạn"
+        title={<>Đã xem hoặc <em>bán chạy</em></>}
+      />
+      <div className="products-grid">
+        {picks.map((p, i) => (
+          <ProductCard key={p.id || p.slug} product={p} index={i} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function CartView() {
   const { navigate } = useApp();
   const ctx = useCart();
@@ -647,6 +668,7 @@ function CartView() {
                   Hàng mới về
                 </button>
               </EmptyState>
+              <CartEmptySuggest />
             </>
           ) : (
             <>
@@ -1090,6 +1112,9 @@ function CheckoutView({ onPlaced }) {
             total={total}
             coupon={coupon}
           />
+          <p className="checkout-trust">
+            LYRA xác nhận đơn trong 24 giờ · giao 2–3 ngày làm việc · đổi trả 30 ngày.
+          </p>
         </aside>
       </form>
     </div>

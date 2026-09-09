@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { PRODUCTS, fmt, img, slugify } from '../data/products';
+import { useCatalog } from '../context/CatalogContext';
 import { buildUrl } from '../router.js';
 import { isEmail } from '../utils/validate.js';
 import {
@@ -48,22 +49,17 @@ const byNewest = (a, b) => String(b.createdAt || '').localeCompare(String(a.crea
  * Danh sách hàng mới: ưu tiên sản phẩm gắn badge "New";
  * nếu chưa đủ 6 thì bổ sung bằng những thiết kế có `createdAt` mới nhất.
  */
-const NEW_ARRIVALS = (() => {
-  const flagged = PRODUCTS.filter((p) => p.badge === 'New');
+function arrivalsFrom(products) {
+  const list = products || [];
+  const flagged = list.filter((p) => p.badge === 'New');
   if (flagged.length >= 6) return [...flagged].sort(byNewest);
   const chosen = new Set(flagged.map((p) => p.id));
-  const fillers = [...PRODUCTS]
+  const fillers = [...list]
     .filter((p) => !chosen.has(p.id))
     .sort(byNewest)
     .slice(0, 6 - flagged.length);
   return [...flagged, ...fillers].sort(byNewest);
-})();
-
-/** Sản phẩm mới nhất — dùng cho khối hero. */
-const FEATURED = NEW_ARRIVALS[0] || null;
-
-/** Danh mục thực sự có hàng mới (dựng từ dữ liệu, không hard-code). */
-const NEW_CATS = Array.from(new Set(NEW_ARRIVALS.map((p) => p.cat)));
+}
 
 const CAT_SHORT = {
   'Thời trang nữ': 'Nữ',
@@ -124,6 +120,10 @@ const LOOKBOOK = [
 export default function NewArrivalsPage() {
   const { navigate } = useApp();
   const { showToast } = useCart();
+  const { products } = useCatalog();
+  const arrivals = useMemo(() => arrivalsFrom(products), [products]);
+  const featured = arrivals[0] || null;
+  const newCats = useMemo(() => Array.from(new Set(arrivals.map((p) => p.cat))), [arrivals]);
 
   const [activeCat, setActiveCat] = useState('all');
   const [email, setEmail] = useState('');
@@ -131,8 +131,8 @@ export default function NewArrivalsPage() {
   const [notifyDone, setNotifyDone] = useState(false);
 
   const filtered = useMemo(
-    () => (activeCat === 'all' ? NEW_ARRIVALS : NEW_ARRIVALS.filter((p) => p.cat === activeCat)),
-    [activeCat],
+    () => (activeCat === 'all' ? arrivals : arrivals.filter((p) => p.cat === activeCat)),
+    [activeCat, arrivals],
   );
 
   /** Nhóm sản phẩm đã lọc theo mốc thời gian, bỏ nhóm rỗng. */
@@ -170,8 +170,8 @@ export default function NewArrivalsPage() {
     showToast?.('Đã đăng ký nhận thông báo hàng mới.', 'bi-bell');
   };
 
-  const featuredHref = FEATURED
-    ? buildUrl('detail', { product: FEATURED.slug || FEATURED.id })
+  const featuredHref = featured
+    ? buildUrl('detail', { product: featured.slug || featured.id })
     : '#';
 
   return (
@@ -181,7 +181,7 @@ export default function NewArrivalsPage() {
         <div className="wrap">
           <div className="new-hero-grid">
             <Reveal className="new-hero-copy">
-              <p className="eyebrow">Cập nhật {formatDate(FEATURED?.createdAt)}</p>
+              <p className="eyebrow">Cập nhật {formatDate(featured?.createdAt)}</p>
               <h1 className="t-h1">
                 Mới về
                 <br />
@@ -195,15 +195,15 @@ export default function NewArrivalsPage() {
               <dl className="new-stats">
                 <div className="new-stat">
                   <dt className="new-stat-label">Thiết kế mới về</dt>
-                  <dd className="new-stat-value">{NEW_ARRIVALS.length}</dd>
+                  <dd className="new-stat-value">{arrivals.length}</dd>
                 </div>
                 <div className="new-stat">
                   <dt className="new-stat-label">Danh mục</dt>
-                  <dd className="new-stat-value">{NEW_CATS.length}</dd>
+                  <dd className="new-stat-value">{newCats.length}</dd>
                 </div>
                 <div className="new-stat">
                   <dt className="new-stat-label">Lên kệ gần nhất</dt>
-                  <dd className="new-stat-value">{formatDate(FEATURED?.createdAt)}</dd>
+                  <dd className="new-stat-value">{formatDate(featured?.createdAt)}</dd>
                 </div>
               </dl>
 
@@ -230,30 +230,30 @@ export default function NewArrivalsPage() {
               </div>
             </Reveal>
 
-            {FEATURED && (
+            {featured && (
               <Reveal className="new-hero-feature" delay={1}>
                 <a
                   className="new-feature-card"
                   href={featuredHref}
-                  onClick={(e) => go(e, 'detail', { product: FEATURED })}
-                  aria-label={`Xem chi tiết ${FEATURED.name}`}
+                  onClick={(e) => go(e, 'detail', { product: featured })}
+                  aria-label={`Xem chi tiết ${featured.name}`}
                 >
                   <Pic
                     as="span"
-                    src={FEATURED.images?.[0]}
-                    alt={FEATURED.name}
-                    tint={FEATURED.color}
-                    icon={FEATURED.icon}
+                    src={featured.images?.[0]}
+                    alt={featured.name}
+                    tint={featured.color}
+                    icon={featured.icon}
                     ratio="3/4"
                     eager
                     sizes="(max-width: 900px) 100vw, 40vw"
                   />
                   <span className="new-feature-tag">Vừa lên kệ</span>
                   <span className="new-feature-info">
-                    <span className="new-feature-name">{FEATURED.name}</span>
+                    <span className="new-feature-name">{featured.name}</span>
                     <span className="new-feature-meta">
-                      <span className="new-feature-cat">{FEATURED.cat}</span>
-                      <span className="new-feature-price price">{fmt(FEATURED.price)}</span>
+                      <span className="new-feature-cat">{featured.cat}</span>
+                      <span className="new-feature-price price">{fmt(featured.price)}</span>
                     </span>
                   </span>
                 </a>
@@ -336,10 +336,10 @@ export default function NewArrivalsPage() {
                 onClick={() => setActiveCat('all')}
               >
                 Tất cả
-                <span className="new-chip-count">{NEW_ARRIVALS.length}</span>
+                <span className="new-chip-count">{arrivals.length}</span>
               </button>
-              {NEW_CATS.map((cat) => {
-                const count = NEW_ARRIVALS.filter((p) => p.cat === cat).length;
+              {newCats.map((cat) => {
+                const count = arrivals.filter((p) => p.cat === cat).length;
                 return (
                   <button
                     key={cat}

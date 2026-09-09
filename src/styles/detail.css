@@ -134,6 +134,45 @@ button.gallery-thumb>.pic {
   display: block;
 }
 
+.size-visual {
+  margin: 14px 0 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.size-visual-row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
+.size-visual-row.is-active {
+  color: var(--ink);
+  border-bottom-color: var(--ink);
+}
+
+.size-visual-size {
+  font-family: var(--font-serif);
+  font-size: 18px;
+}
+
+.size-visual-hint {
+  line-height: 1.45;
+}
+
+.look-strip-label {
+  margin: 4px 0 0;
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--warm-text);
+}
+
 /* ── Cột thông tin ──────────────────────────────────────────────── */
 .detail-info-col .eyebrow {
   margin-bottom: 10px;
