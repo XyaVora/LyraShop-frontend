@@ -1,5 +1,5 @@
 // src/data/brand.js — nguồn duy nhất cho thông tin thương hiệu LYRA.
-// Mọi trang (Footer, Home, Brands, Checkout, Admin…) đọc từ đây, không hard-code.
+// Mọi trang (Footer, Home, Brands, Checkout…) đọc từ đây, không hard-code.
 
 export const BRAND = {
   name: 'LYRA',

@@ -125,25 +125,10 @@ export default function SearchModal({ open, onClose }) {
   return (
     <>
       {/* Backdrop */}
-      <div
-        onClick={onClose}
-        style={{
-          position: 'fixed', inset: 0, zIndex: 1100,
-          background: 'rgba(14,14,14,.6)',
-          backdropFilter: 'blur(4px)',
-          animation: 'fadeIn .2s ease',
-        }}
-      />
+      <div className="search-backdrop" onClick={onClose} />
 
       {/* Modal */}
-      <div style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1101,
-        background: 'var(--cream)',
-        borderBottom: '1px solid var(--border)',
-        boxShadow: '0 24px 64px rgba(14,14,14,.15)',
-        animation: 'slideDown .25s cubic-bezier(.25,.46,.45,.94)',
-        maxHeight: '85vh', overflowY: 'auto',
-      }}>
+      <div className="search-panel">
         {/* Search input row */}
         <div style={{
           display: 'flex', alignItems: 'center', gap: 0,
@@ -154,6 +139,7 @@ export default function SearchModal({ open, onClose }) {
           <i className="bi bi-search" style={{ fontSize: 20, color: 'var(--muted)', marginRight: 16, flexShrink: 0 }} />
           <input
             ref={inputRef}
+            className="search-input"
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={handleKeyDown}

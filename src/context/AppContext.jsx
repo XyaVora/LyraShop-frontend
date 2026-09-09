@@ -60,7 +60,6 @@ export function AppProvider({ children }) {
         email,
         name:   payload?.name || email.split('@')[0],
         avatar: (payload?.name || email)[0].toUpperCase(),
-        roles:  payload?.roles || [],
       };
       setUser(userInfo);
       setIsLoggedIn(true);

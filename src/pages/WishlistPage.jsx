@@ -59,7 +59,7 @@ export default function WishlistPage() {
   return (
     <div>
       {/* ── Header ── */}
-      <div style={{ padding: '52px 0 36px', borderBottom: '1px solid var(--border)' }}>
+      <div data-reveal style={{ padding: '52px 0 36px', borderBottom: '1px solid var(--border)' }}>
         <div className="container-fluid px-4 px-lg-5">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: 16 }}>
             <div>

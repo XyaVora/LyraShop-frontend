@@ -2,22 +2,17 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
+import { useScrollDirection } from '../hooks/useScrollDirection';
 import SearchModal from './SearchModal';
 
 export default function Navbar() {
   const { currentPage, navigate, isLoggedIn, user } = useApp();
   const { cartCount, wishlist } = useCart();
-  const [scrolled, setScrolled]       = useState(false);
+  const { compact, hidden } = useScrollDirection();
   const [drawerOpen, setDrawerOpen]   = useState(false);
   const [prevCount, setPrevCount]     = useState(0);
   const [badgeBounce, setBadgeBounce] = useState(false);
   const [searchOpen, setSearchOpen]   = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
-    window.addEventListener('scroll', onScroll);
-    return () => window.removeEventListener('scroll', onScroll);
-  }, []);
 
   useEffect(() => {
     if (cartCount > prevCount) {
@@ -51,7 +46,7 @@ export default function Navbar() {
 
   return (
     <>
-      <nav className={`lyra-navbar${scrolled ? ' scrolled' : ''}`}>
+      <nav className={`lyra-navbar${compact ? ' scrolled compact' : ''}${hidden && !drawerOpen ? ' nav-hidden' : ''}`}>
         <span className="navbar-logo" onClick={() => go('home')}>LYRA</span>
 
         <ul className="navbar-nav-links">

@@ -92,7 +92,7 @@ export default function ShopPage() {
   return (
     <div>
       {/* Header */}
-      <div className="shop-header-bar">
+      <div className="shop-header-bar" data-reveal>
         <div className="container-fluid px-4 px-lg-5">
           <h1 className="shop-page-title">Tất cả sản phẩm</h1>
           <p className="shop-meta-text">
@@ -103,7 +103,7 @@ export default function ShopPage() {
 
       <div className="shop-layout">
         {/* Sidebar */}
-        <aside className="shop-sidebar">
+        <aside className="shop-sidebar" data-reveal="left">
           {/* Category */}
           <div className="filter-group">
             <div className="filter-group-title">Danh mục</div>
@@ -143,7 +143,7 @@ export default function ShopPage() {
         </aside>
 
         {/* Main */}
-        <main className="shop-main-area">
+        <main className="shop-main-area" data-reveal="right">
           <div className="shop-toolbar">
             <select className="sort-select" value={sortBy} onChange={e => { setSortBy(e.target.value); setPage(0); }}>
               {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}

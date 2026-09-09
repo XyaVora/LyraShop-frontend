@@ -1,5 +1,5 @@
 // src/pages/HomePage.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { productApi, categoryApi } from '../services/api';
@@ -9,6 +9,7 @@ import { ProductCard, Marquee, Newsletter, Footer } from '../components/index.js
 export default function HomePage() {
   const { navigate } = useApp();
   const { showToast } = useCart();
+  const heroRef = useRef(null);
 
   const [featured, setFeatured]       = useState([]);
   const [newArrivals, setNewArrivals] = useState([]);
@@ -38,26 +39,39 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el) return undefined;
+    const onScroll = () => {
+      const y = window.scrollY || 0;
+      el.style.setProperty('--hero-shift', `${Math.min(y * 0.18, 72)}px`);
+      el.style.setProperty('--hint-opacity', String(Math.max(0, 1 - y / 160)));
+    };
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
   return (
     <div>
       {/* ── HERO ── */}
-      <section className="hero-section">
+      <section className="hero-section" ref={heroRef}>
         <div className="hero-left">
           <div className="hero-eyebrow">Bộ sưu tập mùa hè 2026</div>
           <h1 className="hero-title">
-            Phong cách<br />
-            định nghĩa<br />
-            <em>bạn</em>
+            <span className="hero-line"><span style={{ '--d': '0ms' }}>Phong cách</span></span>
+            <span className="hero-line"><span style={{ '--d': '110ms' }}>định nghĩa</span></span>
+            <span className="hero-line"><span style={{ '--d': '220ms' }}><em>bạn</em></span></span>
           </h1>
           <p className="hero-subtitle">
             Khám phá những thiết kế độc quyền — nơi chất lượng thủ công gặp gỡ phong cách đương đại. Mỗi món đồ là một câu chuyện.
           </p>
           <div className="hero-cta">
             <button className="btn-lyra" onClick={() => navigate('shop')}>
-              Khám phá ngay <i className="bi bi-arrow-right" />
+              <span>Khám phá ngay</span> <i className="bi bi-arrow-right" />
             </button>
             <button className="btn-outline-lyra" onClick={() => navigate('sale')}>
-              Xem Sale
+              <span>Xem Sale</span>
             </button>
           </div>
         </div>
@@ -81,7 +95,7 @@ export default function HomePage() {
       <Marquee />
 
       {/* ── CATEGORIES ── */}
-      <section className="section">
+      <section className="section" data-reveal>
         <div className="container-fluid px-4 px-lg-5">
           <div className="section-header">
             <h2 className="section-title">Mua theo<br /><em>danh mục</em></h2>
@@ -96,9 +110,10 @@ export default function HomePage() {
             </div>
           ) : categories.length > 0 ? (
             <div className="cat-grid">
-              {categories.map((cat) => (
-                <div key={cat.id} className="cat-card" onClick={() => navigate('shop')}
-                  style={{ background: cat.color + '88' }}
+              {categories.map((cat, i) => (
+                <div key={cat.id} className="cat-card" data-reveal
+                  onClick={() => navigate('shop')}
+                  style={{ background: cat.color + '88', '--reveal-delay': `${i * 80}ms` }}
                 >
                   <div className="cat-img-placeholder">
                     <i className={`bi ${cat.icon}`} />
@@ -120,7 +135,7 @@ export default function HomePage() {
       </section>
 
       {/* ── FEATURED ── */}
-      <section className="section" style={{ paddingTop: 0 }}>
+      <section className="section" style={{ paddingTop: 0 }} data-reveal>
         <div className="container-fluid px-4 px-lg-5">
           <div className="section-header">
             <h2 className="section-title">Nổi bật<br /><em>tuần này</em></h2>
@@ -145,7 +160,7 @@ export default function HomePage() {
       </section>
 
       {/* ── BANNER ── */}
-      <section style={{ padding: '0 0 80px' }}>
+      <section style={{ padding: '0 0 80px' }} data-reveal="clip">
         <div className="container-fluid px-4 px-lg-5">
           <div style={{
             background: 'linear-gradient(135deg, #C9B99A 0%, #8B7860 100%)',
@@ -170,7 +185,7 @@ export default function HomePage() {
       </section>
 
       {/* ── NEW ARRIVALS ── */}
-      <section className="section" style={{ paddingTop: 0 }}>
+      <section className="section" style={{ paddingTop: 0 }} data-reveal>
         <div className="container-fluid px-4 px-lg-5">
           <div className="section-header">
             <h2 className="section-title">Mới<br /><em>về kho</em></h2>
@@ -195,7 +210,7 @@ export default function HomePage() {
       </section>
 
       {/* ── PERKS ── */}
-      <section className="section-sm" style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
+      <section className="section-sm" data-reveal style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)' }}>
         <div className="container">
           <div className="row text-center">
             {[
@@ -203,8 +218,8 @@ export default function HomePage() {
               { icon: 'bi-arrow-repeat',  label: 'Đổi trả 30 ngày',    sub: 'Miễn phí, tiện lợi' },
               { icon: 'bi-shield-check',  label: 'Hàng chính hãng',    sub: 'Cam kết 100% authentic' },
               { icon: 'bi-headset',       label: 'Hỗ trợ 24/7',        sub: 'Tư vấn tận tình mọi lúc' },
-            ].map(({ icon, label, sub }) => (
-              <div key={label} className="col-6 col-md-3 py-3">
+            ].map(({ icon, label, sub }, i) => (
+              <div key={label} className="col-6 col-md-3 py-3" data-reveal style={{ '--reveal-delay': `${i * 80}ms` }}>
                 <i className={`bi ${icon}`} style={{ fontSize: 28, color: 'var(--warm)', marginBottom: 10, display: 'block' }} />
                 <div style={{ fontSize: 13.5, fontWeight: 500, marginBottom: 4 }}>{label}</div>
                 <div style={{ fontSize: 12, color: 'var(--muted)' }}>{sub}</div>

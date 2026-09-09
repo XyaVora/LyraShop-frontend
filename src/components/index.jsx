@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
+import { useScrollDirection } from '../hooks/useScrollDirection';
 import { fmt } from '../data/products';
 
 /* ─── Stars ─────────────────────────────────── */
@@ -21,10 +22,13 @@ export function ProductCard({ product, delay = 0 }) {
   const { navigate } = useApp();
   const { addToCart, toggleWishlist, isWishlisted } = useCart();
   const wished = isWishlisted(product.id);
+  const [wishPop, setWishPop] = useState(false);
 
   return (
     <div
-      className={`product-card fade-up fade-up-${(delay % 4) + 1}`}
+      className="product-card"
+      data-reveal
+      style={{ '--reveal-delay': `${(delay % 8) * 70}ms` }}
       onClick={() => navigate('detail', { product })}
     >
       <div className="product-card-img">
@@ -32,6 +36,7 @@ export function ProductCard({ product, delay = 0 }) {
           <i className={`bi ${product.icon}`} />
           <span>Lyra</span>
         </div>
+        <div className="product-img-alt" aria-hidden="true" />
         {product.badge && (
           <div className={`product-badge ${product.badge.toLowerCase()}`}>{product.badge}</div>
         )}
@@ -40,11 +45,16 @@ export function ProductCard({ product, delay = 0 }) {
             className="product-action-btn"
             onClick={e => { e.stopPropagation(); addToCart(product); }}
           >
-            + Giỏ hàng
+            <span>+ Giỏ hàng</span>
           </button>
           <button
-            className="product-action-btn wish-btn"
-            onClick={e => { e.stopPropagation(); toggleWishlist(product); }}
+            className={`product-action-btn wish-btn${wishPop ? ' wish-pop' : ''}`}
+            onClick={e => {
+              e.stopPropagation();
+              toggleWishlist(product);
+              setWishPop(true);
+              setTimeout(() => setWishPop(false), 420);
+            }}
             title={wished ? 'Bỏ yêu thích' : 'Yêu thích'}
           >
             <i className={`bi bi-heart${wished ? '-fill' : ''}`} style={{ color: wished ? '#C8A97E' : 'inherit' }} />
@@ -64,6 +74,7 @@ export function ProductCard({ product, delay = 0 }) {
 
 /* ─── Marquee ────────────────────────────────── */
 export function Marquee() {
+  const { dir } = useScrollDirection();
   const items = [
     'Miễn phí giao hàng trên 500K',
     'Hàng chính hãng 100%',
@@ -74,7 +85,7 @@ export function Marquee() {
   ];
   const doubled = [...items, ...items];
   return (
-    <div className="marquee-bar">
+    <div className={`marquee-bar${dir === 'up' ? ' reverse' : ''}`}>
       <div className="marquee-track">
         {[0,1].map(rep => (
           <div key={rep} className="marquee-content">
@@ -93,7 +104,7 @@ export function Marquee() {
 /* ─── Newsletter ─────────────────────────────── */
 export function Newsletter({ showToast }) {
   return (
-    <section className="newsletter-section">
+    <section className="newsletter-section" data-reveal>
       <div className="container">
         <div className="row align-items-center">
           <div className="col-lg-5 mb-4 mb-lg-0">
@@ -120,7 +131,7 @@ export function Newsletter({ showToast }) {
 /* ─── Footer ─────────────────────────────────── */
 export function Footer({ navigate }) {
   return (
-    <footer className="site-footer">
+    <footer className="site-footer" data-reveal>
       <div className="container">
         <div className="row">
           <div className="col-lg-3 col-md-6 mb-4">
@@ -177,6 +188,7 @@ function ToastItem({ msg, icon }) {
     <div className={`toast-notify${visible ? ' visible' : ''}`}>
       <i className={`bi ${icon}`} />
       <span>{msg}</span>
+      <span className="toast-progress" aria-hidden="true" />
     </div>
   );
 }

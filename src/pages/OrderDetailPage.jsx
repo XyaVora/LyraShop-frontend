@@ -28,7 +28,7 @@ export default function OrderDetailPage() {
 
   return (
     <div>
-      <div style={{ maxWidth: 960, margin: '0 auto', padding: '40px 20px 80px' }}>
+      <div data-reveal style={{ maxWidth: 960, margin: '0 auto', padding: '40px 20px 80px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
           <div>
             <div style={{ fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>

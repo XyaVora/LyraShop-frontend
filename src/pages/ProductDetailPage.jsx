@@ -115,7 +115,7 @@ export default function ProductDetailPage() {
     <div>
       <div className="detail-layout">
         {/* Gallery */}
-        <div className="detail-gallery-col">
+        <div className="detail-gallery-col" data-reveal="left">
           <div className="gallery-main-view" style={{ background: product.color + 'BB' }}>
             <i className={`bi ${thumbIcons[activeThumb]}`} style={{ fontSize: 88, color: 'rgba(14,14,14,.18)' }} />
             <span style={{ fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(14,14,14,.2)' }}>
@@ -135,7 +135,7 @@ export default function ProductDetailPage() {
         </div>
 
         {/* Info */}
-        <div className="detail-info-col">
+        <div className="detail-info-col" data-reveal="right">
           <div className="detail-breadcrumb">
             <span onClick={() => navigate('home')}>Trang chủ</span>
             {' / '}
@@ -292,7 +292,7 @@ export default function ProductDetailPage() {
 
       {/* Related products */}
       {related.length > 0 && (
-        <section className="section">
+        <section className="section" data-reveal>
           <div className="container-fluid px-4 px-lg-5">
             <div className="section-header">
               <h2 className="section-title">Có thể<br /><em>bạn thích</em></h2>

@@ -50,7 +50,7 @@ export default function AuthPage() {
   return (
     <div className="auth-layout">
       {/* Visual */}
-      <div className="auth-visual">
+      <div className="auth-visual" data-reveal="left">
         <div className="auth-visual-logo">LYRA</div>
         <p className="auth-visual-sub">Phong cách định nghĩa bạn. Khám phá bộ sưu tập thời trang cao cấp độc quyền.</p>
         <div style={{ marginTop: 40, display: 'flex', flexDirection: 'column', gap: 14, width: '100%', maxWidth: 280 }}>
@@ -68,7 +68,7 @@ export default function AuthPage() {
       </div>
 
       {/* Form */}
-      <div className="auth-form-col">
+      <div className="auth-form-col" data-reveal="right">
         <div className="auth-form-wrap">
           <h2 className="auth-title">{mode === 'login' ? 'Đăng nhập' : 'Đăng ký'}</h2>
           <p className="auth-subtitle">

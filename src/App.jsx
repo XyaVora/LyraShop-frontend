@@ -1,7 +1,8 @@
 // src/App.jsx
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApp } from './context/AppContext';
 import { useCart } from './context/CartContext';
+import { useReveal } from './hooks/useReveal';
 
 import Navbar from './components/Navbar';
 import { ToastContainer } from './components/index.jsx';
@@ -25,6 +26,10 @@ export default function App() {
   const { currentPage, isLoggedIn } = useApp();
   const { showToast } = useCart();
   const [loading, setLoading] = useState(true);
+  const [progressOn, setProgressOn] = useState(false);
+  const firstNav = useRef(true);
+
+  useReveal([currentPage]);
 
   // Simulate initial load
   useEffect(() => {
@@ -38,6 +43,17 @@ export default function App() {
       setTimeout(() => showToast('Chào mừng đến với LYRA! 👋', 'bi-bag-heart'), 400);
     }
   }, [loading]);
+
+  useEffect(() => {
+    if (loading) return undefined;
+    if (firstNav.current) {
+      firstNav.current = false;
+      return undefined;
+    }
+    setProgressOn(true);
+    const t = setTimeout(() => setProgressOn(false), 720);
+    return () => clearTimeout(t);
+  }, [currentPage, loading]);
 
   if (loading) return <LoadingScreen />;
 
@@ -65,10 +81,21 @@ export default function App() {
 
   return (
     <>
+      <div className={`page-progress${progressOn ? ' on' : ''}`} aria-hidden="true" />
       <Navbar />
       {showWrapper
-        ? <div className="page-wrapper">{renderPage()}</div>
-        : renderPage()
+        ? (
+          <div className="page-wrapper">
+            <div className="page-enter" key={currentPage}>
+              {renderPage()}
+            </div>
+          </div>
+        )
+        : (
+          <div className="page-enter" key={currentPage}>
+            {renderPage()}
+          </div>
+        )
       }
       <ToastContainer />
     </>

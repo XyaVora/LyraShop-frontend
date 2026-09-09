@@ -18,7 +18,7 @@ export default function CartPage() {
     <div>
       <div className="cart-layout">
         {/* Left */}
-        <div className="cart-main-col">
+        <div className="cart-main-col" data-reveal="left">
           <h1 className="cart-page-title">Giỏ hàng</h1>
           <p className="cart-items-count">{cartCount} sản phẩm</p>
 
@@ -85,7 +85,7 @@ export default function CartPage() {
         </div>
 
         {/* Right: Summary */}
-        <aside className="cart-summary-col">
+        <aside className="cart-summary-col" data-reveal="right">
           <h2 className="summary-title">Tóm tắt đơn</h2>
 
           <div className="summary-line">

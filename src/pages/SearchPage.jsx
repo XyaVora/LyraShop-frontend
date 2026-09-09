@@ -51,7 +51,7 @@ export default function SearchPage() {
   return (
     <div>
       {/* Header */}
-      <div style={{ padding: '48px 0 32px', borderBottom: '1px solid var(--border)' }}>
+      <div data-reveal style={{ padding: '48px 0 32px', borderBottom: '1px solid var(--border)' }}>
         <div className="container-fluid px-4 px-lg-5">
           <div style={{ fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 10 }}>
             Kết quả tìm kiếm
@@ -69,7 +69,7 @@ export default function SearchPage() {
         </div>
       </div>
 
-      <div style={{ padding: '36px 0 72px' }}>
+      <div data-reveal style={{ padding: '36px 0 72px' }}>
         <div className="container-fluid px-4 px-lg-5">
 
           {/* Toolbar */}

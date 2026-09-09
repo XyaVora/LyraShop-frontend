@@ -27,7 +27,7 @@ export default function ProfilePage() {
     <div>
       <div className="profile-layout">
         {/* Sidebar */}
-        <aside className="profile-sidebar">
+        <aside className="profile-sidebar" data-reveal="left">
           <div className="profile-avatar">{user?.avatar || (user?.email ? user.email[0].toUpperCase() : 'U')}</div>
           <div className="profile-name">{user?.name || 'Thành viên'}</div>
           <div className="profile-email">{user?.email || ''}</div>
@@ -49,7 +49,7 @@ export default function ProfilePage() {
         </aside>
 
         {/* Content */}
-        <main className="profile-content">
+        <main className="profile-content" data-reveal="right">
           {activeTab === 'orders' && <OrdersTab navigate={navigate} />}
           {activeTab === 'wishlist' && <WishlistTab wishlist={wishlist} toggleWishlist={toggleWishlist} addToCart={addToCart} navigate={navigate} />}
           {activeTab === 'address' && <AddressTab showToast={showToast} />}

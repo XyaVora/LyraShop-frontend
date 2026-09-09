@@ -28,7 +28,7 @@ export default function BrandsPage() {
   return (
     <div>
       {/* ── HERO ── */}
-      <section style={{
+      <section data-reveal style={{
         background: 'linear-gradient(135deg, #0E0E0E 0%, #1A1A1A 60%, #25201A 100%)',
         color: 'var(--cream)',
         padding: '80px 0 72px',
@@ -66,7 +66,7 @@ export default function BrandsPage() {
       </section>
 
       {/* ── BRAND STORY ── */}
-      <section style={{ padding: '72px 0 80px' }}>
+      <section data-reveal style={{ padding: '72px 0 80px' }}>
         <div className="container">
           <div style={{
             background: 'rgba(200,169,126,.08)',

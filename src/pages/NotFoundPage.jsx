@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 export default function NotFoundPage() {
   const { navigate } = useApp();
   return (
-    <div className="not-found">
+    <div className="not-found" data-reveal>
       <div className="not-found-num">404</div>
       <h2 className="not-found-title">Trang không tồn tại</h2>
       <p className="not-found-sub">Trang bạn đang tìm kiếm không tồn tại hoặc đã được di chuyển sang địa chỉ khác.</p>

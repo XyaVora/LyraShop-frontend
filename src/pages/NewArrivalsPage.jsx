@@ -37,7 +37,7 @@ export default function NewArrivalsPage() {
   return (
     <div>
       {/* ── HERO ── */}
-      <section style={{ padding: '72px 0 60px', borderBottom: '1px solid var(--border)' }}>
+      <section data-reveal style={{ padding: '72px 0 60px', borderBottom: '1px solid var(--border)' }}>
         <div className="container">
           <div className="row align-items-center">
             <div className="col-lg-6">
@@ -100,7 +100,7 @@ export default function NewArrivalsPage() {
       </section>
 
       {/* ── PRODUCTS ── */}
-      <section style={{ padding: '64px 0 80px' }}>
+      <section data-reveal style={{ padding: '64px 0 80px' }}>
         <div className="container-fluid px-4 px-lg-5">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
             <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 300, margin: 0 }}>

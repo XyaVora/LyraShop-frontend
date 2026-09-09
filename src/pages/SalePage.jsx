@@ -63,7 +63,7 @@ export default function SalePage() {
   return (
     <div>
       {/* ── HERO BANNER ── */}
-      <section style={{
+      <section data-reveal style={{
         background: 'linear-gradient(135deg, #1A1A1A 0%, #2D251E 50%, #1A1A1A 100%)',
         color: 'var(--cream)',
         padding: '72px 0 64px',
@@ -144,7 +144,7 @@ export default function SalePage() {
       </section>
 
       {/* ── PRODUCTS ── */}
-      <section id="sale-products" style={{ padding: '64px 0 80px' }}>
+      <section id="sale-products" data-reveal style={{ padding: '64px 0 80px' }}>
         <div className="container-fluid px-4 px-lg-5">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28, flexWrap: 'wrap', gap: 12 }}>
             <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, fontWeight: 300, margin: 0 }}>
