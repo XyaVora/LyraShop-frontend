@@ -25,6 +25,7 @@ import {
 } from '../components/index.jsx';
 import { buildUrl } from '../router.js';
 import { isEmail, isPhone, normPhone } from '../utils/validate.js';
+import { extractErrorMessage } from '../services/api';
 import '../styles/cart.css';
 
 /* ══════════════════════════════════════════════════════════════════
@@ -51,8 +52,6 @@ const CITIES = Object.keys(DISTRICTS_BY_CITY);
 
 const PAY_OPTIONS = [
   { id: 'cod', label: 'Thanh toán khi nhận hàng (COD)', icon: 'bi-cash-coin' },
-  { id: 'banking', label: 'Chuyển khoản ngân hàng', icon: 'bi-bank' },
-  { id: 'momo', label: 'Ví MoMo', icon: 'bi-phone' },
   { id: 'vnpay', label: 'VNPay QR', icon: 'bi-qr-code' },
 ];
 const payLabel = (id) => PAY_OPTIONS.find((o) => o.id === id)?.label || 'Thanh toán khi nhận hàng (COD)';
@@ -531,7 +530,13 @@ function CartView() {
   };
 
   const undoRemove = (row) => {
-    const product = findProduct(row.item.productId);
+    const product = findProduct(row.item.productId) || (row.item.variantId
+      ? {
+        ...row.item,
+        id: row.item.productId || row.item.variantId,
+        variants: [{ id: row.item.variantId, size: row.item.size, color: row.item.variantColor }],
+      }
+      : null);
     if (product) {
       addToCart(product, row.item.qty, row.item.size, row.item.variantColor, { openDrawer: false });
       showToast(`Đã khôi phục "${row.item.name}" vào giỏ`, 'bi-arrow-counterclockwise');
@@ -576,7 +581,9 @@ function CartView() {
       action: {
         label: 'Hoàn tác',
         onClick: () => {
-          const product = findProduct(item.productId);
+          const product = findProduct(item.productId) || (item.variantId
+            ? { ...item, id: item.productId || item.variantId, variants: [{ id: item.variantId, size: item.size, color: item.variantColor }] }
+            : null);
           if (product) addToCart(product, item.qty, item.size, item.variantColor, { openDrawer: false });
           dismissUndo(item.key);
         },
@@ -768,12 +775,14 @@ function CartView() {
             coupon={coupon}
           />
 
-          <CouponBox
-            coupon={coupon}
-            applyCoupon={applyCoupon}
-            removeCoupon={removeCoupon}
-            subtotal={subtotal}
-          />
+          {!ctx.liveSession && (
+            <CouponBox
+              coupon={coupon}
+              applyCoupon={applyCoupon}
+              removeCoupon={removeCoupon}
+              subtotal={subtotal}
+            />
+          )}
 
           <button
             type="button"
@@ -829,7 +838,7 @@ function CheckoutView({ onPlaced }) {
   const { navigate, user } = useApp();
   const {
     cart, subtotal, shipping, discount, total, coupon,
-    clearCart, placeOrder, showToast,
+    clearCart, placeOrder, showToast, liveSession, cartBusy, setCartBusy,
   } = useCart();
 
   const [form, setForm] = useState(() => initialForm(user));
@@ -877,7 +886,7 @@ function CheckoutView({ onPlaced }) {
     setErrors((prev) => (prev[name] ? { ...prev, [name]: undefined } : prev));
   };
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     const errs = validateForm(form);
     const firstBad = FIELD_ORDER.find((k) => errs[k]);
@@ -898,25 +907,34 @@ function CheckoutView({ onPlaced }) {
       city: form.city,
     };
 
-    // Mã đơn do placeOrder sinh — KHÔNG bao giờ sinh trong thân render.
-    const order = placeOrder({
-      items: cart,
-      address,
-      payment,
-      note: form.note.trim(),
-      subtotal,
-      shipping,
-      discount,
-      total,
-      couponCode: coupon?.code || null,
-    });
+    try {
+      setCartBusy?.(true);
+      const order = await placeOrder({
+        items: cart,
+        address,
+        payment,
+        note: form.note.trim(),
+        subtotal,
+        shipping,
+        discount,
+        total,
+        couponCode: coupon?.code || null,
+      });
 
-    // Ghi vào cả `lyra_last_address` lẫn sổ địa chỉ của trang Tài khoản.
-    rememberAddress(address, form);
-
-    clearCart();
-    onPlaced(order);
-    showToast(`Đã đặt đơn ${order.id} thành công.`, 'bi-bag-check');
+      rememberAddress(address, form);
+      if (!liveSession) await clearCart();
+      if (order?.paymentUrl) {
+        showToast('Đang chuyển tới cổng VNPay…', 'bi-qr-code');
+        window.location.assign(order.paymentUrl);
+        return;
+      }
+      onPlaced(order);
+      showToast(`Đã đặt đơn ${order.id} thành công.`, 'bi-bag-check');
+    } catch (error) {
+      showToast(extractErrorMessage(error, 'Không đặt được đơn hàng. Kiểm tra giỏ hàng và thử lại.'), 'bi-exclamation-circle');
+    } finally {
+      setCartBusy?.(false);
+    }
   };
 
   if (cart.length === 0) return null;
@@ -1042,7 +1060,9 @@ function CheckoutView({ onPlaced }) {
               </label>
             ))}
             <p className="pay-note">
-              Đây là bản demo — không có giao dịch thật nào được thực hiện.
+              {liveSession
+                ? 'Máy chủ chỉ nhận COD hoặc VNPay. Tổng đơn là giá sản phẩm trong giỏ trên máy chủ.'
+                : 'Chế độ demo offline — đơn được lưu trên máy này, không gửi lên máy chủ.'}
             </p>
           </fieldset>
 
@@ -1054,8 +1074,8 @@ function CheckoutView({ onPlaced }) {
             >
               <i className="bi bi-arrow-left" aria-hidden="true" /> Về giỏ hàng
             </button>
-            <button type="submit" className="btn-lyra checkout-submit">
-              Đặt hàng — {fmt(total)}
+            <button type="submit" className="btn-lyra checkout-submit" disabled={cartBusy}>
+              {cartBusy ? 'Đang đặt hàng…' : `Đặt hàng — ${fmt(total)}`}
             </button>
           </div>
         </div>

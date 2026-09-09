@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { buildUrl, pageTitle, parseLocation } from '../router.js';
 import { CATEGORIES, findProduct } from '../data/products';
 import { authApi, isOffline, tokenStore } from '../services/api';
+import { findCachedProduct } from '../services/catalog';
 
 const AppContext = createContext(null);
 
@@ -132,7 +133,10 @@ export function AppProvider({ children }) {
   }, []);
 
   // ── DẪN XUẤT TỪ PARAMS (không lưu trùng state) ───────────────────────
-  const selectedProduct = useMemo(() => findProduct(params.product), [params.product]);
+  const selectedProduct = useMemo(
+    () => findProduct(params.product) || findCachedProduct(params.product),
+    [params.product],
+  );
   const selectedOrder = useMemo(
     () => (params.order ? `#${String(params.order).replace(/^#/, '')}` : null),
     [params.order],

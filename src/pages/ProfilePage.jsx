@@ -41,11 +41,12 @@ const STATUS = {
 const statusOf = (s) => STATUS[s] || STATUS.processing;
 
 // Đơn còn huỷ được khi chưa rời kho.
-const CANCELLABLE = ['processing', 'confirmed', 'packing'];
+const CANCELLABLE = ['processing'];
+const OPEN_STATUSES = ['processing', 'confirmed', 'packing'];
 
 const ORDER_FILTERS = [
   { id: 'all', label: 'Tất cả', match: () => true },
-  { id: 'open', label: 'Đang xử lý', match: (o) => CANCELLABLE.includes(o.status) },
+  { id: 'open', label: 'Đang xử lý', match: (o) => OPEN_STATUSES.includes(o.status) },
   { id: 'shipping', label: 'Đang giao', match: (o) => o.status === 'shipping' },
   { id: 'delivered', label: 'Đã giao', match: (o) => o.status === 'delivered' },
   { id: 'cancelled', label: 'Đã huỷ', match: (o) => o.status === 'cancelled' },
@@ -222,12 +223,13 @@ function OrdersTab({ orders, openCount, wishCount, navigate, cancelOrder, showTo
     [orders],
   );
 
-  const confirmCancel = () => {
+  const confirmCancel = async () => {
     if (!pending) return;
-    const ok = cancelOrder(pending.id);
+    const target = pending;
     setPending(null);
+    const ok = await cancelOrder(target.id);
     showToast(
-      ok ? `Đã huỷ đơn hàng ${pending.id}` : 'Không tìm thấy đơn hàng để huỷ',
+      ok ? `Đã huỷ đơn hàng ${target.id}` : 'Không huỷ được đơn này. Chỉ đơn đang chờ xác nhận mới huỷ được.',
       ok ? 'bi-x-circle' : 'bi-exclamation-circle',
     );
   };

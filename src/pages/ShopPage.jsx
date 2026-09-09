@@ -3,6 +3,7 @@
 // nên khi mở một sản phẩm rồi quay lại, bộ lọc và trang vẫn còn nguyên.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { PRODUCTS, CATEGORIES, fmt } from '../data/products';
+import { loadShopCatalog } from '../services/catalog';
 import {
   EmptyState,
   Footer,
@@ -308,6 +309,17 @@ function Filters({ id, state, actions }) {
 
 export default function ShopPage() {
   const { params, navigate } = useApp();
+  const [catalog, setCatalog] = useState(PRODUCTS);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadShopCatalog()
+      .then((list) => {
+        if (!cancelled && Array.isArray(list) && list.length) setCatalog(list);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   /* ── Trạng thái đọc từ URL (nguồn duy nhất) ─────────────────── */
   const catSlug = catBySlug(params.cat) ? params.cat : '';
@@ -343,7 +355,7 @@ export default function ShopPage() {
     const min = minPrice ? Number(minPrice) : null;
     const max = maxPrice ? Number(maxPrice) : null;
 
-    let list = PRODUCTS.filter((p) => {
+    let list = catalog.filter((p) => {
       if (catSlug && catBySlug(catSlug)?.name !== p.cat) return false;
       if (color && !(p.colors || []).some((c) => c.name === color)) return false;
       if (min !== null && p.price < min) return false;
@@ -357,7 +369,7 @@ export default function ShopPage() {
     list = [...list];
     switch (sort) {
       case 'popular':
-        list.sort((a, b) => b.sold - a.sold);
+        list.sort((a, b) => (b.sold || 0) - (a.sold || 0));
         break;
       case 'price-asc':
         list.sort((a, b) => a.price - b.price);
@@ -369,13 +381,13 @@ export default function ShopPage() {
         list.sort((a, b) => b.rating - a.rating || b.reviews - a.reviews);
         break;
       default:
-        // 'newest' — theo createdAt giảm dần, đúng với nhãn "Mới nhất".
         list.sort(
-          (a, b) => String(b.createdAt).localeCompare(String(a.createdAt)) || b.id - a.id,
+          (a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
+            || String(b.id).localeCompare(String(a.id)),
         );
     }
     return list;
-  }, [catSlug, color, minPrice, maxPrice, minRating, onlySale, inStock, sort]);
+  }, [catalog, catSlug, color, minPrice, maxPrice, minRating, onlySale, inStock, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const page = Math.min(pageParam, totalPages);

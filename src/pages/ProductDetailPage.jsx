@@ -4,6 +4,8 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
+import { isUuid } from '../services/shopContract.mjs';
+import { loadProductDetail } from '../services/catalog';
 import {
   REVIEWS_MOCK,
   fmt,
@@ -103,7 +105,7 @@ function radioKeyIndex(key, current, count) {
    ══════════════════════════════════════════════════════════════════ */
 
 export default function ProductDetailPage() {
-  const { navigate, selectedProduct, user } = useApp();
+  const { navigate, selectedProduct, user, params } = useApp();
   const {
     addToCart,
     toggleWishlist,
@@ -113,7 +115,32 @@ export default function ProductDetailPage() {
     recentlyViewed,
   } = useCart();
 
-  const product = selectedProduct;
+  const [liveProduct, setLiveProduct] = useState(null);
+  const [liveLoading, setLiveLoading] = useState(() => isUuid(params?.product) && !selectedProduct);
+  const product = liveProduct || selectedProduct;
+
+  useEffect(() => {
+    const id = params?.product;
+    if (!isUuid(id)) {
+      setLiveProduct(null);
+      setLiveLoading(false);
+      return undefined;
+    }
+    let cancelled = false;
+    setLiveLoading(true);
+    loadProductDetail(id)
+      .then((mapped) => {
+        if (cancelled) return;
+        setLiveProduct(mapped || null);
+        setLiveLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setLiveProduct(null);
+        setLiveLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [params?.product]);
 
   /* ── State (App remount theo key={slug} nên state luôn khớp sản phẩm) ── */
   const sizes = useMemo(
@@ -245,6 +272,19 @@ export default function ProductDetailPage() {
   };
 
   /* ── Không tìm thấy sản phẩm ───────────────────────────────────── */
+  if (!product && liveLoading) {
+    return (
+      <div className="detail-page">
+        <section className="section">
+          <div className="wrap">
+            <EmptyState icon="bi-hourglass-split" title="Đang tải sản phẩm" sub="Đang lấy chi tiết và biến thể từ máy chủ LYRA." />
+          </div>
+        </section>
+        <Footer />
+      </div>
+    );
+  }
+
   if (!product) {
     return (
       <div className="detail-page">

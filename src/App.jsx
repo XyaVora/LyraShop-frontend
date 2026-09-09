@@ -51,10 +51,13 @@ export default function App() {
     return () => clearTimeout(t);
   }, [showToast]);
 
-  /* Trang cá nhân yêu cầu đăng nhập → chuyển sang trang đăng nhập kèm ?next= */
+  /* Trang cá nhân / thanh toán yêu cầu đăng nhập → chuyển sang /auth?next= */
   useEffect(() => {
-    if (currentPage === 'profile' && !authLoading && !isLoggedIn) {
+    if (authLoading || isLoggedIn) return;
+    if (currentPage === 'profile') {
       navigate('auth', { next: '/profile', replace: true });
+    } else if (currentPage === 'checkout') {
+      navigate('auth', { next: '/checkout', replace: true });
     }
   }, [currentPage, isLoggedIn, authLoading, navigate]);
 
@@ -69,7 +72,7 @@ export default function App() {
       // key theo slug: đổi sang sản phẩm khác thì trang được mount lại (không giữ size/qty cũ)
       case 'detail': return <ProductDetailPage key={selectedProduct?.slug ?? params?.product ?? 'none'} />;
       case 'cart': return <CartPage />;
-      case 'checkout': return <CartPage />;
+      case 'checkout': return isLoggedIn ? <CartPage /> : null;
       case 'auth': return <AuthPage />;
       case 'wishlist': return <WishlistPage />;
       case 'order-detail': return <OrderDetailPage key={selectedOrder ?? 'none'} />;

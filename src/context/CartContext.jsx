@@ -1,5 +1,6 @@
 // src/context/CartContext.jsx — giỏ hàng, yêu thích, mã giảm giá, toast,
-// đơn hàng và "đã xem gần đây". Toàn bộ dữ liệu lưu ở localStorage `lyra_*`.
+// đơn hàng và "đã xem gần đây". Giỏ/đơn dùng API khi có access token;
+// wishlist, coupon và recently-viewed vẫn lưu localStorage.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import {
   COUPONS,
@@ -9,6 +10,23 @@ import {
   findProduct,
   fmt,
 } from '../data/products';
+import { useApp } from './AppContext';
+import { cartApi, extractErrorMessage, orderApi, tokenStore } from '../services/api';
+import {
+  buildAddCartItemRequest,
+  buildCreateOrderRequest,
+  formatShippingAddress,
+  isUuid,
+  mapCartToItems,
+  mapOrderResponse,
+  resolveVariantId,
+} from '../services/shopContract.mjs';
+import {
+  findCachedProduct,
+  loadProductDetail,
+  rememberVariantMeta,
+  variantMetaMap,
+} from '../services/catalog';
 
 const CartContext = createContext(null);
 
@@ -198,8 +216,41 @@ function normalizeOrder(raw) {
 // Đơn mock chuẩn hoá một lần ở tầng module (thuần, không side effect).
 const MOCK_ORDERS = (isArr(ORDERS_MOCK) ? ORDERS_MOCK : []).map(normalizeOrder).filter(Boolean);
 
+async function resolveLiveProduct(product, size, variantColor) {
+  const base = findProduct(product) || findCachedProduct(product?.id) || findCachedProduct(product?.slug) || product;
+  if (resolveVariantId(base, size, variantColor)) return base;
+  const id = base?.id || product?.id || product;
+  if (isUuid(id)) {
+    try {
+      return await loadProductDetail(id);
+    } catch {
+      return base;
+    }
+  }
+  return base;
+}
+
+function metaFromProduct(product, size, variantColor) {
+  return {
+    productId: product?.id,
+    slug: product?.slug,
+    name: product?.name,
+    image: isArr(product?.images) ? product.images[0] : product?.image,
+    tint: product?.color,
+    icon: product?.icon,
+    stock: num(product?.stock, 99),
+    cat: product?.cat,
+    brand: product?.brand,
+    size,
+    color: variantColor,
+  };
+}
+
 /* ── PROVIDER ────────────────────────────────────────────────────────── */
 export function CartProvider({ children }) {
+  const { user } = useApp();
+  const liveSession = Boolean(user && tokenStore.get());
+
   // Giỏ hàng: đọc từ localStorage rồi đồng bộ lại với catalog.
   const [cart, setCart] = useState(() => {
     const stored = readStore(K_CART, [], isArr);
@@ -231,11 +282,12 @@ export function CartProvider({ children }) {
 
   const [toasts, setToasts] = useState([]);
   const [cartOpen, setCartOpen] = useState(false);
+  const [cartBusy, setCartBusy] = useState(false);
 
-  /* ── Ghi localStorage ─────────────────────────────────────────────── */
-  useEffect(() => { writeStore(K_CART, cart); }, [cart]);
+  /* ── Ghi localStorage (giỏ/đơn máy chủ không ghi đè kho local) ──── */
+  useEffect(() => { if (!liveSession) writeStore(K_CART, cart); }, [cart, liveSession]);
   useEffect(() => { writeStore(K_WISHLIST, wishlistIds); }, [wishlistIds]);
-  useEffect(() => { writeStore(K_ORDERS, orders); }, [orders]);
+  useEffect(() => { if (!liveSession) writeStore(K_ORDERS, orders); }, [orders, liveSession]);
   useEffect(() => { writeStore(K_RECENT, recentIds); }, [recentIds]);
   useEffect(() => {
     if (coupon) writeStore(K_COUPON, { code: coupon.code });
@@ -270,6 +322,47 @@ export function CartProvider({ children }) {
     return () => { timers.forEach(clearTimeout); timers.clear(); };
   }, []);
 
+  const applyCartResponse = useCallback((data) => {
+    setCart(mapCartToItems(data, variantMetaMap()));
+  }, []);
+
+  const refreshServerCart = useCallback(async () => {
+    const { data } = await cartApi.get();
+    applyCartResponse(data);
+  }, [applyCartResponse]);
+
+  const refreshServerOrders = useCallback(async () => {
+    const { data } = await orderApi.list();
+    setOrders((Array.isArray(data) ? data : []).map(mapOrderResponse).filter(Boolean));
+  }, []);
+
+  useEffect(() => {
+    if (!liveSession) {
+      const stored = readStore(K_CART, [], isArr);
+      setCart(mergeCart(stored.map(hydrateCartItem).filter(Boolean)));
+      setOrders(readStore(K_ORDERS, [], isArr).map(normalizeOrder).filter(Boolean));
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await cartApi.get();
+        if (!cancelled) applyCartResponse(data);
+      } catch {
+        if (!cancelled) setCart([]);
+      }
+      try {
+        const { data } = await orderApi.list();
+        if (!cancelled) {
+          setOrders((Array.isArray(data) ? data : []).map(mapOrderResponse).filter(Boolean));
+        }
+      } catch {
+        if (!cancelled) setOrders([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [liveSession, applyCartResponse]);
+
   /* ── GIỎ HÀNG ─────────────────────────────────────────────────────── */
   const openCart = useCallback(() => setCartOpen(true), []);
   const closeCart = useCallback(() => setCartOpen(false), []);
@@ -282,18 +375,34 @@ export function CartProvider({ children }) {
     return () => window.removeEventListener('lyra:navigated', onNavigated);
   }, []);
 
-  const addToCart = useCallback((product, qty = 1, size, variantColor, { openDrawer = true } = {}) => {
+  const addToCart = useCallback(async (product, qty = 1, size, variantColor, { openDrawer = true } = {}) => {
     if (!product) return;
-    // Cho phép truyền cả sản phẩm đầy đủ, id/slug, hoặc item của đơn hàng cũ
-    // ({ productId, ... }) — luôn quy về bản ghi mới nhất trong catalog.
-    const p = findProduct(product) || findProduct(product.productId) || product;
+    const p = findProduct(product) || findProduct(product.productId) || findCachedProduct(product?.id) || product;
     if (!p || p.id === undefined) return;
 
     const s = size || defaultSize(p);
     const c = variantColor || defaultColor(p);
-    const key = cartKey(p.id, s, c);
 
-    // Hàm cập nhật giữ thuần: mọi side effect (mở drawer) làm ở ngoài.
+    if (liveSession) {
+      try {
+        const liveProduct = await resolveLiveProduct(p, s, c);
+        const variantId = resolveVariantId(liveProduct, s, c) || (isUuid(product.variantId) ? product.variantId : null);
+        if (!variantId) {
+          showToast('Sản phẩm này chưa có biến thể trên máy chủ. Hãy chọn hàng từ cửa hàng trực tuyến.', 'bi-exclamation-circle');
+          return;
+        }
+        rememberVariantMeta(variantId, metaFromProduct(liveProduct || p, s, c));
+        const { data } = await cartApi.add(buildAddCartItemRequest(variantId, qty));
+        applyCartResponse(data);
+        if (openDrawer) setCartOpen(true);
+        return;
+      } catch (error) {
+        showToast(extractErrorMessage(error, 'Không thêm được vào giỏ hàng.'), 'bi-exclamation-circle');
+        return;
+      }
+    }
+
+    const key = cartKey(p.id, s, c);
     setCart((prev) => {
       const existing = prev.find((i) => i.key === key);
       if (existing) {
@@ -301,36 +410,82 @@ export function CartProvider({ children }) {
           ? { ...i, qty: Math.min(i.stock || 99, i.qty + Math.max(1, num(qty, 1))) }
           : i));
       }
-      // Dựng item từ `p` (bản ghi catalog đã phân giải), KHÔNG từ tham số thô:
-      // caller có thể truyền id, slug, hoặc item đơn hàng cũ thiếu ảnh/giá/tồn kho.
       return [...prev, makeCartItem(p, qty, s, c)];
     });
 
     if (openDrawer) setCartOpen(true);
-  }, []);
+  }, [liveSession, applyCartResponse, showToast]);
 
-  const removeFromCart = useCallback((key) => {
+  const removeFromCart = useCallback(async (key) => {
+    if (liveSession) {
+      const item = cart.find((i) => i.key === key);
+      if (!item?.cartItemId) {
+        setCart((prev) => prev.filter((i) => i.key !== key));
+        return;
+      }
+      try {
+        const { data } = await cartApi.remove(item.cartItemId);
+        applyCartResponse(data);
+      } catch (error) {
+        showToast(extractErrorMessage(error, 'Không xoá được sản phẩm khỏi giỏ.'), 'bi-exclamation-circle');
+      }
+      return;
+    }
     setCart((prev) => prev.filter((i) => i.key !== key));
-  }, []);
+  }, [liveSession, cart, applyCartResponse, showToast]);
 
-  const updateQty = useCallback((key, delta) => {
+  const updateQty = useCallback(async (key, delta) => {
+    if (liveSession) {
+      const item = cart.find((i) => i.key === key);
+      if (!item?.cartItemId) return;
+      const nextQty = Math.max(1, Math.min(item.stock || 99, item.qty + num(delta)));
+      try {
+        const { data } = await cartApi.update(item.cartItemId, { quantity: nextQty });
+        applyCartResponse(data);
+      } catch (error) {
+        showToast(extractErrorMessage(error, 'Không cập nhật được số lượng.'), 'bi-exclamation-circle');
+      }
+      return;
+    }
     setCart((prev) => prev.map((i) => (i.key === key
       ? { ...i, qty: Math.max(1, Math.min(i.stock || 99, i.qty + num(delta))) }
       : i)));
-  }, []);
+  }, [liveSession, cart, applyCartResponse, showToast]);
 
-  const setQty = useCallback((key, n) => {
+  const setQty = useCallback(async (key, n) => {
+    if (liveSession) {
+      const item = cart.find((i) => i.key === key);
+      if (!item?.cartItemId) return;
+      const nextQty = Math.max(1, Math.min(item.stock || 99, Math.round(num(n, 1))));
+      try {
+        const { data } = await cartApi.update(item.cartItemId, { quantity: nextQty });
+        applyCartResponse(data);
+      } catch (error) {
+        showToast(extractErrorMessage(error, 'Không cập nhật được số lượng.'), 'bi-exclamation-circle');
+      }
+      return;
+    }
     setCart((prev) => prev.map((i) => (i.key === key
       ? { ...i, qty: Math.max(1, Math.min(i.stock || 99, Math.round(num(n, 1)))) }
       : i)));
-  }, []);
+  }, [liveSession, cart, applyCartResponse, showToast]);
 
   /** Xoá sạch giỏ — xoá luôn coupon đang áp dụng (state + localStorage). */
-  const clearCart = useCallback(() => {
-    setCart([]);
+  const clearCart = useCallback(async () => {
+    if (liveSession) {
+      try {
+        await cartApi.clear();
+        setCart([]);
+      } catch (error) {
+        showToast(extractErrorMessage(error, 'Không xoá được giỏ hàng.'), 'bi-exclamation-circle');
+        return;
+      }
+    } else {
+      setCart([]);
+    }
     setCouponState(null);
     removeStore(K_COUPON);
-  }, []);
+  }, [liveSession, showToast]);
 
   /* ── YÊU THÍCH ────────────────────────────────────────────────────── */
   const wishlist = useMemo(
@@ -372,19 +527,20 @@ export function CartProvider({ children }) {
   );
 
   // Giỏ rỗng thì không tính phí ship; coupon loại shipping chỉ miễn phí khi đủ điều kiện.
-  const shipping = cart.length === 0
+  // Đơn trên máy chủ chỉ tính tổng sản phẩm — không gửi phí ship/mã giảm giá.
+  const shipping = liveSession || cart.length === 0
     || subtotal >= FREE_SHIPPING_THRESHOLD
     || (coupon?.type === 'shipping' && couponEligible)
     ? 0
     : SHIPPING_FEE;
 
   const discount = useMemo(() => {
-    if (!coupon || !couponEligible) return 0;
+    if (liveSession || !coupon || !couponEligible) return 0;
     const raw = coupon.type === 'percent'
       ? Math.round((subtotal * num(coupon.value)) / 100)
       : coupon.type === 'fixed' ? num(coupon.value) : 0;
     return Math.min(subtotal, Math.max(0, raw)); // không bao giờ vượt tạm tính
-  }, [coupon, couponEligible, subtotal]);
+  }, [liveSession, coupon, couponEligible, subtotal]);
 
   const total = Math.max(0, subtotal - discount + shipping);
 
@@ -443,19 +599,38 @@ export function CartProvider({ children }) {
     const saved = [...orders].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
+    if (liveSession) return saved;
     const savedIds = new Set(saved.map((o) => normId(o.id)));
     const mocks = MOCK_ORDERS.filter((o) => !savedIds.has(normId(o.id)));
-    // Sắp xếp TOÀN BỘ theo thời gian: đơn mock khai báo theo thứ tự cũ → mới,
-    // nếu chỉ nối vào sau thì danh sách đơn ở trang Tài khoản sẽ không đơn điệu.
     return [...saved, ...mocks].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
-  }, [orders]);
+  }, [orders, liveSession]);
 
   const getOrder = useCallback(
     (id) => allOrders.find((o) => normId(o.id) === normId(id)) || null,
     [allOrders],
   );
+
+  const loadOrder = useCallback(async (id) => {
+    const existing = getOrder(id);
+    if (existing) return existing;
+    if (!liveSession || !id) return null;
+    const orderId = String(id).replace(/^#/, '');
+    if (!isUuid(orderId)) return null;
+    try {
+      const { data } = await orderApi.get(orderId);
+      const mapped = mapOrderResponse(data);
+      if (mapped) {
+        setOrders((prev) => (prev.some((o) => normId(o.id) === normId(mapped.id))
+          ? prev.map((o) => (normId(o.id) === normId(mapped.id) ? mapped : o))
+          : [mapped, ...prev]));
+      }
+      return mapped;
+    } catch {
+      return null;
+    }
+  }, [getOrder, liveSession]);
 
   /** Mã đơn kế tiếp dạng #LY26xxxx, không trùng với đơn mock. */
   const nextOrderId = useCallback(() => {
@@ -466,7 +641,26 @@ export function CartProvider({ children }) {
     return `#LY26${String(n).padStart(4, '0')}`;
   }, [orders]);
 
-  const placeOrder = useCallback((payload = {}) => {
+  const placeOrder = useCallback(async (payload = {}) => {
+    if (liveSession) {
+      const body = buildCreateOrderRequest({
+        shippingAddress: formatShippingAddress(payload.address),
+        shippingPhone: payload.address?.phone || payload.shippingPhone,
+        note: payload.note,
+        paymentMethod: payload.payment,
+      });
+      const { data } = await orderApi.create(body);
+      const order = mapOrderResponse(data);
+      if (order && payload.address) {
+        order.address = { ...order.address, ...payload.address };
+      }
+      setOrders((prev) => [order, ...prev.filter((o) => normId(o.id) !== normId(order.id))]);
+      setCart([]);
+      setCouponState(null);
+      removeStore(K_COUPON);
+      return order;
+    }
+
     const createdAt = new Date().toISOString();
     const items = (isArr(payload.items) ? payload.items : cart).map((i) => ({
       productId: i.productId ?? i.id,
@@ -498,7 +692,7 @@ export function CartProvider({ children }) {
 
     setOrders((prev) => [order, ...prev]);
     return order;
-  }, [cart, nextOrderId]);
+  }, [liveSession, cart, nextOrderId]);
 
   /**
    * Cập nhật đơn — hoạt động cả với đơn mock: lần đầu chạm tới thì copy
@@ -533,14 +727,29 @@ export function CartProvider({ children }) {
     }));
   }, [patchOrder]);
 
-  const cancelOrder = useCallback((id) => {
+  const cancelOrder = useCallback(async (id) => {
+    if (liveSession) {
+      const orderId = String(id).replace(/^#/, '');
+      const current = getOrder(id);
+      if (current && current.status !== 'processing') return false;
+      try {
+        const { data } = await orderApi.cancel(orderId);
+        const mapped = mapOrderResponse(data);
+        if (mapped) {
+          setOrders((prev) => prev.map((o) => (normId(o.id) === normId(mapped.id) ? mapped : o)));
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    }
     const when = new Date().toISOString();
     return patchOrder(id, (o) => ({
       status: 'cancelled',
       cancelledAt: when,
       timeline: applyStatus(o.timeline, 'cancelled', when),
     }));
-  }, [patchOrder]);
+  }, [liveSession, getOrder, patchOrder]);
 
   /* ── ĐÃ XEM GẦN ĐÂY (tối đa 8) ────────────────────────────────────── */
   const recentlyViewed = useMemo(
@@ -566,8 +775,9 @@ export function CartProvider({ children }) {
     wishlist, toggleWishlist, isWishlisted,
     coupon, applyCoupon, removeCoupon,
     toasts, showToast, dismissToast,
-    orders, allOrders, placeOrder, cancelOrder, updateOrderStatus, getOrder,
+    orders, allOrders, placeOrder, cancelOrder, updateOrderStatus, getOrder, loadOrder,
     recentlyViewed, addRecentlyViewed,
+    liveSession, cartBusy, setCartBusy, refreshServerCart, refreshServerOrders,
   }), [
     cart, cartCount, subtotal, shipping, discount, total, freeShipRemaining, freeShipping, couponEligible,
     addToCart, removeFromCart, updateQty, setQty, clearCart,
@@ -575,8 +785,9 @@ export function CartProvider({ children }) {
     wishlist, toggleWishlist, isWishlisted,
     coupon, applyCoupon, removeCoupon,
     toasts, showToast, dismissToast,
-    orders, allOrders, placeOrder, cancelOrder, updateOrderStatus, getOrder,
+    orders, allOrders, placeOrder, cancelOrder, updateOrderStatus, getOrder, loadOrder,
     recentlyViewed, addRecentlyViewed,
+    liveSession, cartBusy, refreshServerCart, refreshServerOrders,
   ]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
