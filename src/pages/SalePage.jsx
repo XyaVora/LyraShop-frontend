@@ -234,9 +234,9 @@ export default function SalePage() {
 
 
   return (
-    <div className="sale-page sale-snap">
+    <div className="sale-page">
       {/* ═══════════ HERO ═══════════ */}
-      <section className="sale-hero sale-screen" aria-labelledby="sale-hero-title">
+      <section className="sale-hero" aria-labelledby="sale-hero-title">
         <Pic
           className="sale-hero-media"
           src={HERO_IMAGE}
@@ -286,6 +286,36 @@ export default function SalePage() {
             </li>
           </ul>
 
+          {FLASH_PRODUCTS.length > 0 && (
+            <div className="sale-hero-picks">
+              {FLASH_PRODUCTS.slice(0, 3).map((p) => (
+                <a
+                  key={p.id}
+                  className="sale-hero-pick"
+                  href={buildUrl('detail', { product: p.slug })}
+                  onClick={(e) => {
+                    if (isModifiedClick(e)) return;
+                    e.preventDefault();
+                    navigate('detail', { product: p.slug });
+                  }}
+                >
+                  <Pic
+                    as="span"
+                    src={p.images?.[0]}
+                    alt={p.name}
+                    ratio="3/4"
+                    tint={p.color}
+                    icon={p.icon}
+                    sizes="120px"
+                  />
+                  <span className="sale-hero-pick-off">−{p.discount}%</span>
+                  <span className="sale-hero-pick-name">{p.name}</span>
+                  <span className="sale-hero-pick-price">{fmt(p.price)}</span>
+                </a>
+              ))}
+            </div>
+          )}
+
           <div className="sale-hero-actions">
             <a className="btn-warm" href="#tat-ca-uu-dai">
               Xem tất cả ưu đãi
@@ -320,7 +350,7 @@ export default function SalePage() {
 
       {/* ═══════════ GIẢM SÂU NHẤT ═══════════ */}
       {FLASH_PRODUCTS.length > 0 && (
-        <section className="section sale-flash sale-screen" aria-labelledby="sale-flash-title">
+        <section className="section sale-flash" aria-labelledby="sale-flash-title">
           <div className="wrap">
             <div className="section-header">
               <div className="section-header-text">
@@ -352,7 +382,7 @@ export default function SalePage() {
       )}
 
       {/* ═══════════ TẤT CẢ ƯU ĐÃI ═══════════ */}
-      <section className="section sale-all sale-screen" id="tat-ca-uu-dai" aria-labelledby="sale-all-title">
+      <section className="section sale-all" id="tat-ca-uu-dai" aria-labelledby="sale-all-title">
         <div className="wrap">
           <div className="section-header">
             <div className="section-header-text">
@@ -420,7 +450,7 @@ export default function SalePage() {
       </section>
 
       {/* ═══════════ MÃ GIẢM THÊM ═══════════ */}
-      <section className="sale-coupons sale-screen" aria-labelledby="sale-coupon-title">
+      <section className="sale-coupons" aria-labelledby="sale-coupon-title">
         <div className="wrap">
           <Reveal className="sale-coupon-panel">
             <div className="sale-coupon-intro">
