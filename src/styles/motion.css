@@ -1,0 +1,446 @@
+/* =============================================================
+   LYRA motion — reveal, page enter, hero, micro-interactions.
+   Chuyển động chậm, một chiều, GPU (transform/opacity). Bo góc = 0.
+   ============================================================= */
+
+:root {
+  --ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --reveal-duration: .62s;
+}
+
+/* ── Scroll reveal ───────────────────────────── */
+[data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0);
+  transition:
+    opacity var(--reveal-duration) var(--ease-out),
+    transform var(--reveal-duration) var(--ease-out);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+[data-reveal="left"]  { transform: translate3d(-28px, 0, 0); }
+[data-reveal="right"] { transform: translate3d(28px, 0, 0); }
+[data-reveal="clip"] {
+  transform: none;
+  clip-path: inset(18% 0 0 0);
+  transition:
+    opacity var(--reveal-duration) var(--ease-out),
+    clip-path .8s var(--ease-out);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+
+[data-reveal].in {
+  opacity: 1;
+  transform: translate3d(0, 0, 0);
+  clip-path: inset(0 0 0 0);
+}
+
+/* ── Page enter ──────────────────────────────── */
+.page-enter {
+  animation: pageEnter .55s var(--ease-out) both;
+}
+
+@keyframes pageEnter {
+  from { opacity: 0; transform: translate3d(0, 18px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+.page-progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 2000;
+  background: var(--warm);
+  transform: scaleX(0);
+  transform-origin: left center;
+  pointer-events: none;
+}
+
+.page-progress.on {
+  animation: pageProgress .7s var(--ease-out) both;
+}
+
+@keyframes pageProgress {
+  0%   { transform: scaleX(0); opacity: 1; }
+  55%  { transform: scaleX(1); opacity: 1; }
+  100% { transform: scaleX(1); opacity: 0; }
+}
+
+/* ── Navbar compact / hide / underline from center ─ */
+.lyra-navbar {
+  will-change: transform, height, padding;
+}
+
+.lyra-navbar.compact {
+  height: 56px;
+  box-shadow: var(--shadow-sm);
+}
+
+.lyra-navbar.nav-hidden {
+  transform: translate3d(0, -100%, 0);
+}
+
+.navbar-nav-links a::after {
+  left: 50%;
+  width: 0;
+  transform: translateX(-50%);
+  transition: width .35s var(--ease-out);
+}
+
+.navbar-nav-links a:hover::after,
+.navbar-nav-links a.active::after {
+  width: 100%;
+}
+
+.lyra-navbar.compact + .mobile-drawer,
+.lyra-navbar.nav-hidden + .mobile-drawer {
+  top: 56px;
+}
+
+/* ── Buttons: ink fill from the left ─────────── */
+.btn-lyra {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.btn-lyra::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--warm);
+  transform: translateX(-101%);
+  transition: transform .45s var(--ease-out);
+  z-index: -1;
+}
+
+.btn-lyra:hover {
+  background: var(--ink);
+  border-color: var(--warm);
+  color: #fff;
+}
+
+.btn-lyra:hover::before {
+  transform: translateX(0);
+}
+
+.btn-outline-lyra {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.btn-outline-lyra::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--ink);
+  transform: translateX(-101%);
+  transition: transform .4s var(--ease-out);
+  z-index: -1;
+}
+
+.btn-outline-lyra:hover {
+  color: var(--cream);
+  border-color: var(--ink);
+}
+
+.btn-outline-lyra:hover::before {
+  transform: translateX(0);
+}
+
+/* ── Hero lookbook ───────────────────────────── */
+.hero-title {
+  overflow: hidden;
+}
+
+.hero-line {
+  display: block;
+  overflow: hidden;
+}
+
+.hero-line > span {
+  display: block;
+  animation: heroLineIn .75s var(--ease-out) both;
+  animation-delay: var(--d, 0ms);
+}
+
+.hero-eyebrow {
+  animation: heroFade .6s var(--ease-out) both;
+}
+
+.hero-subtitle,
+.hero-cta {
+  animation: heroFade .7s var(--ease-out) .28s both;
+}
+
+.hero-float-tag {
+  animation: heroFade .7s var(--ease-out) .4s both;
+}
+
+@keyframes heroLineIn {
+  from { opacity: 0; transform: translate3d(0, 110%, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes heroFade {
+  from { opacity: 0; transform: translate3d(0, 12px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+.hero-right {
+  transform: translate3d(0, var(--hero-shift, 0px), 0);
+  will-change: transform;
+}
+
+.hero-img-box {
+  animation: kenBurns 14s ease-in-out infinite alternate;
+  transform-origin: 50% 40%;
+}
+
+@keyframes kenBurns {
+  from { transform: scale(1); }
+  to   { transform: scale(1.08); }
+}
+
+.hero-scroll-hint {
+  opacity: var(--hint-opacity, 1);
+  transition: opacity .35s linear;
+}
+
+/* ── Marquee follows scroll direction ────────── */
+.marquee-bar:hover .marquee-content {
+  animation-play-state: paused;
+}
+
+.marquee-bar.reverse .marquee-content {
+  animation-direction: reverse;
+}
+
+/* ── Product card ────────────────────────────── */
+.product-img-alt {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: linear-gradient(160deg, rgba(200, 169, 126, .42), rgba(14, 14, 14, .12));
+  mix-blend-mode: multiply;
+  pointer-events: none;
+  transition: opacity .5s var(--ease-out);
+}
+
+.product-card:hover .product-img-inner {
+  transform: scale(1.06);
+}
+
+.product-card:hover .product-img-alt {
+  opacity: 1;
+}
+
+.product-action-btn.wish-btn.wish-pop i {
+  animation: wishPop .42s var(--ease-out);
+}
+
+@keyframes wishPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+/* ── Category cards ──────────────────────────── */
+.cat-img-placeholder {
+  transition: transform .7s var(--ease-out);
+}
+
+.cat-card:hover .cat-img-placeholder {
+  transform: scale(1.05);
+}
+
+/* ── Skeleton shimmer ────────────────────────── */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: var(--cream-dark);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--warm-pale) 45%,
+    transparent 90%
+  );
+  transform: translateX(-100%);
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
+/* ── Toast progress ──────────────────────────── */
+.toast-notify {
+  position: relative;
+  overflow: hidden;
+}
+
+.toast-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  background: var(--warm);
+  transform-origin: left center;
+  animation: toastBar 3.4s linear forwards;
+}
+
+@keyframes toastBar {
+  from { transform: scaleX(1); }
+  to   { transform: scaleX(0); }
+}
+
+/* ── Search overlay ──────────────────────────── */
+.search-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(14, 14, 14, .6);
+  backdrop-filter: blur(6px);
+  animation: fadeIn .28s ease both;
+}
+
+.search-panel {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1101;
+  background: var(--cream);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: searchDrop .32s var(--ease-out) both;
+  transform-origin: top center;
+}
+
+@keyframes searchDrop {
+  from { opacity: 0; transform: translate3d(0, -12px, 0) scale(.992); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translate3d(0, -16px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+.search-input {
+  transition: transform .25s var(--ease-out);
+}
+
+.search-input:focus {
+  outline: none;
+}
+
+/* ── Cart drawer line stagger ────────────────── */
+.drawer-item {
+  animation: drawerItemIn .45s var(--ease-out) both;
+}
+
+.drawer-item:nth-child(1) { animation-delay: .04s; }
+.drawer-item:nth-child(2) { animation-delay: .08s; }
+.drawer-item:nth-child(3) { animation-delay: .12s; }
+.drawer-item:nth-child(4) { animation-delay: .16s; }
+.drawer-item:nth-child(5) { animation-delay: .2s; }
+.drawer-item:nth-child(n+6) { animation-delay: .24s; }
+
+@keyframes drawerItemIn {
+  from { opacity: 0; transform: translate3d(16px, 0, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+.cart-drawer {
+  animation: drawerIn .38s var(--ease-out) both;
+}
+
+.cart-drawer-scrim.open {
+  animation: fadeIn .3s ease both;
+}
+
+@keyframes drawerIn {
+  from { transform: translate3d(100%, 0, 0); }
+  to   { transform: none; }
+}
+
+/* ── Detail gallery ──────────────────────────── */
+.gallery-main-view {
+  overflow: hidden;
+}
+
+.gallery-main-view i {
+  transition: transform .7s var(--ease-out);
+}
+
+.gallery-main-view:hover i {
+  transform: scale(1.06);
+}
+
+/* ── 404 ─────────────────────────────────────── */
+.not-found-num {
+  animation: heroFade .7s var(--ease-out) both;
+}
+
+.not-found-title,
+.not-found-sub,
+.not-found .d-flex {
+  animation: heroFade .7s var(--ease-out) .12s both;
+}
+
+/* ── Inputs ──────────────────────────────────── */
+.newsletter-input,
+.auth-form-wrap input,
+input[type="email"],
+input[type="password"],
+input[type="text"] {
+  transition: border-color .25s var(--ease-out), box-shadow .25s var(--ease-out);
+}
+
+.newsletter-input:focus,
+.auth-form-wrap input:focus {
+  border-color: var(--warm);
+  box-shadow: 0 0 0 3px rgba(200, 169, 126, .22);
+  outline: none;
+}
+
+/* ── Reduced motion ──────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+    scroll-behavior: auto !important;
+  }
+
+  [data-reveal] {
+    opacity: 1 !important;
+    transform: none !important;
+    clip-path: none !important;
+  }
+
+  .lyra-navbar.nav-hidden {
+    transform: none !important;
+  }
+
+  .hero-right {
+    transform: none !important;
+  }
+}

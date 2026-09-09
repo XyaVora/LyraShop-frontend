@@ -93,11 +93,11 @@ Chữ: **Cormorant Garamond** (tiêu đề, giá) + **DM Sans** (giao diện). B
 
 Backend chưa có thật. Khi gọi API thất bại vì không kết nối được, ứng dụng **tự chuyển sang chế độ demo**:
 
-| Tài khoản | Mật khẩu | Quyền |
-|---|---|---|
-| bất kỳ email hợp lệ nào | từ 6 ký tự | khách hàng |
+| Tài khoản | Mật khẩu |
+|---|---|
+| bất kỳ email hợp lệ nào | từ 6 ký tự |
 
-Quản trị nằm ở repo **LyraShop-admin**, không còn route `/admin` trên storefront.
+Quản trị nằm ở repo **LyraShop-admin**, không còn trên storefront này.
 
 Mã giảm giá:
 
