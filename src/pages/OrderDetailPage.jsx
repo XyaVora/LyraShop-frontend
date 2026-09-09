@@ -1,7 +1,7 @@
 // src/pages/OrderDetailPage.jsx — Chi tiết một đơn hàng LYRA.
 // Nguồn dữ liệu duy nhất: getOrder(selectedOrder) từ CartContext (đơn đã đặt + đơn mock
 // đều cùng shape). Trang KHÔNG tự tính lại tổng tiền — mọi con số lấy từ đơn.
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { BRAND } from '../data/brand';
@@ -59,7 +59,7 @@ const addressLine = (a) => [a?.street, a?.district, a?.city].filter(Boolean).joi
 
 export default function OrderDetailPage() {
   const { navigate, selectedOrder } = useApp();
-  const { getOrder, cancelOrder, addToCart, openCart, showToast } = useCart();
+  const { getOrder, loadOrder, cancelOrder, addToCart, openCart, showToast } = useCart();
 
   const [tab, setTab] = useState('detail');
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -69,7 +69,17 @@ export default function OrderDetailPage() {
   const [reviewText, setReviewText] = useState('');
   const tabRefs = useRef({});
 
-  const order = getOrder(selectedOrder);
+  const [remoteOrder, setRemoteOrder] = useState(null);
+  const order = getOrder(selectedOrder) || remoteOrder;
+
+  useEffect(() => {
+    if (getOrder(selectedOrder) || !selectedOrder || !loadOrder) return undefined;
+    let cancelled = false;
+    loadOrder(selectedOrder).then((mapped) => {
+      if (!cancelled) setRemoteOrder(mapped);
+    });
+    return () => { cancelled = true; };
+  }, [selectedOrder, getOrder, loadOrder]);
 
   /* Gộp item của đơn với catalog để lấy ảnh/màu/slug (đơn chỉ lưu productId). */
   const lines = useMemo(() => {
@@ -79,6 +89,7 @@ export default function OrderDetailPage() {
       return {
         key: `${it.productId}-${it.size}-${it.variantColor}-${i}`,
         productId: it.productId,
+        variantId: it.variantId,
         name: it.name || p?.name || 'Sản phẩm LYRA',
         price: Number(it.price) || Number(p?.price) || 0,
         qty: Math.max(1, Number(it.qty) || 1),
@@ -128,8 +139,15 @@ export default function OrderDetailPage() {
   const reorder = () => {
     let added = 0;
     lines.forEach((l) => {
-      if (!l.product) return;
-      addToCart(l.product, l.qty, l.size, l.variantColor, { openDrawer: false });
+      const product = l.product || (l.variantId
+        ? {
+          id: l.productId || l.variantId,
+          name: l.name,
+          variants: [{ id: l.variantId, size: l.size, color: l.variantColor }],
+        }
+        : null);
+      if (!product) return;
+      addToCart(product, l.qty, l.size, l.variantColor, { openDrawer: false });
       added += 1;
     });
     if (!added) {
@@ -140,8 +158,8 @@ export default function OrderDetailPage() {
     showToast(`Đã thêm ${added} sản phẩm vào giỏ hàng`, 'bi-bag-check');
   };
 
-  const confirmCancel = () => {
-    const ok = cancelOrder(order.id);
+  const confirmCancel = async () => {
+    const ok = await cancelOrder(order.id);
     setCancelOpen(false);
     showToast(
       ok ? `Đã huỷ đơn hàng ${order.id}` : 'Không thể huỷ đơn hàng này',
@@ -190,7 +208,7 @@ export default function OrderDetailPage() {
 
   const st = statusOf(order.status);
   const cancelled = order.status === 'cancelled';
-  const canCancel = ['processing', 'confirmed', 'packing'].includes(order.status);
+  const canCancel = order.status === 'processing';
   const paid = order.status === 'delivered'
     || (String(order.payment).toLowerCase() !== 'cod' && !cancelled && order.status !== 'processing');
 

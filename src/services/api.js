@@ -101,6 +101,7 @@ api.interceptors.response.use(
         csrfStore.clear();
         refreshQueue.forEach(({ reject }) => reject(refreshError));
         refreshQueue = [];
+        try { window.dispatchEvent(new CustomEvent('lyra:auth-expired')); } catch { /* ignore */ }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
@@ -190,6 +191,23 @@ export const productApi = {
    *             variants: [{ id, sku, size, color, price, stock }] }
    */
   get: (id) => api.get(`/products/${id}`),
+};
+
+/* ── Cart API — requires CUSTOMER or ADMIN ───── */
+export const cartApi = {
+  get: () => api.get('/cart'),
+  add: (payload) => api.post('/cart/items', payload),
+  update: (itemId, payload) => api.put(`/cart/items/${itemId}`, payload),
+  remove: (itemId) => api.delete(`/cart/items/${itemId}`),
+  clear: () => api.delete('/cart'),
+};
+
+/* ── Orders API — requires CUSTOMER or ADMIN ─── */
+export const orderApi = {
+  list: () => api.get('/orders'),
+  create: (payload) => api.post('/orders', payload),
+  get: (id) => api.get(`/orders/${id}`),
+  cancel: (id) => api.put(`/orders/${id}/cancel`),
 };
 
 /* ── Categories API ──────────────────────────── */
