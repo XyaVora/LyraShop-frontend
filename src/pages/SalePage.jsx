@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { PRODUCTS, CATEGORIES, COUPONS, FREE_SHIPPING_THRESHOLD, fmt, img } from '../data/products';
+import { COUPONS, FREE_SHIPPING_THRESHOLD, fmt, img } from '../data/products';
+import { useCatalog } from '../context/CatalogContext';
 import { ProductCard, Pic, EmptyState, Footer, Reveal, isModifiedClick } from '../components/index.jsx';
 import { buildUrl } from '../router.js';
 import '../styles/sale.css';
@@ -12,31 +13,24 @@ import '../styles/sale.css';
    DỮ LIỆU DẪN XUẤT — tính một lần ở tầng module, thuần tuý
    ══════════════════════════════════════════════════════════ */
 
-/** Sản phẩm đang giảm giá thật sự (có giá cũ cao hơn giá bán). */
-const SALE_PRODUCTS = PRODUCTS.filter((p) => p.oldPrice > p.price && p.discount > 0);
-
 /** Ngưỡng "giảm sâu nhất". */
 const FLASH_THRESHOLD = 28;
-const FLASH_PRODUCTS = SALE_PRODUCTS.filter((p) => p.discount >= FLASH_THRESHOLD);
 
-/** Mức giảm cao nhất có thật trong dữ liệu (hiện tại: 32%). */
-const MAX_DISCOUNT = SALE_PRODUCTS.length
-  ? Math.max(...SALE_PRODUCTS.map((p) => p.discount))
-  : 0;
+function saleFrom(products) {
+  return (products || []).filter((p) => (p.oldPrice || 0) > p.price && (p.discount || 0) > 0);
+}
 
-/** Tổng số tiền khách tiết kiệm được nếu mua trọn bộ sản phẩm sale. */
-const TOTAL_SAVING = SALE_PRODUCTS.reduce((sum, p) => sum + (p.oldPrice - p.price), 0);
-
-/** Tab danh mục — chỉ dựng từ danh mục THỰC SỰ có hàng giảm giá. */
-const SALE_TABS = [
-  { id: 'all', name: null, label: 'Tất cả', count: SALE_PRODUCTS.length },
-  ...CATEGORIES.map((c) => ({
-    id: c.slug,
-    name: c.name,
-    label: c.name,
-    count: SALE_PRODUCTS.filter((p) => p.cat === c.name).length,
-  })).filter((t) => t.count > 0),
-];
+function saleTabsFrom(saleProducts, categories) {
+  return [
+    { id: 'all', name: null, label: 'Tất cả', count: saleProducts.length },
+    ...(categories || []).map((c) => ({
+      id: c.slug,
+      name: c.name,
+      label: c.name,
+      count: saleProducts.filter((p) => p.cat === c.name).length,
+    })).filter((t) => t.count > 0),
+  ];
+}
 
 /** Mã giảm giá gợi ý — lấy đúng từ bảng COUPONS. */
 const COUPON_CODES = ['LYRA10', 'SAVE100K', 'FREESHIP'].filter((code) => COUPONS[code]);
@@ -176,6 +170,17 @@ function legacyCopy(text) {
 export default function SalePage() {
   const { navigate } = useApp();
   const { showToast, applyCoupon } = useCart();
+  const { products, categories } = useCatalog();
+  const saleProducts = useMemo(() => saleFrom(products), [products]);
+  const flashProducts = useMemo(
+    () => saleProducts.filter((p) => p.discount >= FLASH_THRESHOLD),
+    [saleProducts],
+  );
+  const maxDiscount = saleProducts.length
+    ? Math.max(...saleProducts.map((p) => p.discount || 0))
+    : 0;
+  const totalSaving = saleProducts.reduce((sum, p) => sum + (p.oldPrice - p.price), 0);
+  const saleTabs = useMemo(() => saleTabsFrom(saleProducts, categories), [saleProducts, categories]);
 
   // Mốc kết thúc tính MỘT LẦN cho suốt vòng đời trang.
   const saleEnd = useMemo(() => computeSaleEnd(), []);
@@ -193,8 +198,8 @@ export default function SalePage() {
   }, [copied]);
 
   const filtered = useMemo(() => {
-    const tab = SALE_TABS.find((t) => t.id === activeTab);
-    const list = tab && tab.name ? SALE_PRODUCTS.filter((p) => p.cat === tab.name) : [...SALE_PRODUCTS];
+    const tab = saleTabs.find((t) => t.id === activeTab);
+    const list = tab && tab.name ? saleProducts.filter((p) => p.cat === tab.name) : [...saleProducts];
     switch (sortBy) {
       case 'saving':
         return list.sort((a, b) => (b.oldPrice - b.price) - (a.oldPrice - a.price));
@@ -208,7 +213,7 @@ export default function SalePage() {
       default:
         return list.sort((a, b) => b.discount - a.discount);
     }
-  }, [activeTab, sortBy]);
+  }, [activeTab, sortBy, saleTabs, saleProducts]);
 
   const copyCode = useCallback(
     async (code) => {
@@ -259,8 +264,8 @@ export default function SalePage() {
           </h1>
 
           <p className="sale-hero-lead">
-            {SALE_PRODUCTS.length} thiết kế được tuyển chọn từ bộ sưu tập Thu – Đông, giảm đến{' '}
-            <strong>{MAX_DISCOUNT}%</strong>. Mỗi mẫu chỉ còn số lượng nhỏ — hết size là dừng.
+            {saleProducts.length} thiết kế được tuyển chọn từ bộ sưu tập Thu – Đông, giảm đến{' '}
+            <strong>{maxDiscount}%</strong>. Mỗi mẫu chỉ còn số lượng nhỏ — hết size là dừng.
           </p>
 
           {/* Đếm ngược — component riêng để mỗi giây chỉ vẽ lại khối này */}
@@ -269,15 +274,15 @@ export default function SalePage() {
           {/* Số liệu — tính từ dữ liệu thật */}
           <ul className="sale-hero-stats">
             <li className="sale-stat">
-              <span className="sale-stat-num">{SALE_PRODUCTS.length}</span>
+              <span className="sale-stat-num">{saleProducts.length}</span>
               <span className="sale-stat-label">Thiết kế đang giảm giá</span>
             </li>
             <li className="sale-stat">
-              <span className="sale-stat-num">{MAX_DISCOUNT}%</span>
+              <span className="sale-stat-num">{maxDiscount}%</span>
               <span className="sale-stat-label">Mức giảm sâu nhất</span>
             </li>
             <li className="sale-stat">
-              <span className="sale-stat-num">{fmt(TOTAL_SAVING)}</span>
+              <span className="sale-stat-num">{fmt(totalSaving)}</span>
               <span className="sale-stat-label">Tổng mức tiết kiệm</span>
             </li>
             <li className="sale-stat">
@@ -286,9 +291,9 @@ export default function SalePage() {
             </li>
           </ul>
 
-          {FLASH_PRODUCTS.length > 0 && (
+          {flashProducts.length > 0 && (
             <div className="sale-hero-picks">
-              {FLASH_PRODUCTS.slice(0, 3).map((p) => (
+              {flashProducts.slice(0, 3).map((p) => (
                 <a
                   key={p.id}
                   className="sale-hero-pick"
@@ -349,7 +354,7 @@ export default function SalePage() {
       </section>
 
       {/* ═══════════ GIẢM SÂU NHẤT ═══════════ */}
-      {FLASH_PRODUCTS.length > 0 && (
+      {flashProducts.length > 0 && (
         <section className="section sale-flash" aria-labelledby="sale-flash-title">
           <div className="wrap">
             <div className="section-header">
@@ -361,13 +366,13 @@ export default function SalePage() {
                   <em>đậm</em> nhất mùa
                 </h2>
                 <p className="section-sub">
-                  {FLASH_PRODUCTS.length} thiết kế giảm từ {FLASH_THRESHOLD}% trở lên. Số lượng cuối cùng của mùa.
+                  {flashProducts.length} thiết kế giảm từ {FLASH_THRESHOLD}% trở lên. Số lượng cuối cùng của mùa.
                 </p>
               </div>
             </div>
 
             <div className="flash-sale-grid">
-              {FLASH_PRODUCTS.map((p, i) => (
+              {flashProducts.map((p, i) => (
                 <div className="flash-sale-item" key={p.id}>
                   <p className="sale-ribbon">
                     <span className="sale-ribbon-pct">−{p.discount}%</span>
@@ -392,14 +397,14 @@ export default function SalePage() {
               </h2>
               <p className="section-sub">
                 {filtered.length} thiết kế đang giảm giá
-                {activeTab !== 'all' ? ` trong ${SALE_TABS.find((t) => t.id === activeTab)?.label}` : ''}.
+                {activeTab !== 'all' ? ` trong ${saleTabs.find((t) => t.id === activeTab)?.label}` : ''}.
               </p>
             </div>
           </div>
 
           <div className="sale-toolbar">
             <div className="sale-tabs" role="group" aria-label="Lọc ưu đãi theo danh mục">
-              {SALE_TABS.map((tab) => (
+              {saleTabs.map((tab) => (
                 <button
                   type="button"
                   key={tab.id}

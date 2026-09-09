@@ -2,8 +2,8 @@
 // Toàn bộ trạng thái lọc/sắp xếp/phân trang nằm trong URL (?cat=&sort=&color=…)
 // nên khi mở một sản phẩm rồi quay lại, bộ lọc và trang vẫn còn nguyên.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { PRODUCTS, CATEGORIES, fmt } from '../data/products';
-import { loadShopCatalog } from '../services/catalog';
+import { fmt } from '../data/products';
+import { useCatalog } from '../context/CatalogContext';
 import {
   EmptyState,
   Footer,
@@ -39,26 +39,7 @@ const PRICE_RANGES = [
 
 const RATING_STEPS = [4.5, 4, 3];
 
-/** Bảng màu dựng từ chính `product.colors` — lọc màu là lọc THẬT. */
-const COLOR_FACETS = (() => {
-  const map = new Map();
-  PRODUCTS.forEach((p) => {
-    (Array.isArray(p.colors) ? p.colors : []).forEach((c) => {
-      if (!c || !c.name) return;
-      const found = map.get(c.name);
-      if (found) found.count += 1;
-      else map.set(c.name, { name: c.name, hex: c.hex, count: 1 });
-    });
-  });
-  return [...map.values()].sort(
-    (a, b) => b.count - a.count || a.name.localeCompare(b.name, 'vi'),
-  );
-})();
 const COLORS_COLLAPSED = 12;
-
-const SALE_COUNT = PRODUCTS.filter((p) => p.discount > 0).length;
-const STOCK_COUNT = PRODUCTS.filter((p) => p.stock > 0).length;
-const MAX_DISCOUNT = PRODUCTS.reduce((m, p) => Math.max(m, p.discount || 0), 0);
 
 /* ══════════════════════════════════════════════════════════════
    Tiện ích thuần
@@ -68,7 +49,7 @@ const onlyDigits = (v) => String(v ?? '').replace(/\D/g, '');
 /** 1000000 → "1.000.000" */
 const groupThousands = (digits) => digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
-const catBySlug = (slug) => CATEGORIES.find((c) => c.slug === slug) || null;
+const catBySlug = (categories, slug) => (categories || []).find((c) => c.slug === slug) || null;
 
 function prefersReducedMotion() {
   try {
@@ -98,12 +79,14 @@ function pageList(total, current) {
 function Filters({ id, state, actions }) {
   const {
     catSlug, minPrice, maxPrice, color, minRating, onlySale, inStock,
+    catalog = [], categories = [], colorFacets = [],
+    saleCount = 0, stockCount = 0, maxDiscount = 0,
   } = state;
   const { setParams } = actions;
   const [showAllColors, setShowAllColors] = useState(false);
 
-  const colors = showAllColors ? COLOR_FACETS : COLOR_FACETS.slice(0, COLORS_COLLAPSED);
-  const hiddenColors = COLOR_FACETS.length - COLORS_COLLAPSED;
+  const colors = showAllColors ? colorFacets : colorFacets.slice(0, COLORS_COLLAPSED);
+  const hiddenColors = colorFacets.length - COLORS_COLLAPSED;
 
   const activeRange = PRICE_RANGES.find((r) => r.min === minPrice && r.max === maxPrice);
 
@@ -121,9 +104,9 @@ function Filters({ id, state, actions }) {
             onChange={() => setParams({ cat: undefined, page: undefined })}
           />
           <label htmlFor={`${id}-cat-all`}>Tất cả</label>
-          <span className="filter-count">{PRODUCTS.length}</span>
+          <span className="filter-count">{catalog.length}</span>
         </div>
-        {CATEGORIES.map((c, i) => (
+        {categories.map((c, i) => (
           <div key={c.slug} className="filter-check-item">
             <input
               type="radio"
@@ -282,7 +265,7 @@ function Filters({ id, state, actions }) {
             onChange={(e) => setParams({ sale: e.target.checked ? '1' : undefined, page: undefined })}
           />
           <label htmlFor={`${id}-sale`}>Chỉ hàng đang giảm giá</label>
-          <span className="filter-count">{SALE_COUNT}</span>
+          <span className="filter-count">{saleCount}</span>
         </div>
         <div className="filter-check-item">
           <input
@@ -292,12 +275,12 @@ function Filters({ id, state, actions }) {
             onChange={(e) => setParams({ stock: e.target.checked ? '1' : undefined, page: undefined })}
           />
           <label htmlFor={`${id}-stock`}>Còn hàng</label>
-          <span className="filter-count">{STOCK_COUNT}</span>
+          <span className="filter-count">{stockCount}</span>
         </div>
       </div>
 
       <p className="shop-filter-note">
-        Mức giảm cao nhất tại LYRA mùa này là {MAX_DISCOUNT}%.
+        Mức giảm cao nhất tại LYRA mùa này là {maxDiscount}%.
       </p>
     </div>
   );
@@ -309,22 +292,15 @@ function Filters({ id, state, actions }) {
 
 export default function ShopPage() {
   const { params, navigate } = useApp();
-  const [catalog, setCatalog] = useState(PRODUCTS);
-
-  useEffect(() => {
-    let cancelled = false;
-    loadShopCatalog()
-      .then((list) => {
-        if (!cancelled && Array.isArray(list) && list.length) setCatalog(list);
-      })
-      .catch(() => {});
-    return () => { cancelled = true; };
-  }, []);
+  const { products: catalog, categories, colorFacets } = useCatalog();
+  const saleCount = catalog.filter((p) => p.discount > 0).length;
+  const stockCount = catalog.filter((p) => p.stock > 0).length;
+  const maxDiscount = catalog.reduce((m, p) => Math.max(m, p.discount || 0), 0);
 
   /* ── Trạng thái đọc từ URL (nguồn duy nhất) ─────────────────── */
-  const catSlug = catBySlug(params.cat) ? params.cat : '';
+  const catSlug = catBySlug(categories, params.cat) ? params.cat : '';
   const sort = SORT_IDS.includes(params.sort) ? params.sort : 'newest';
-  const color = COLOR_FACETS.some((c) => c.name === params.color) ? params.color : '';
+  const color = colorFacets.some((c) => c.name === params.color) ? params.color : '';
   const minPrice = onlyDigits(params.min);
   const maxPrice = onlyDigits(params.max);
   const ratingParam = Number(params.rating);
@@ -356,7 +332,7 @@ export default function ShopPage() {
     const max = maxPrice ? Number(maxPrice) : null;
 
     let list = catalog.filter((p) => {
-      if (catSlug && catBySlug(catSlug)?.name !== p.cat) return false;
+      if (catSlug && catBySlug(categories, catSlug)?.name !== p.cat) return false;
       if (color && !(p.colors || []).some((c) => c.name === color)) return false;
       if (min !== null && p.price < min) return false;
       if (max !== null && p.price > max) return false;
@@ -387,7 +363,7 @@ export default function ShopPage() {
         );
     }
     return list;
-  }, [catalog, catSlug, color, minPrice, maxPrice, minRating, onlySale, inStock, sort]);
+  }, [catalog, categories, catSlug, color, minPrice, maxPrice, minRating, onlySale, inStock, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const page = Math.min(pageParam, totalPages);
@@ -396,7 +372,7 @@ export default function ShopPage() {
   /* ── Chip "đang lọc" ───────────────────────────────────────── */
   const activeChips = useMemo(() => {
     const chips = [];
-    const cat = catBySlug(catSlug);
+    const cat = catBySlug(categories, catSlug);
     if (cat) chips.push({ key: 'cat', label: cat.name, clear: { cat: undefined } });
     if (color) chips.push({ key: 'color', label: `Màu ${color}`, clear: { color: undefined } });
     if (minPrice || maxPrice) {
@@ -417,7 +393,7 @@ export default function ShopPage() {
     if (onlySale) chips.push({ key: 'sale', label: 'Đang giảm giá', clear: { sale: undefined } });
     if (inStock) chips.push({ key: 'stock', label: 'Còn hàng', clear: { stock: undefined } });
     return chips;
-  }, [catSlug, color, minPrice, maxPrice, minRating, onlySale, inStock]);
+  }, [categories, catSlug, color, minPrice, maxPrice, minRating, onlySale, inStock]);
 
   const filterCount = activeChips.length;
 
@@ -469,7 +445,7 @@ export default function ShopPage() {
   );
 
   /* ── Tiêu đề trang ─────────────────────────────────────────── */
-  const cat = catBySlug(catSlug);
+  const cat = catBySlug(categories, catSlug);
   const heading = cat ? cat.name : 'Tất cả sản phẩm';
   const blurb = cat
     ? cat.blurb
@@ -480,7 +456,10 @@ export default function ShopPage() {
   const headLead = cat ? headWords.slice(0, -1).join(' ') : 'Tất cả';
   const headEm = cat ? headWords[headWords.length - 1] : 'sản phẩm';
 
-  const filtersState = { catSlug, minPrice, maxPrice, color, minRating, onlySale, inStock };
+  const filtersState = {
+    catSlug, minPrice, maxPrice, color, minRating, onlySale, inStock,
+    catalog, categories, colorFacets, saleCount, stockCount, maxDiscount,
+  };
   const filtersActions = { setParams };
 
   return (

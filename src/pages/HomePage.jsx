@@ -3,9 +3,11 @@
 // · mới về · đã xem gần đây · cảm nhận · #LYRAstyle · cam kết + newsletter + footer.
 // Mọi con số quảng cáo đều TÍNH TỪ DỮ LIỆU trong src/data/products.js.
 
+import { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { PRODUCTS, CATEGORIES, REVIEWS_MOCK, findProduct, img, fmt } from '../data/products';
+import { useCatalog } from '../context/CatalogContext';
+import { REVIEWS_MOCK, findProduct, img, fmt } from '../data/products';
 import { BRAND } from '../data/brand';
 import { buildUrl } from '../router.js';
 import {
@@ -14,6 +16,7 @@ import {
   Stars,
   SectionHeader,
   Marquee,
+  RecentMarquee,
   Newsletter,
   Footer,
   Reveal,
@@ -31,43 +34,15 @@ const SALE_IMG = img('1509319117193-57bab727e09d', 1600); // giá treo quần á
 /* ══════════════════════════════════════════════════════════════
    Số liệu suy ra từ dữ liệu thật — KHÔNG bịa
    ══════════════════════════════════════════════════════════════ */
-const MAX_OFF = Math.max(...PRODUCTS.map((p) => p.discount || 0)); // hiện tại: 32
-const SALE_COUNT = PRODUCTS.filter((p) => (p.discount || 0) > 0).length; // hiện tại: 8
 
-/** 8 sản phẩm bán chạy nhất (mảng mới — không mutate PRODUCTS). */
-const FEATURED = [...PRODUCTS].sort((a, b) => b.sold - a.sold).slice(0, 8);
-
-/** 8 sản phẩm về kho gần nhất — createdAt dạng 'YYYY-MM-DD' nên so sánh chuỗi là đủ. */
-const NEWEST = [...PRODUCTS]
-  .sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
-  .slice(0, 8);
-
-/** 4 mẫu giảm sâu nhất — dùng cho dải sale trên trang chủ. */
-const SALE_PICKS = [...PRODUCTS]
-  .filter((p) => (p.discount || 0) > 0 && p.oldPrice > p.price)
-  .sort((a, b) => b.discount - a.discount)
-  .slice(0, 4);
-
-const SALE_SAVING = SALE_PICKS.reduce(
-  (sum, p) => sum + Math.max(0, (p.oldPrice || 0) - p.price),
-  0,
-);
 
 const MATERIALS = [
-  { icon: 'bi-droplet', title: 'Lụa Bảo Lộc', text: 'Tơ tằm dệt satin, đổ sáng chậm, may tại xưởng Hà Nội.' },
-  { icon: 'bi-tree', title: 'Da thảo mộc', text: 'Thuộc tannin thực vật, không chrome, già đẹp theo năm tháng.' },
-  { icon: 'bi-snow', title: 'Len merino', text: 'Sợi mịn giữ ấm, không ngứa — nền tảng của Thu – Đông 2026.' },
+  { icon: 'bi-droplet', title: 'Lụa Bảo Lộc', text: 'Tơ tằm dệt satin, đổ sáng chậm, may tại xưởng Hà Nội.', src: img('1558171813-4c8840b83c6a', 800) },
+  { icon: 'bi-tree', title: 'Da thảo mộc', text: 'Thuộc tannin thực vật, không chrome, già đẹp theo năm tháng.', src: img('1512436991641-6745cdb1723f', 800) },
+  { icon: 'bi-snow', title: 'Len merino', text: 'Sợi mịn giữ ấm, không ngứa — nền tảng của Thu – Đông 2026.', src: img('1483985988106-a8d8c9735a1c', 800) },
 ];
 
-/** 6 ảnh cho mosaic #LYRAstyle — chọn tay để đa dạng danh mục và sắc độ. */
-const MOSAIC = [1, 13, 5, 3, 14, 6].map((id) => findProduct(id)).filter(Boolean);
 
-/** Ba số liệu trung thực về LYRA. */
-const STATS = [
-  { value: String(PRODUCTS.length), label: 'thiết kế đang bán' },
-  { value: String(CATEGORIES.length), label: 'danh mục sản phẩm' },
-  { value: '30', label: 'ngày đổi trả miễn phí' },
-];
 
 /**
  * Cảm nhận khách hàng: trích NGUYÊN VĂN từ REVIEWS_MOCK (tên, sao, nội dung, ngày là
@@ -106,6 +81,41 @@ function toDMY(iso) {
 export default function HomePage() {
   const { navigate } = useApp();
   const { recentlyViewed = [] } = useCart();
+  const { products, categories } = useCatalog();
+
+  const featured = useMemo(
+    () => [...products].sort((a, b) => (b.sold || 0) - (a.sold || 0)).slice(0, 8),
+    [products],
+  );
+  const newest = useMemo(
+    () => [...products].sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt))).slice(0, 8),
+    [products],
+  );
+  const salePicks = useMemo(
+    () => [...products]
+      .filter((p) => (p.discount || 0) > 0 && p.oldPrice > p.price)
+      .sort((a, b) => (b.discount || 0) - (a.discount || 0))
+      .slice(0, 4),
+    [products],
+  );
+  const saleSaving = useMemo(
+    () => salePicks.reduce((sum, p) => sum + Math.max(0, (p.oldPrice || 0) - p.price), 0),
+    [salePicks],
+  );
+  const saleCount = products.filter((p) => (p.discount || 0) > 0).length;
+  const maxOff = products.reduce((m, p) => Math.max(m, p.discount || 0), 0);
+  const outfits = useMemo(() => {
+    const byCat = (name) => products.filter((p) => p.cat === name).sort((a, b) => (b.sold || 0) - (a.sold || 0));
+    const female = byCat('Thời trang nữ');
+    const shoes = byCat('Giày dép');
+    const acc = byCat('Phụ kiện');
+    const male = byCat('Thời trang nam');
+    return [
+      { title: 'Công sở chậm', sub: 'Blazer mềm, culotte ống rộng, mule da.', items: [female[0], female[1], shoes[0]].filter(Boolean) },
+      { title: 'Da thuộc thảo mộc', sub: 'Túi bucket, giày da, một lớp áo lụa.', items: [acc[0], shoes[0], female[2]].filter(Boolean) },
+      { title: 'Tối giản cả tuần', sub: 'Ít món, form đúng, mặc được nhiều buổi.', items: [male[0] || female[3], acc[1] || acc[0], shoes[1] || shoes[0]].filter(Boolean) },
+    ].filter((o) => o.items.length >= 2);
+  }, [products]);
 
   // Liên kết thật: ctrl/cmd-click vẫn mở tab mới, click thường điều hướng trong SPA.
   const go = (page, params) => (e) => {
@@ -158,7 +168,7 @@ export default function HomePage() {
 
         <div className="hero-badge">
           <div className="hero-badge-label">Giảm đến</div>
-          <div className="hero-badge-value">{MAX_OFF}%</div>
+          <div className="hero-badge-value">{maxOff}%</div>
         </div>
 
         <div className="hero-scroll" aria-hidden="true">
@@ -182,12 +192,12 @@ export default function HomePage() {
                 <em>danh mục</em>
               </>
             }
-            sub={`${CATEGORIES.length} danh mục, ${PRODUCTS.length} thiết kế đang bán trong mùa ${BRAND.season}.`}
+            sub={`${categories.length} danh mục, ${products.length} thiết kế đang bán trong mùa ${BRAND.season}.`}
             link={{ label: 'Tất cả sản phẩm', page: 'shop' }}
           />
 
           <div className="cat-grid">
-            {CATEGORIES.map((cat, i) => (
+            {categories.map((cat, i) => (
               <a
                 key={cat.id}
                 className="cat-card"
@@ -216,6 +226,40 @@ export default function HomePage() {
         </div>
       </section>
 
+      {outfits.length > 0 && (
+        <section className="section home-outfits">
+          <div className="wrap">
+            <SectionHeader
+              eyebrow="Cách mặc"
+              title={<>Ba look<br /><em>mùa này</em></>}
+              sub="Mỗi look ghép từ thiết kế đang bán — bấm vào món để xem chi tiết."
+              link={{ label: 'Tất cả sản phẩm', page: 'shop' }}
+            />
+            <div className="outfit-grid">
+              {outfits.map((look) => (
+                <article className="outfit-card" key={look.title} data-reveal>
+                  <h3 className="outfit-title">{look.title}</h3>
+                  <p className="outfit-sub">{look.sub}</p>
+                  <div className="outfit-items">
+                    {look.items.map((p) => (
+                      <a
+                        key={p.id}
+                        className="outfit-item"
+                        href={buildUrl('detail', { product: p.slug || p.id })}
+                        onClick={go('detail', { product: p.slug || p.id })}
+                      >
+                        <Pic src={p.images?.[0]} alt={p.name} tint={p.color} icon={p.icon} ratio="3/4" sizes="120px" />
+                        <span>{p.name}</span>
+                      </a>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* ── 4. NỔI BẬT TUẦN NÀY ────────────────────────────────── */}
       <section className="section home-featured">
         <div className="wrap">
@@ -228,11 +272,11 @@ export default function HomePage() {
                 <em>tuần này</em>
               </>
             }
-            sub={`${FEATURED.length} thiết kế có lượt mua cao nhất — đủ để chọn một tủ đồ tuần này.`}
+            sub={`${featured.length} thiết kế có lượt mua cao nhất — đủ để chọn một tủ đồ tuần này.`}
             link={{ label: 'Tất cả sản phẩm', page: 'shop' }}
           />
           <div className="products-grid">
-            {FEATURED.map((p, i) => (
+            {featured.map((p, i) => (
               <ProductCard key={p.id} product={p} index={i} />
             ))}
           </div>
@@ -273,7 +317,11 @@ export default function HomePage() {
               </p>
 
               <dl className="story-stats">
-                {STATS.map((s) => (
+                {[
+                  { value: String(products.length), label: 'thiết kế đang bán' },
+                  { value: String(categories.length), label: 'danh mục sản phẩm' },
+                  { value: '30', label: 'ngày đổi trả miễn phí' },
+                ].map((s) => (
                   <div className="story-stat" key={s.label}>
                     <dt className="story-stat-value">{s.value}</dt>
                     <dd className="story-stat-label">{s.label}</dd>
@@ -284,7 +332,7 @@ export default function HomePage() {
               <ul className="material-list">
                 {MATERIALS.map((m) => (
                   <li key={m.title}>
-                    <i className={`bi ${m.icon}`} aria-hidden="true" />
+                    <Pic src={m.src} alt={m.title} ratio="1/1" className="material-pic" sizes="80px" />
                     <div>
                       <strong>{m.title}</strong>
                       <span>{m.text}</span>
@@ -319,22 +367,22 @@ export default function HomePage() {
               <h2 className="sale-banner-title">
                 Sale cuối mùa
                 <br />
-                <em>giảm đến {MAX_OFF}%</em>
+                <em>giảm đến {maxOff}%</em>
               </h2>
               <p className="sale-banner-sub">
-                {SALE_COUNT} thiết kế đang giảm — hết size là dừng. Bốn mẫu sâu nhất mùa này nằm bên cạnh.
+                {saleCount} thiết kế đang giảm — hết size là dừng. Bốn mẫu sâu nhất mùa này nằm bên cạnh.
               </p>
               <dl className="sale-edit-stats">
                 <div>
-                  <dt>{SALE_COUNT}</dt>
+                  <dt>{saleCount}</dt>
                   <dd>mẫu đang sale</dd>
                 </div>
                 <div>
-                  <dt>{MAX_OFF}%</dt>
+                  <dt>{maxOff}%</dt>
                   <dd>giảm sâu nhất</dd>
                 </div>
                 <div>
-                  <dt>{fmt(SALE_SAVING)}</dt>
+                  <dt>{fmt(saleSaving)}</dt>
                   <dd>tiết kiệm 4 mẫu này</dd>
                 </div>
               </dl>
@@ -343,7 +391,7 @@ export default function HomePage() {
               </a>
             </div>
             <div className="sale-edit-rail">
-              {SALE_PICKS.map((p, i) => (
+              {salePicks.map((p, i) => (
                 <ProductCard key={p.id} product={p} index={i} />
               ))}
             </div>
@@ -367,7 +415,7 @@ export default function HomePage() {
             link={{ label: 'Xem hàng mới về', page: 'new' }}
           />
           <div className="products-grid">
-            {NEWEST.map((p, i) => (
+            {newest.map((p, i) => (
               <ProductCard key={p.id} product={p} index={i} />
             ))}
           </div>
@@ -388,13 +436,7 @@ export default function HomePage() {
                 </>
               }
             />
-            <div className="scroll-row" role="list" aria-label="Sản phẩm bạn đã xem gần đây">
-              {recent.map((p, i) => (
-                <div role="listitem" key={p.id}>
-                  <ProductCard product={p} index={i} />
-                </div>
-              ))}
-            </div>
+            <RecentMarquee products={recent} />
           </div>
         </section>
       )}
@@ -447,7 +489,7 @@ export default function HomePage() {
             sub="Sáu thiết kế được phối nhiều nhất mùa này. Chạm vào ảnh để xem sản phẩm."
           />
           <div className="mosaic-grid home-mosaic">
-            {MOSAIC.map((p, i) => (
+            {featured.slice(0, 6).map((p, i) => (
               <a
                 key={p.id}
                 className="mosaic-item"

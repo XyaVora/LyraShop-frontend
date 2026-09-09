@@ -163,12 +163,12 @@ export function mapCartItem(item, meta = {}) {
   if (!item || item.id == null) return null;
   const qty = Math.max(1, num(item.quantity, 1));
   const price = num(item.unitPrice);
-  const name = meta.name || item.sku || 'Sản phẩm LYRA';
+  const name = meta.name || item.productName || item.sku || 'Sản phẩm LYRA';
   return {
     key: String(item.id),
     cartItemId: item.id,
     variantId: item.variantId,
-    productId: meta.productId || item.variantId,
+    productId: meta.productId || item.productId || item.variantId,
     slug: meta.slug,
     name,
     price,

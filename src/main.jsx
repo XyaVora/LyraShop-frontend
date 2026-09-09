@@ -6,13 +6,16 @@ import './styles/motion.css';
 import App from './App.jsx';
 import { CartProvider } from './context/CartContext.jsx';
 import { AppProvider } from './context/AppContext.jsx';
+import { CatalogProvider } from './context/CatalogContext.jsx';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <AppProvider>
-      <CartProvider>
-        <App />
-      </CartProvider>
+      <CatalogProvider>
+        <CartProvider>
+          <App />
+        </CartProvider>
+      </CatalogProvider>
     </AppProvider>
   </StrictMode>
 );

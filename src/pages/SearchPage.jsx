@@ -3,7 +3,8 @@
 // xếp hạng theo độ liên quan, tab danh mục + sắp xếp, gợi ý dựng từ dữ liệu thật.
 import { useState, useMemo, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { PRODUCTS, deburr } from '../data/products';
+import { deburr } from '../data/products';
+import { useCatalog } from '../context/CatalogContext';
 import { ProductCard, Footer, EmptyState, Reveal, SectionHeader } from '../components/index.jsx';
 import '../styles/search.css';
 
@@ -35,15 +36,16 @@ const writeRecent = (list) => {
   }
 };
 
-/** Chỉ mục tìm kiếm dựng MỘT LẦN từ PRODUCTS (không mutate mảng gốc). */
-const SEARCH_INDEX = PRODUCTS.map((p) => {
-  const name = norm(p.name);
-  const cat = norm(p.cat);
-  const brand = norm(p.brand);
-  const tags = (p.tags || []).map(norm);
-  const desc = norm(p.desc);
-  return { p, name, cat, brand, tags, tagText: tags.join(' '), desc, all: `${name} ${cat} ${brand} ${tags.join(' ')} ${desc}` };
-});
+function buildSearchIndex(products) {
+  return (products || []).map((p) => {
+    const name = norm(p.name);
+    const cat = norm(p.cat);
+    const brand = norm(p.brand);
+    const tags = (p.tags || []).map(norm);
+    const desc = norm(p.desc);
+    return { p, name, cat, brand, tags, tagText: tags.join(' '), desc, all: `${name} ${cat} ${brand} ${tags.join(' ')} ${desc}` };
+  });
+}
 
 /** Điểm liên quan của một từ khoá với một bản ghi. */
 function tokenScore(rec, token) {
@@ -58,19 +60,15 @@ function tokenScore(rec, token) {
   return s;
 }
 
-/** Chip gợi ý: chỉ lấy tag xuất hiện ở ≥ 2 sản phẩm → không bao giờ ra "không kết quả". */
-const SUGGESTED_TAGS = (() => {
+function suggestedTagsFrom(products) {
   const freq = new Map();
-  PRODUCTS.forEach((p) => (p.tags || []).forEach((t) => freq.set(t, (freq.get(t) || 0) + 1)));
+  (products || []).forEach((p) => (p.tags || []).forEach((t) => freq.set(t, (freq.get(t) || 0) + 1)));
   return [...freq.entries()]
     .filter(([, n]) => n >= 2)
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'vi'))
     .slice(0, 8)
     .map(([t]) => t);
-})();
-
-/** 4 sản phẩm bán chạy nhất — dùng làm gợi ý khi không có kết quả. */
-const BEST_SELLERS = [...PRODUCTS].sort((a, b) => b.sold - a.sold).slice(0, 4);
+}
 
 const SORTS = [
   { id: 'relevant', label: 'Liên quan nhất' },
@@ -85,6 +83,13 @@ const SORTS = [
 
 export default function SearchPage() {
   const { navigate, searchQuery } = useApp();
+  const { products: catalog } = useCatalog();
+  const searchIndex = useMemo(() => buildSearchIndex(catalog), [catalog]);
+  const suggestedTags = useMemo(() => suggestedTagsFrom(catalog), [catalog]);
+  const bestSellers = useMemo(
+    () => [...catalog].sort((a, b) => (b.sold || 0) - (a.sold || 0)).slice(0, 4),
+    [catalog],
+  );
 
   const [term, setTerm] = useState(searchQuery);
   const [sortBy, setSortBy] = useState('relevant');
@@ -115,18 +120,18 @@ export default function SearchPage() {
   /* Kết quả khớp — bỏ dấu, khớp TỪNG từ (AND), có điểm liên quan. */
   const results = useMemo(() => {
     const q = norm(searchQuery);
-    if (!q) return PRODUCTS.map((p) => ({ p, score: 0 }));
+    if (!q) return catalog.map((p) => ({ p, score: 0 }));
     const tokens = q.split(' ').filter(Boolean);
     const phrase = q;
     const out = [];
-    SEARCH_INDEX.forEach((rec) => {
+    searchIndex.forEach((rec) => {
       if (!tokens.every((t) => rec.all.includes(t))) return;
       let score = tokens.reduce((sum, t) => sum + tokenScore(rec, t), 0);
       if (tokens.length > 1 && rec.name.includes(phrase)) score += 8;
       out.push({ p: rec.p, score });
     });
     return out;
-  }, [searchQuery]);
+  }, [searchQuery, catalog, searchIndex]);
 
   const products = useMemo(() => results.map((r) => r.p), [results]);
 
@@ -193,6 +198,17 @@ export default function SearchPage() {
               <>Tìm trong <em>bộ sưu tập</em></>
             )}
           </h1>
+
+          <div className="chip-row search-hero-chips">
+            {suggestedTags.map((t) => (
+              <button key={t} type="button" className="chip search-chip" onClick={() => runSearch(t)}>
+                {capitalize(t)}
+              </button>
+            ))}
+            <button type="button" className="chip search-chip" onClick={() => navigate('sale')}>
+              Đang giảm giá
+            </button>
+          </div>
 
           <form className="search-form" role="search" onSubmit={submit}>
             <div className="search-field">
@@ -301,7 +317,7 @@ export default function SearchPage() {
                   link={{ label: 'Xem tất cả', page: 'shop' }}
                 />
                 <div className="products-grid">
-                  {BEST_SELLERS.map((p, i) => (
+                  {bestSellers.map((p, i) => (
                     <ProductCard key={p.id} product={p} index={i} />
                   ))}
                 </div>

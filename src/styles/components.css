@@ -37,6 +37,27 @@ a.product-name:hover {
   margin-right: 6px;
 }
 
+.card-swatches {
+  display: flex;
+  gap: 5px;
+  margin: 8px 0 2px;
+}
+
+.card-swatch {
+  width: 11px;
+  height: 11px;
+  border: 1px solid rgba(14, 14, 14, .18);
+  flex: none;
+}
+
+.card-stock {
+  margin: 6px 0 0;
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--warm-text);
+}
+
 /* ── SectionHeader ─────────────────────────────────────── */
 .section-header-text {
   min-width: 0;
@@ -55,6 +76,70 @@ a.product-name:hover {
 /* ── Marquee: chỗ cho nút tạm dừng ─────────────────────── */
 .marquee-bar {
   position: relative;
+}
+
+/* ── Đã xem gần đây: chạy chậm phải → trái ─────────────── */
+.recent-marquee {
+  overflow: hidden;
+  margin-inline: calc(-1 * var(--gutter));
+  padding: 4px var(--gutter) 14px;
+}
+
+.recent-marquee-track {
+  display: flex;
+  width: max-content;
+  animation: recentMarquee calc(var(--recent-n, 6) * 8s) linear infinite;
+  will-change: transform;
+}
+
+.recent-marquee:hover .recent-marquee-track,
+.recent-marquee:focus-within .recent-marquee-track {
+  animation-play-state: paused;
+}
+
+.recent-marquee-set {
+  display: flex;
+  gap: 16px;
+  padding-right: 16px;
+  flex: none;
+}
+
+.recent-marquee-set > * {
+  flex: 0 0 auto;
+  width: min(60vw, 220px);
+}
+
+.recent-marquee [data-reveal],
+.recent-marquee [data-reveal].in,
+html[data-scroll="up"] .recent-marquee [data-reveal]:not(.in) {
+  opacity: 1;
+  transform: none;
+  clip-path: inset(0 0 0 0);
+}
+
+@keyframes recentMarquee {
+  from { transform: translate3d(0, 0, 0); }
+  to   { transform: translate3d(calc(-100% / var(--recent-copies, 2)), 0, 0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recent-marquee {
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+  }
+
+  .recent-marquee-track {
+    animation: none;
+    will-change: auto;
+  }
+
+  .recent-marquee-set[aria-hidden='true'] {
+    display: none;
+  }
+
+  .recent-marquee-set > * {
+    scroll-snap-align: start;
+  }
 }
 
 /* ── Newsletter: bố cục hai cột ────────────────────────── */

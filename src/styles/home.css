@@ -206,15 +206,69 @@
 
 .material-list li {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
+  grid-template-columns: 56px minmax(0, 1fr);
   gap: 12px;
-  align-items: start;
+  align-items: center;
+}
+
+.material-pic {
+  width: 56px;
+  height: 56px;
 }
 
 .material-list i {
   color: var(--warm-text);
   font-size: 18px;
   line-height: 1.3;
+}
+
+.outfit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(18px, 3vw, 32px);
+}
+
+.outfit-card {
+  min-width: 0;
+}
+
+.outfit-title {
+  font-family: var(--font-serif);
+  font-size: 26px;
+  font-weight: 400;
+  margin: 0 0 6px;
+}
+
+.outfit-sub {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--ink-2);
+  line-height: 1.6;
+}
+
+.outfit-items {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.outfit-item {
+  text-decoration: none;
+  color: inherit;
+  min-width: 0;
+}
+
+.outfit-item span {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+@media (max-width: 900px) {
+  .outfit-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .material-list strong {
@@ -368,10 +422,8 @@
 /* ══════════════════════════════════════════════
    8. ĐÃ XEM GẦN ĐÂY
    ══════════════════════════════════════════════ */
-.home-recent .scroll-row {
-  /* chừa chỗ cho vòng focus của thẻ sản phẩm */
-  padding: 4px 4px 14px;
-  margin-inline: -4px;
+.home-recent .recent-marquee {
+  margin-top: 4px;
 }
 
 /* ══════════════════════════════════════════════

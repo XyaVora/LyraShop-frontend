@@ -280,12 +280,27 @@ export function ProductCard({ product, index = 0, delay = 0 }) {
       <div className="product-brand">
         {product.brand} · {product.cat}
       </div>
+      {(product.colors || []).length > 0 && (
+        <div className="card-swatches" aria-label="Màu sắc">
+          {product.colors.slice(0, 4).map((c) => (
+            <span
+              key={c.name}
+              className="card-swatch"
+              style={{ background: c.hex || product.color }}
+              title={c.name}
+            />
+          ))}
+        </div>
+      )}
       <div className="product-price-row">
         <span className="product-price">{fmt(product.price)}</span>
         {product.oldPrice > product.price && (
           <span className="product-price-old">{fmt(product.oldPrice)}</span>
         )}
       </div>
+      {product.stock > 0 && product.stock <= 12 && (
+        <p className="card-stock">Còn {product.stock} cái</p>
+      )}
       {/* Chỉ hiển thị ở chế độ danh sách (.products-grid.list-view) */}
       {product.desc && <p className="product-card-desc">{product.desc}</p>}
     </article>
@@ -392,6 +407,41 @@ export function Marquee() {
       >
         <i className={`bi ${paused ? 'bi-play-fill' : 'bi-pause-fill'}`} aria-hidden="true" />
       </button>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   RecentMarquee — đã xem gần đây: chạy chậm phải → trái, dừng khi hover
+   ══════════════════════════════════════════════════════════════ */
+export function RecentMarquee({ products, label = 'Sản phẩm bạn đã xem gần đây' }) {
+  const list = Array.isArray(products) ? products.filter(Boolean) : [];
+  const copies = list.length >= 5 ? 2 : 4;
+  if (!list.length) return null;
+
+  return (
+    <div
+      className="recent-marquee"
+      role="region"
+      aria-label={label}
+      style={{ '--recent-n': list.length, '--recent-copies': copies }}
+    >
+      <div className="recent-marquee-track">
+        {Array.from({ length: copies }, (_, copy) => (
+          <div
+            key={copy}
+            className="recent-marquee-set"
+            role={copy === 0 ? 'list' : undefined}
+            aria-hidden={copy === 0 ? undefined : true}
+          >
+            {list.map((p, i) => (
+              <div key={`${copy}-${p.id || p.slug || i}`} role={copy === 0 ? 'listitem' : undefined}>
+                <ProductCard product={p} index={i} />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

@@ -551,12 +551,16 @@ html[data-scroll="up"] [data-reveal]:not(.in) {
   object-fit: cover;
   display: block;
   opacity: 0;
-  transition: opacity 480ms var(--ease-out), transform var(--dur-3) var(--ease-out);
+  filter: blur(10px);
+  transform: scale(1.04);
+  transition: opacity 560ms var(--ease-out), filter 560ms var(--ease-out), transform var(--dur-3) var(--ease-out);
 }
 
 .pic img.loaded,
 .pic.is-loaded img {
   opacity: 1;
+  filter: none;
+  transform: none;
 }
 
 /* Ảnh lỗi: ẩn img, giữ ô màu tint + icon */
@@ -2806,16 +2810,15 @@ body.lock-scroll {
   height: 32px;
   border-radius: 50%;
   border: 1px solid var(--border-dark);
-  outline: 2px solid transparent;
-  outline-offset: 3px;
+  box-shadow: 0 0 0 3px transparent;
   cursor: pointer;
   padding: 0;
-  transition: outline-color var(--dur-1) var(--ease-out);
+  transition: box-shadow var(--dur-1) var(--ease-out);
 }
 
-.color-option-btn[aria-pressed="true"],
+.color-option-btn[aria-checked="true"],
 .color-option-btn.active {
-  outline-color: var(--ink);
+  box-shadow: 0 0 0 3px var(--cream), 0 0 0 5px var(--ink);
 }
 
 .size-grid {
@@ -5698,10 +5701,13 @@ body.lock-scroll {
 
   .pic img {
     opacity: 1 !important;
+    filter: none !important;
+    transform: none !important;
   }
 
   /* Dừng mọi chuyển động lặp vô hạn */
   .marquee-content,
+  .recent-marquee-track,
   .loader-bar::after,
   .week-label-live::after,
   .scroll-line,

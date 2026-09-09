@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { buildUrl, pageTitle, parseLocation } from '../router.js';
 import { CATEGORIES, findProduct } from '../data/products';
-import { authApi, isOffline, tokenStore } from '../services/api';
+import { authApi, isOffline, profileApi, tokenStore } from '../services/api';
 import { findCachedProduct } from '../services/catalog';
 
 const AppContext = createContext(null);
@@ -53,6 +53,7 @@ function normalizeUser(raw, fallbackEmail = '') {
     id: raw?.id || hashId(email),
     name,
     email,
+    phone: raw?.phone || '',
     avatar: (name.charAt(0) || email.charAt(0) || 'L').toUpperCase(),
     role: raw?.role || 'customer',
     joined: raw?.joined || raw?.createdAt || new Date().toISOString(),
@@ -177,6 +178,17 @@ export function AppProvider({ children }) {
     else safeRemove(USER_KEY);
   }, []);
 
+  useEffect(() => {
+    if (!tokenStore.get()) return undefined;
+    let cancelled = false;
+    profileApi.get()
+      .then(({ data }) => {
+        if (!cancelled) persistUser(normalizeUser(data, data?.email));
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [persistUser]);
+
   const logout = useCallback(() => {
     tokenStore.clear();
     safeRemove(LEGACY_USER_KEY);
@@ -198,15 +210,26 @@ export function AppProvider({ children }) {
    * Đăng nhập. Thử API thật trước; nếu không có backend (network error/timeout)
    * thì rơi về CHẾ ĐỘ DEMO offline. Lỗi có status → throw để trang hiện inline.
    */
+  const applyProfile = useCallback(async (fallbackEmail) => {
+    try {
+      const { data } = await profileApi.get();
+      const u = normalizeUser(data, fallbackEmail || data?.email);
+      persistUser(u);
+      return u;
+    } catch {
+      const u = normalizeUser({ email: fallbackEmail });
+      persistUser(u);
+      return u;
+    }
+  }, [persistUser]);
+
   const login = useCallback(async (email, password) => {
     const mail = String(email || '').trim();
     const pass = String(password || '');
     try {
       const { data } = await authApi.login({ email: mail, password: pass });
       if (data?.accessToken) tokenStore.set(data.accessToken);
-      const u = normalizeUser(data?.user || data, mail);
-      persistUser(u);
-      return u;
+      return await applyProfile(mail);
     } catch (error) {
       // Backend trả lỗi có status → báo cho người dùng, không vào demo.
       if (!isOffline(error)) throw new Error(apiMessage(error, 'Email hoặc mật khẩu không đúng.'));
@@ -218,19 +241,16 @@ export function AppProvider({ children }) {
       persistUser(u);
       return u;
     }
-  }, [persistUser]);
+  }, [applyProfile, persistUser]);
 
-  /** Đăng ký — cùng cơ chế demo offline như login. */
+  /** Đăng ký — backend không trả token nên login ngay sau khi tạo tài khoản. */
   const register = useCallback(async (fullName, email, password) => {
     const name = String(fullName || '').trim();
     const mail = String(email || '').trim();
     const pass = String(password || '');
     try {
-      const { data } = await authApi.register({ fullName: name, email: mail, password: pass });
-      if (data?.accessToken) tokenStore.set(data.accessToken);
-      const u = normalizeUser(data?.user || data, mail);
-      persistUser(u);
-      return u;
+      await authApi.register({ fullName: name, email: mail, password: pass });
+      return await login(mail, pass);
     } catch (error) {
       if (!isOffline(error)) throw new Error(apiMessage(error, 'Không thể tạo tài khoản.'));
 
@@ -242,17 +262,31 @@ export function AppProvider({ children }) {
       persistUser(u);
       return u;
     }
-  }, [persistUser]);
+  }, [login, persistUser]);
 
-  /** Cập nhật hồ sơ (trang Tài khoản). */
-  const updateUser = useCallback((patch) => {
+  /** Cập nhật hồ sơ (trang Tài khoản). Email không đổi trên API. */
+  const updateUser = useCallback(async (patch) => {
+    const fullName = String(patch?.name || patch?.fullName || '').trim();
+    const phone = patch?.phone;
+    if (tokenStore.get() && fullName) {
+      try {
+        const { data } = await profileApi.update({
+          fullName,
+          phone: phone == null || String(phone).trim() === '' ? null : String(phone).trim(),
+        });
+        persistUser(normalizeUser({ ...data, name: data.fullName }, data.email));
+        return;
+      } catch {
+        /* giữ bản local nếu PUT /me thất bại */
+      }
+    }
     setUser((prev) => {
       if (!prev) return prev;
       const merged = normalizeUser({ ...prev, ...(patch || {}) });
       safeSet(USER_KEY, JSON.stringify(merged));
       return merged;
     });
-  }, []);
+  }, [persistUser]);
 
   const value = useMemo(() => ({
     // định tuyến

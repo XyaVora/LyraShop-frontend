@@ -210,6 +210,18 @@ export const orderApi = {
   cancel: (id) => api.put(`/orders/${id}/cancel`),
 };
 
+/* ── Profile API — requires CUSTOMER or ADMIN ── */
+export const profileApi = {
+  get: () => api.get('/me'),
+  update: (payload) => api.put('/me', payload),
+};
+
+/* ── Reviews ─────────────────────────────────── */
+export const reviewApi = {
+  list: (productId) => api.get(`/products/${productId}/reviews`),
+  create: (productId, payload) => api.post(`/products/${productId}/reviews`, payload),
+};
+
 /* ── Categories API ──────────────────────────── */
 export const categoryApi = {
   /**
