@@ -700,12 +700,19 @@ function ProfileInfoTab({ user, updateUser, showToast }) {
     name: user?.name || '',
     email: user?.email || '',
     ...loadExtra(),
+    phone: user?.phone || loadExtra().phone,
   }));
   const [errors, setErrors] = useState({});
 
   // Đổi tài khoản (hoặc hồ sơ được cập nhật nơi khác) → nạp lại giá trị.
   useEffect(() => {
-    setForm({ name: user?.name || '', email: user?.email || '', ...loadExtra() });
+    const extra = loadExtra();
+    setForm({
+      name: user?.name || '',
+      email: user?.email || '',
+      ...extra,
+      phone: user?.phone || extra.phone,
+    });
     setErrors({});
   }, [user?.id, user?.name, user?.email, loadExtra]);
 
@@ -735,7 +742,7 @@ function ProfileInfoTab({ user, updateUser, showToast }) {
       return;
     }
 
-    updateUser({ name: form.name.trim(), email: form.email.trim() });
+    updateUser({ name: form.name.trim(), phone });
 
     const all = readJson(EXTRA_KEY, {});
     writeJson(EXTRA_KEY, {

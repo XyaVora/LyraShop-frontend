@@ -83,6 +83,7 @@ function makeCartItem(product, qty, size, variantColor) {
   return {
     key: cartKey(product.id, size, variantColor),
     productId: product.id,
+    variantId: resolveVariantId(product, size, variantColor),
     slug: product.slug,
     name: product.name,
     price: num(product.price),
@@ -346,6 +347,17 @@ export function CartProvider({ children }) {
     let cancelled = false;
     (async () => {
       try {
+        const guest = readStore(K_CART, [], isArr);
+        for (const item of guest) {
+          const variantId = item.variantId;
+          if (!isUuid(variantId)) continue;
+          try {
+            await cartApi.add(buildAddCartItemRequest(variantId, item.qty || 1));
+          } catch {
+            /* bỏ qua dòng giỏ khách không thêm được */
+          }
+        }
+        removeStore(K_CART);
         const { data } = await cartApi.get();
         if (!cancelled) applyCartResponse(data);
       } catch {

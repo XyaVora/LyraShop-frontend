@@ -114,9 +114,7 @@ export function enrichWithMock(product) {
 export async function loadCatalogOrMock() {
   try {
     const list = await loadShopCatalog();
-    if (Array.isArray(list) && list.length) {
-      return { products: list.map(enrichWithMock), fromApi: true };
-    }
+    return { products: (list || []).map(enrichWithMock), fromApi: true };
   } catch {
     /* backend tắt → dùng lookbook mock */
   }
