@@ -27,15 +27,25 @@ export default function WishlistPage() {
     });
   };
 
-  const addAllToCart = () => {
-    wishlist.forEach(p => addToCart(p));
-    showToast(`Đã thêm ${wishlist.length} sản phẩm vào giỏ hàng`, 'bi-bag-check');
+  const addAllToCart = async () => {
+    let added = 0;
+    for (const product of wishlist) {
+      const success = await addToCart(product);
+      if (!success) break;
+      added += 1;
+    }
+    if (added > 0) showToast(`Đã thêm ${added} sản phẩm vào giỏ hàng`, 'bi-bag-check');
   };
 
-  const addSelectedToCart = () => {
+  const addSelectedToCart = async () => {
     const items = wishlist.filter(p => selected.has(p.id));
-    items.forEach(p => addToCart(p));
-    showToast(`Đã thêm ${items.size} sản phẩm vào giỏ hàng`, 'bi-bag-check');
+    let added = 0;
+    for (const product of items) {
+      const success = await addToCart(product);
+      if (!success) break;
+      added += 1;
+    }
+    if (added > 0) showToast(`Đã thêm ${added} sản phẩm vào giỏ hàng`, 'bi-bag-check');
     setSelected(new Set());
     setSelectMode(false);
   };
@@ -259,7 +269,7 @@ function WishlistCard({ product: p, selectMode, isSelected, onToggleSelect, onRe
       <div style={{ padding: '14px 16px 16px' }}>
         <Stars rating={p.rating} size={10} />
         <div style={{ fontSize: 13.5, fontWeight: 400, margin: '5px 0 3px', cursor: 'pointer' }} onClick={onOpen}>{p.name}</div>
-        <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 10 }}>{p.brand} · {p.cat}</div>
+        <div style={{ fontSize: 11.5, color: 'var(--muted)', marginBottom: 10 }}>{p.brand}{p.cat ? ` · ${p.cat}` : ''}</div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <span style={{ fontFamily: 'var(--font-serif)', fontSize: 18 }}>{fmt(p.price)}</span>
           {p.oldPrice && (

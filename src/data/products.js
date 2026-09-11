@@ -60,6 +60,12 @@ export function normalizeProduct(raw, index = 0) {
   const meta = getProductMeta(index);
   const variants = raw.variants || [];
   const defaultVariant = variants[0] || null;
+  const images = [...new Set(
+    [...(raw.images || [])]
+      .sort((a, b) => Number(b.primary) - Number(a.primary) || a.sortOrder - b.sortOrder)
+      .map(image => image.url)
+      .filter(Boolean),
+  )];
 
   // Lấy giá từ variant rẻ nhất, fallback về basePrice
   const price = defaultVariant
@@ -82,6 +88,8 @@ export function normalizeProduct(raw, index = 0) {
     // Visual fallback (backend không có icon/color)
     icon:  meta.icon,
     color: meta.color,
+    image: images[0] || null,
+    images,
     badge: null,
 
     // Stock từ tổng các variant
@@ -92,8 +100,9 @@ export function normalizeProduct(raw, index = 0) {
 
     // Metadata cho UI
     brand:   'LYRA',
-    rating:  0,
-    reviews: 0,
+    cat:     raw.categoryName || '',
+    rating:  Number(raw.averageRating || 0),
+    reviews: Number(raw.reviewCount || 0),
     discount: 0,
   };
 }

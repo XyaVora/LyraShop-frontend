@@ -22,7 +22,7 @@ export default function ProductDetailPage() {
 
   // Load product detail từ backend
   useEffect(() => {
-    if (!selectedProduct?.id) {
+    if (!selectedProduct?.id && !selectedProduct?.slug) {
       setError('Không tìm thấy sản phẩm.');
       setLoading(false);
       return;
@@ -31,7 +31,15 @@ export default function ProductDetailPage() {
     setLoading(true);
     setError(null);
 
-    productApi.get(selectedProduct.id)
+    const request = selectedProduct.id
+      ? productApi.get(selectedProduct.id)
+      : productApi.list({ size: 100 }).then(response => {
+        const match = (response.data?.content || []).find(item => item.slug === selectedProduct.slug);
+        if (!match) throw new Error('Product not found');
+        return { data: match };
+      });
+
+    request
       .then(res => {
         if (cancelled) return;
         const p = normalizeProduct(res.data, 0);
@@ -46,7 +54,7 @@ export default function ProductDetailPage() {
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [selectedProduct?.id]);
+  }, [selectedProduct?.id, selectedProduct?.slug]);
 
   // Load related products (cùng category)
   useEffect(() => {
@@ -83,6 +91,7 @@ export default function ProductDetailPage() {
   const sizes = [...new Set(variants.map(v => v.size).filter(Boolean))];
   const colors = [...new Set(variants.map(v => v.color).filter(Boolean))];
   const thumbIcons = [product.icon, 'bi-bag', 'bi-star', 'bi-heart'];
+  const galleryImages = product.images || [];
 
   const currentPrice  = selectedVariant?.price ? parseFloat(selectedVariant.price) : product.price;
   const currentStock  = selectedVariant?.stock ?? product.stock;
@@ -102,7 +111,7 @@ export default function ProductDetailPage() {
   };
 
   const handleAddToCart = () => {
-    addToCart(
+    return addToCart(
       { ...product, price: currentPrice, stock: currentStock, variantPrice: currentPrice },
       qty,
       selectedSize || null,
@@ -116,19 +125,43 @@ export default function ProductDetailPage() {
       <div className="detail-layout">
         {/* Gallery */}
         <div className="detail-gallery-col">
-          <div className="gallery-main-view" style={{ background: product.color + 'BB' }}>
-            <i className={`bi ${thumbIcons[activeThumb]}`} style={{ fontSize: 88, color: 'rgba(14,14,14,.18)' }} />
-            <span style={{ fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(14,14,14,.2)' }}>
-              Hình ảnh sản phẩm
-            </span>
+          <div className="gallery-main-view" style={{ background: product.color + 'BB', position: 'relative' }}>
+            {galleryImages[activeThumb] ? (
+              <>
+                <i className={`bi ${product.icon}`} style={{ fontSize: 88, color: 'rgba(14,14,14,.18)' }} />
+                <img
+                  src={galleryImages[activeThumb]}
+                  alt={product.name}
+                  style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={event => { event.currentTarget.style.display = 'none'; }}
+                />
+              </>
+            ) : (
+              <>
+                <i className={`bi ${thumbIcons[activeThumb]}`} style={{ fontSize: 88, color: 'rgba(14,14,14,.18)' }} />
+                <span style={{ fontSize: 10.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'rgba(14,14,14,.2)' }}>
+                  Hình ảnh sản phẩm
+                </span>
+              </>
+            )}
           </div>
           <div className="gallery-thumbnails">
-            {thumbIcons.map((icon, i) => (
+            {(galleryImages.length > 0 ? galleryImages : thumbIcons).map((media, i) => (
               <div key={i} className={`gallery-thumb${activeThumb === i ? ' active' : ''}`}
-                style={{ background: product.color + '88' }}
+                style={{ background: product.color + '88', position: 'relative', overflow: 'hidden' }}
                 onClick={() => setActiveThumb(i)}
               >
-                <i className={`bi ${icon}`} />
+                {galleryImages.length > 0
+                  ? <>
+                      <i className={`bi ${product.icon}`} />
+                      <img
+                        src={media}
+                        alt={`${product.name} ${i + 1}`}
+                        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }}
+                        onError={event => { event.currentTarget.style.display = 'none'; }}
+                      />
+                      </>
+                  : <i className={`bi ${media}`} />}
               </div>
             ))}
           </div>
@@ -234,7 +267,10 @@ export default function ProductDetailPage() {
 
           <button className="btn-warm mb-4"
             disabled={currentStock === 0}
-            onClick={() => { handleAddToCart(); navigate('cart'); }}
+            onClick={async () => {
+              const added = await handleAddToCart();
+              if (added) navigate('cart');
+            }}
           >
             Mua ngay <i className="bi bi-arrow-right" />
           </button>

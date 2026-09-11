@@ -3,6 +3,9 @@ import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { fmt } from '../data/products';
+import { normalizeOrder } from '../data/orders';
+import { extractErrorMessage, orderApi } from '../services/api';
+import { isEmail, isPhone, normPhone } from '../utils/validate';
 import { Footer } from '../components/index.jsx';
 
 export default function CartPage() {
@@ -105,7 +108,7 @@ export default function CartPage() {
             Tiến hành thanh toán <i className="bi bi-arrow-right" />
           </button>
           <div className="payment-methods-row">
-            {['COD','MoMo','VNPay','Banking'].map(m => (
+            {['COD','VNPay'].map(m => (
               <div key={m} className="pay-method-tag">{m}</div>
             ))}
           </div>
@@ -122,18 +125,18 @@ export default function CartPage() {
 
 /* ── Checkout ───────────────────────────── */
 function CheckoutView({ navigate, setView, setCreatedOrder }) {
-  const { cart, subtotal, shipping, total, clearCart, showToast } = useCart();
+  const { user, isLoggedIn } = useApp();
+  const { cart, subtotal, shipping, total, refreshCart, showToast } = useCart();
   const [activePayment, setActivePayment] = useState('cod');
   const [step, setStep]   = useState(2);
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm]   = useState({
-    lastName: '', firstName: '', email: '', phone: '',
+    lastName: '', firstName: user?.name || '', email: user?.email || '', phone: user?.phone || '',
     city: 'Hà Nội', district: 'Hoàn Kiếm', address: '', note: '',
   });
 
   const payOptions = [
     { id: 'cod',     label: 'Thanh toán khi nhận hàng (COD)', icon: 'bi-cash' },
-    { id: 'banking', label: 'Chuyển khoản ngân hàng',         icon: 'bi-bank' },
-    { id: 'momo',    label: 'Ví MoMo',                        icon: 'bi-phone' },
     { id: 'vnpay',   label: 'VNPay QR',                       icon: 'bi-qr-code' },
   ];
 
@@ -141,41 +144,50 @@ function CheckoutView({ navigate, setView, setCreatedOrder }) {
     setForm(prev => ({ ...prev, [field]: e.target.value }));
   };
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
+    if (!isLoggedIn) {
+      showToast('Vui lòng đăng nhập trước khi đặt hàng', 'bi-person');
+      navigate('auth');
+      return;
+    }
     if (!form.lastName || !form.firstName || !form.email || !form.phone || !form.address) {
       showToast('Vui lòng điền đầy đủ thông tin giao hàng', 'bi-exclamation-circle');
       return;
     }
+    if (!isEmail(form.email)) {
+      showToast('Địa chỉ email không đúng định dạng', 'bi-exclamation-circle');
+      return;
+    }
+    if (!isPhone(form.phone)) {
+      showToast('Số điện thoại không đúng định dạng', 'bi-exclamation-circle');
+      return;
+    }
 
-    const orderId = `#LYRA${Date.now().toString().slice(-6)}`;
-    const newOrder = {
-      id: orderId,
-      date: new Date().toLocaleDateString('vi-VN'),
-      createdAt: new Date().toLocaleString('vi-VN'),
-      status: 'processing',
-      total,
-      subtotal,
-      shipping,
-      discount: 0,
-      payment: activePayment.toUpperCase(),
-      items: [...cart],
-      address: {
-        name: `${form.lastName} ${form.firstName}`,
-        phone: form.phone,
-        address: `${form.address}, ${form.district}, ${form.city}`,
-      },
-    };
-
-    // Save order into localStorage for history tracking
+    setSubmitting(true);
     try {
-      const existing = JSON.parse(localStorage.getItem('lyra_orders') || '[]');
-      localStorage.setItem('lyra_orders', JSON.stringify([newOrder, ...existing]));
-    } catch {}
-
-    setCreatedOrder(newOrder);
-    setStep(4);
-    clearCart();
-    setView('success');
+      const response = await orderApi.create({
+        shippingAddress: `${form.address}, ${form.district}, ${form.city}`,
+        shippingPhone: normPhone(form.phone),
+        note: form.note || null,
+        paymentMethod: activePayment.toUpperCase(),
+      });
+      const newOrder = normalizeOrder(response.data, {
+        ...user,
+        name: `${form.lastName} ${form.firstName}`.trim(),
+      });
+      setCreatedOrder(newOrder);
+      setStep(4);
+      await refreshCart();
+      if (newOrder.paymentUrl) {
+        window.location.assign(newOrder.paymentUrl);
+        return;
+      }
+      setView('success');
+    } catch (error) {
+      showToast(extractErrorMessage(error, 'Không thể tạo đơn hàng'), 'bi-x-circle');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -220,7 +232,7 @@ function CheckoutView({ navigate, setView, setCreatedOrder }) {
             </div>
           </div>
           <label className="form-field-label">Email</label>
-          <input className="form-field-input" type="email" placeholder="email@example.com" value={form.email} onChange={handleInputChange('email')} />
+          <input className="form-field-input" type="email" value={form.email} disabled style={{ opacity: .6 }} />
           <label className="form-field-label">Số điện thoại</label>
           <input className="form-field-input" type="tel" placeholder="0912 345 678" value={form.phone} onChange={handleInputChange('phone')} />
 
@@ -270,8 +282,8 @@ function CheckoutView({ navigate, setView, setCreatedOrder }) {
             <button className="btn-outline-lyra flex-shrink-0" onClick={() => setView('cart')}>
               <i className="bi bi-arrow-left" /> Giỏ hàng
             </button>
-            <button className="btn-lyra w-100 justify-content-center" onClick={handlePlaceOrder}>
-              Đặt hàng ngay <i className="bi bi-check2" />
+            <button className="btn-lyra w-100 justify-content-center" onClick={handlePlaceOrder} disabled={submitting}>
+              {submitting ? 'Đang tạo đơn...' : 'Đặt hàng ngay'} <i className="bi bi-check2" />
             </button>
           </div>
         </div>
@@ -308,7 +320,7 @@ function CheckoutView({ navigate, setView, setCreatedOrder }) {
 
 /* ── Order Success ───────────────────────── */
 function OrderSuccess({ navigate, order }) {
-  const orderId = order?.id || `#LYRA${Date.now().toString().slice(-6)}`;
+  const orderId = order?.displayId || order?.id || '#LYRA';
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 68px)', textAlign: 'center', padding: 40 }}>
       <div style={{ width: 80, height: 80, background: 'var(--warm)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>

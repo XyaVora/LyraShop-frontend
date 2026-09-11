@@ -51,64 +51,6 @@
   margin-bottom: 22px;
 }
 
-/* ── Hộp tài khoản demo ───────────────────────────────────────────── */
-.auth-demo-title {
-  display: block;
-  font-size: 10.5px;
-  letter-spacing: .16em;
-  text-transform: uppercase;
-  color: var(--warm-text);
-  font-weight: 500;
-  margin-bottom: 6px;
-}
-
-.auth-demo-text {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.7;
-  color: var(--ink-2);
-}
-
-.auth-demo-text code {
-  font-family: var(--font-sans);
-  font-size: 12.5px;
-  color: var(--ink);
-  background: rgba(14, 14, 14, .05);
-  padding: 1px 5px;
-  word-break: break-word;
-}
-
-.auth-demo-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.auth-demo-fill {
-  flex: 1 1 150px;
-  min-width: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  padding: 9px 12px;
-  border: 1px solid var(--warm-deep);
-  background: transparent;
-  color: var(--warm-hover);
-  font-family: var(--font-sans);
-  font-size: 11px;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
-}
-
-.auth-demo-fill:hover {
-  background: var(--warm-deep);
-  color: #fff;
-}
-
 /* ── Trường nhập ──────────────────────────────────────────────────── */
 .auth-field {
   margin-bottom: 16px;
@@ -236,10 +178,6 @@
 }
 
 @media (max-width: 420px) {
-  .auth-demo-fill {
-    flex: 1 1 100%;
-  }
-
   .auth-toggle-btn {
     font-size: 10.5px;
     letter-spacing: .06em;

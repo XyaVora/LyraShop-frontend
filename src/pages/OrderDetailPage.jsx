@@ -1,30 +1,64 @@
 // src/pages/OrderDetailPage.jsx
+import { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useCart } from '../context/CartContext';
 import { fmt } from '../data/products';
+import { normalizeOrder } from '../data/orders';
+import { extractErrorMessage, orderApi } from '../services/api';
 import { Footer } from '../components/index.jsx';
 
 export default function OrderDetailPage() {
-  const { navigate, selectedOrder } = useApp();
+  const { navigate, selectedOrder, user } = useApp();
+  const { showToast } = useCart();
+  const [order, setOrder] = useState(selectedOrder || null);
+  const [loading, setLoading] = useState(Boolean(selectedOrder?.id));
+  const [error, setError] = useState('');
+  const [cancelling, setCancelling] = useState(false);
 
-  const order = selectedOrder || {
-    id: '#LYRA-DEMO',
-    date: new Date().toLocaleDateString('vi-VN'),
-    status: 'processing',
-    total: 0,
-    subtotal: 0,
-    shipping: 0,
-    discount: 0,
-    items: [],
-    address: { name: 'Khách hàng', phone: '—', address: '—' },
-    payment: 'COD',
-  };
+  useEffect(() => {
+    if (!selectedOrder?.id) {
+      setError('Không tìm thấy mã đơn hàng.');
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    orderApi.get(selectedOrder.id)
+      .then(({ data }) => { if (!cancelled) setOrder(normalizeOrder(data, user)); })
+      .catch(() => { if (!cancelled) setError('Không thể tải chi tiết đơn hàng.'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [selectedOrder?.id, user]);
 
   const statusLabel = {
+    pending: 'Chờ xác nhận',
+    confirmed: 'Đã xác nhận',
     delivered: 'Đã giao thành công',
     shipping: 'Đang vận chuyển',
     processing: 'Đang chuẩn bị hàng',
     cancelled: 'Đã hủy',
   };
+
+  const handleCancel = async () => {
+    if (!window.confirm('Bạn có chắc muốn hủy đơn hàng này?')) return;
+    setCancelling(true);
+    try {
+      const { data } = await orderApi.cancel(order.id);
+      setOrder(normalizeOrder(data, user));
+      showToast('Đã hủy đơn hàng', 'bi-check-circle');
+    } catch (cancelError) {
+      showToast(extractErrorMessage(cancelError, 'Không thể hủy đơn hàng'), 'bi-x-circle');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  if (loading) return <div className="not-found"><div className="not-found-title">Đang tải đơn hàng...</div></div>;
+  if (error || !order) return (
+    <div className="not-found">
+      <h2 className="not-found-title">{error || 'Không tìm thấy đơn hàng'}</h2>
+      <button className="btn-outline-lyra" onClick={() => navigate('profile')}>Quay lại hồ sơ</button>
+    </div>
+  );
 
   return (
     <div>
@@ -35,12 +69,24 @@ export default function OrderDetailPage() {
               Chi tiết đơn hàng
             </div>
             <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, margin: 0 }}>
-              {order.id}
+              {order.displayId || order.id}
             </h1>
           </div>
-          <button className="btn-outline-lyra" onClick={() => navigate('profile')}>
-            <i className="bi bi-arrow-left" /> Quay lại hồ sơ
-          </button>
+          <div className="d-flex gap-2">
+            {order.status === 'pending' && (
+              <button
+                className="btn-outline-lyra"
+                style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
+                onClick={handleCancel}
+                disabled={cancelling}
+              >
+                <i className="bi bi-x-circle" /> {cancelling ? 'Đang hủy...' : 'Hủy đơn'}
+              </button>
+            )}
+            <button className="btn-outline-lyra" onClick={() => navigate('profile')}>
+              <i className="bi bi-arrow-left" /> Quay lại hồ sơ
+            </button>
+          </div>
         </div>
 
         <div className="row g-4">

@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { fmt } from '../data/products';
+import { normalizeOrder } from '../data/orders';
+import { extractErrorMessage, orderApi } from '../services/api';
+import { isPhone, normPhone } from '../utils/validate';
 import { Footer, Stars } from '../components/index.jsx';
 
 const NAV_ITEMS = [
@@ -13,9 +16,9 @@ const NAV_ITEMS = [
 ];
 
 export default function ProfilePage() {
-  const { navigate, user, logout } = useApp();
+  const { navigate, user, logout, updateProfile, profileTab } = useApp();
   const { showToast, wishlist, toggleWishlist, addToCart } = useCart();
-  const [activeTab, setActiveTab] = useState('orders');
+  const [activeTab, setActiveTab] = useState(profileTab || 'orders');
 
   const handleLogout = async () => {
     await logout();
@@ -35,7 +38,10 @@ export default function ProfilePage() {
             {NAV_ITEMS.map(item => (
               <a key={item.id}
                 className={`profile-nav-item${activeTab === item.id ? ' active' : ''}`}
-                onClick={() => setActiveTab(item.id)}
+                onClick={() => {
+                  setActiveTab(item.id);
+                  navigate('profile', { profileTab: item.id });
+                }}
               >
                 <i className={`bi ${item.icon}`} />
                 {item.label}
@@ -50,10 +56,10 @@ export default function ProfilePage() {
 
         {/* Content */}
         <main className="profile-content">
-          {activeTab === 'orders' && <OrdersTab navigate={navigate} />}
+          {activeTab === 'orders' && <OrdersTab navigate={navigate} user={user} />}
           {activeTab === 'wishlist' && <WishlistTab wishlist={wishlist} toggleWishlist={toggleWishlist} addToCart={addToCart} navigate={navigate} />}
-          {activeTab === 'address' && <AddressTab showToast={showToast} />}
-          {activeTab === 'profile' && <ProfileInfoTab user={user} showToast={showToast} />}
+          {activeTab === 'address' && <AddressTab />}
+          {activeTab === 'profile' && <ProfileInfoTab user={user} updateProfile={updateProfile} showToast={showToast} />}
         </main>
       </div>
       <Footer navigate={navigate} />
@@ -62,19 +68,40 @@ export default function ProfilePage() {
 }
 
 /* ── Orders Tab ── */
-function OrdersTab({ navigate }) {
-  const [orders, setOrders] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('lyra_orders') || '[]'); }
-    catch { return []; }
-  });
+function OrdersTab({ navigate, user }) {
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const statusLabel = { delivered: 'Đã giao', shipping: 'Đang giao', processing: 'Đang xử lý', cancelled: 'Đã hủy' };
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError('');
+    orderApi.list()
+      .then(({ data }) => {
+        if (!cancelled) setOrders((data || []).map(order => normalizeOrder(order, user)));
+      })
+      .catch(err => {
+        if (!cancelled) setError(extractErrorMessage(err, 'Không thể tải danh sách đơn hàng'));
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [user]);
+
+  const statusLabel = {
+    pending: 'Chờ xác nhận', confirmed: 'Đã xác nhận', processing: 'Đang xử lý',
+    shipping: 'Đang giao', delivered: 'Đã giao', cancelled: 'Đã hủy',
+  };
 
   return (
     <>
       <h2 className="profile-section-title">Đơn hàng của tôi</h2>
       <p className="profile-section-sub">Theo dõi và quản lý các đơn hàng gần đây của bạn</p>
-      {orders.length === 0 ? (
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--muted)' }}>Đang tải đơn hàng...</div>
+      ) : error ? (
+        <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--danger)' }}>{error}</div>
+      ) : orders.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--muted)' }}>
           <i className="bi bi-bag" style={{ fontSize: 40, display: 'block', marginBottom: 12, opacity: .4 }} />
           <div style={{ fontSize: 16 }}>Bạn chưa có đơn hàng nào</div>
@@ -87,7 +114,7 @@ function OrdersTab({ navigate }) {
           <div key={order.id} className="order-card">
             <div className="order-card-header">
               <div>
-                <div className="order-id">{order.id}</div>
+                <div className="order-id">{order.displayId}</div>
                 <div className="order-date">{order.date}</div>
               </div>
               <span className={`order-status-badge ${order.status || 'processing'}`}>
@@ -178,28 +205,48 @@ function WishlistTab({ wishlist, toggleWishlist, addToCart, navigate }) {
 }
 
 /* ── Address Tab ── */
-function AddressTab({ showToast }) {
+function AddressTab() {
   return (
     <>
       <h2 className="profile-section-title">Sổ địa chỉ</h2>
       <p className="profile-section-sub">Quản lý địa chỉ giao nhận hàng</p>
-      <div style={{ border: '1px solid var(--border)', padding: 24, maxWidth: 520, background: '#fff' }}>
-        <div style={{ fontWeight: 500, marginBottom: 6 }}>Nguyễn Văn A · 0912 345 678</div>
+      <div style={{ border: '1px solid var(--border)', padding: 32, maxWidth: 520, background: '#fff', textAlign: 'center' }}>
+        <i className="bi bi-geo-alt" style={{ display: 'block', fontSize: 32, color: 'var(--muted)', marginBottom: 12 }} />
+        <div style={{ fontWeight: 500, marginBottom: 6 }}>Chưa có địa chỉ đã lưu</div>
         <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-          123 Phố Huế, Phường Bùi Thị Xuân, Quận Hai Bà Trưng, Hà Nội
+          Backend chưa cung cấp API sổ địa chỉ. Địa chỉ giao hàng được nhập khi đặt đơn.
         </div>
-        <span style={{ display: 'inline-block', marginTop: 10, fontSize: 11, padding: '2px 8px', background: 'var(--cream)', border: '1px solid var(--border)' }}>
-          Mặc định
-        </span>
       </div>
     </>
   );
 }
 
 /* ── Profile Info Tab ── */
-function ProfileInfoTab({ user, showToast }) {
+function ProfileInfoTab({ user, updateProfile, showToast }) {
   const [name, setName] = useState(user?.name || '');
   const [email]         = useState(user?.email || '');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      showToast('Họ và tên không được để trống', 'bi-exclamation-circle');
+      return;
+    }
+    if (phone.trim() && !isPhone(phone)) {
+      showToast('Số điện thoại không đúng định dạng', 'bi-exclamation-circle');
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateProfile(name.trim(), phone.trim() ? normPhone(phone) : '');
+      showToast('Đã lưu thông tin tài khoản', 'bi-check-circle');
+    } catch (error) {
+      showToast(error.message || 'Không thể lưu thông tin', 'bi-x-circle');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <>
@@ -210,11 +257,14 @@ function ProfileInfoTab({ user, showToast }) {
         <input className="form-field-input" value={name} onChange={e => setName(e.target.value)} />
         <label className="form-field-label">Email</label>
         <input className="form-field-input" value={email} disabled style={{ opacity: .6 }} />
+        <label className="form-field-label">Số điện thoại</label>
+        <input className="form-field-input" value={phone} onChange={e => setPhone(e.target.value)} />
         <button
           className="btn-lyra mt-3"
-          onClick={() => showToast('Đã lưu thông tin tài khoản', 'bi-check-circle')}
+          onClick={handleSave}
+          disabled={saving}
         >
-          Lưu thay đổi
+          {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
         </button>
       </div>
     </>

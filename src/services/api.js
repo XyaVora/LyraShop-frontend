@@ -1,9 +1,26 @@
 // src/services/api.js
 import axios from 'axios';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
+// Cùng origin trong môi trường dev qua Vite proxy để không phụ thuộc cấu hình
+// CORS của backend. Production vẫn có thể đặt URL tuyệt đối bằng VITE_API_URL.
+const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
 const TOKEN_KEY = 'lyra_access_token';
 const CSRF_KEY = 'lyra_xsrf_token';
+const productDetailCache = new Map();
+
+function getProductDetail(id) {
+  const key = String(id);
+  if (!productDetailCache.has(key)) {
+    productDetailCache.set(
+      key,
+      api.get(`/products/${id}`).catch(error => {
+        productDetailCache.delete(key);
+        throw error;
+      }),
+    );
+  }
+  return productDetailCache.get(key);
+}
 
 /* ── Axios instance ──────────────────────────── */
 const api = axios.create({
@@ -79,6 +96,9 @@ api.interceptors.response.use(
       isRefreshing = true;
       try {
         const { data, headers } = await authApi.refresh();
+        if (!data?.accessToken || typeof data.accessToken !== 'string') {
+          throw new Error('Refresh response does not contain a valid access token');
+        }
         tokenStore.set(data.accessToken);
 
         const newXsrf = headers?.['x-xsrf-token'] || headers?.['X-XSRF-TOKEN'];
@@ -91,6 +111,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         tokenStore.clear();
         csrfStore.clear();
+        window.dispatchEvent(new Event('lyra:auth-expired'));
         refreshQueue.forEach(({ reject }) => reject(refreshError));
         refreshQueue = [];
         return Promise.reject(refreshError);
@@ -166,6 +187,29 @@ export const authApi = {
   },
 };
 
+/* ── Current user profile API ────────────────── */
+export const profileApi = {
+  get: () => api.get('/me'),
+  update: (payload) => api.put('/me', payload),
+};
+
+/* ── Cart API ────────────────────────────────── */
+export const cartApi = {
+  get: () => api.get('/cart'),
+  addItem: (variantId, quantity = 1) => api.post('/cart/items', { variantId, quantity }),
+  updateItem: (itemId, quantity) => api.put(`/cart/items/${itemId}`, { quantity }),
+  removeItem: (itemId) => api.delete(`/cart/items/${itemId}`),
+  clear: () => api.delete('/cart'),
+};
+
+/* ── Orders API ──────────────────────────────── */
+export const orderApi = {
+  list: () => api.get('/orders'),
+  create: (payload) => api.post('/orders', payload),
+  get: (id) => api.get(`/orders/${id}`),
+  cancel: (id) => api.put(`/orders/${id}/cancel`),
+};
+
 /* ── Products API ────────────────────────────── */
 export const productApi = {
   /**
@@ -174,14 +218,32 @@ export const productApi = {
    *         sort (name|price|createdAt,asc|desc), page, size
    * Response: { content: ProductResponse[], page, size, totalElements, totalPages }
    */
-  list: (params = {}) => api.get('/products', { params }),
+  list: async (params = {}) => {
+    const response = await api.get('/products', { params });
+    const summaries = response.data?.content || [];
+
+    // API danh sách hiện không trả variants/images. Hydrate từng phần tử bằng
+    // API chi tiết để card có ảnh thật và có thể thêm đúng variant vào giỏ.
+    const details = await Promise.allSettled(
+      summaries.map(product => getProductDetail(product.id)),
+    );
+    return {
+      ...response,
+      data: {
+        ...response.data,
+        content: summaries.map((product, index) =>
+          details[index]?.status === 'fulfilled' ? details[index].value.data : product
+        ),
+      },
+    };
+  },
 
   /**
    * Chi tiết sản phẩm — GET /products/:uuid
    * Response: { id, name, slug, description, basePrice, categoryId, createdAt, updatedAt,
    *             variants: [{ id, sku, size, color, price, stock }] }
    */
-  get: (id) => api.get(`/products/${id}`),
+  get: (id) => getProductDetail(id),
 };
 
 /* ── Categories API ──────────────────────────── */

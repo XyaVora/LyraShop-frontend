@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
+import { isEmail } from '../utils/validate';
 
 export default function AuthPage() {
   const { navigate, login, register, authLoading } = useApp();
@@ -16,6 +17,10 @@ export default function AuthPage() {
   const handleSubmit = async () => {
     if (!email.trim() || !password) {
       showToast('Vui lòng điền đầy đủ email và mật khẩu', 'bi-exclamation-circle');
+      return;
+    }
+    if (!isEmail(email)) {
+      showToast('Địa chỉ email không đúng định dạng', 'bi-exclamation-circle');
       return;
     }
 

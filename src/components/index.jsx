@@ -28,10 +28,7 @@ export function ProductCard({ product, delay = 0 }) {
       onClick={() => navigate('detail', { product })}
     >
       <div className="product-card-img">
-        <div className="product-img-inner" style={{ background: product.color }}>
-          <i className={`bi ${product.icon}`} />
-          <span>Lyra</span>
-        </div>
+        <ProductVisual product={product} />
         {product.badge && (
           <div className={`product-badge ${product.badge.toLowerCase()}`}>{product.badge}</div>
         )}
@@ -53,11 +50,32 @@ export function ProductCard({ product, delay = 0 }) {
       </div>
       <Stars rating={product.rating} />
       <div className="product-name">{product.name}</div>
-      <div className="product-brand">{product.brand} · {product.cat}</div>
+      <div className="product-brand">{product.brand}{product.cat ? ` · ${product.cat}` : ''}</div>
       <div className="product-price-row">
         <span className="product-price">{fmt(product.price)}</span>
         {product.oldPrice && <span className="product-price-old">{fmt(product.oldPrice)}</span>}
       </div>
+    </div>
+  );
+}
+
+function ProductVisual({ product }) {
+  const [failed, setFailed] = useState(false);
+  if (product.image && !failed) {
+    return (
+      <img
+        className="product-card-photo"
+        src={product.image}
+        alt={product.name}
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  return (
+    <div className="product-img-inner" style={{ background: product.color }}>
+      <i className={`bi ${product.icon}`} />
+      <span>Lyra</span>
     </div>
   );
 }

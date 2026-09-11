@@ -22,7 +22,7 @@ import WishlistPage       from './pages/WishlistPage';
 import OrderDetailPage    from './pages/OrderDetailPage';
 
 export default function App() {
-  const { currentPage, isLoggedIn } = useApp();
+  const { currentPage, isLoggedIn, authReady } = useApp();
   const { showToast } = useCart();
   const [loading, setLoading] = useState(true);
 
@@ -39,7 +39,7 @@ export default function App() {
     }
   }, [loading]);
 
-  if (loading) return <LoadingScreen />;
+  if (loading || !authReady) return <LoadingScreen />;
 
   const noPageWrapper = ['auth'];
 

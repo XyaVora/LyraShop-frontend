@@ -47,7 +47,7 @@ src/
 ├── main.jsx                # điểm vào
 ├── index.css               # hệ thống thiết kế toàn cục (token, lưới, component chung)
 ├── context/
-│   ├── AppContext.jsx      # điều hướng + URL + xác thực (có chế độ demo offline)
+│   ├── AppContext.jsx      # điều hướng + URL + xác thực qua backend
 │   └── CartContext.jsx     # giỏ hàng, yêu thích, coupon, đơn hàng, toast, đã xem gần đây
 ├── hooks/
 │   └── useReveal.js        # hiệu ứng nội dung vào màn (một IntersectionObserver dùng chung)
@@ -89,40 +89,25 @@ Chữ: **Cormorant Garamond** (tiêu đề, giá) + **DM Sans** (giao diện). B
 
 ---
 
-## Tài khoản & dữ liệu demo
+## Tài khoản & dữ liệu
 
-Backend chưa có thật. Khi gọi API thất bại vì không kết nối được, ứng dụng **tự chuyển sang chế độ demo**:
-
-| Tài khoản | Mật khẩu | Quyền |
-|---|---|---|
-| bất kỳ email hợp lệ nào | từ 6 ký tự | khách hàng |
+Ứng dụng không có chế độ đăng nhập demo. Đăng nhập và đăng ký luôn được xác thực bởi backend; sau khi nhận access token, frontend gọi `GET /me` để lấy đúng hồ sơ của người dùng.
 
 Quản trị nằm ở repo **LyraShop-admin**, không còn route `/admin` trên storefront.
 
-Mã giảm giá:
-
-| Mã | Ưu đãi | Điều kiện |
-|---|---|---|
-| `LYRA10` | giảm 10% | không |
-| `LYRA20` | giảm 20% | đơn từ 1.000.000đ |
-| `FREESHIP` | miễn phí vận chuyển | không |
-| `SAVE100K` | giảm 100.000đ | đơn từ 800.000đ |
-
-Miễn phí vận chuyển cho đơn từ **500.000đ**, ngược lại phí **30.000đ**.
-
-Dữ liệu lưu trong `localStorage` với tiền tố `lyra_`: `lyra_cart`, `lyra_wishlist`, `lyra_coupon`, `lyra_orders`, `lyra_recent`, `lyra_user`, `lyra_addresses`, `lyra_settings`, `lyra_search_history`, `lyra_followed_brands`.
+Giỏ hàng, hồ sơ và đơn hàng được lưu bởi backend theo người dùng đang đăng nhập. Backend hiện chưa có endpoint wishlist và sổ địa chỉ, vì vậy wishlist tạm thời được lưu theo khóa `lyra_wishlist:<userId>` để các tài khoản trên cùng trình duyệt không dùng chung dữ liệu; sổ địa chỉ không hiển thị dữ liệu giả. Lịch sử tìm kiếm vẫn là dữ liệu cục bộ của trình duyệt.
 
 ---
 
 ## Kết nối backend thật
 
-`src/services/api.js` đã sẵn sàng: đọc `VITE_API_URL` (mặc định `http://localhost:8080/api`), tự gắn `Authorization: Bearer <token>`, timeout 4 giây, và xoá token khi gặp 401.
+`src/services/api.js` đọc `VITE_API_URL` (mặc định `/api/v1`), tự gắn `Authorization: Bearer <token>`, dùng refresh-token cookie và tự refresh access token khi gặp 401. Khi chạy `npm run dev`, Vite proxy `/api` sang backend tại `http://localhost:8080` để tránh lỗi CORS giữa cổng 3000 và 8080.
 
 ```bash
 cp .env.example .env      # rồi sửa VITE_API_URL trỏ tới backend của bạn
 ```
 
-Các nhóm endpoint đã khai báo sẵn: `authApi` (register/login/me), `productApi`, `cartApi`, `wishlistApi`, `couponApi`, `orderApi`. Khi backend hoạt động, lỗi có `response` sẽ được ném ra cho trang xử lý; chỉ khi **không kết nối được** ứng dụng mới rơi về chế độ demo.
+Các nhóm endpoint đang dùng: `authApi`, `profileApi`, `productApi`, `categoryApi`, `cartApi` và `orderApi`. Lỗi kết nối hoặc lỗi xác thực được hiển thị cho người dùng; ứng dụng không tự chuyển sang tài khoản demo.
 
 ---
 
