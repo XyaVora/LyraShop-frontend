@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import { cartApi, extractErrorMessage, productApi } from '../services/api';
+import { cartApi, extractErrorMessage, productApi, wishlistApi } from '../services/api';
 import { normalizeProduct } from '../data/products';
 import { useApp } from './AppContext';
 
@@ -10,20 +10,39 @@ export function CartProvider({ children }) {
   const [cart, setCart] = useState([]);
   const [cartLoading, setCartLoading] = useState(false);
   const [wishlist, setWishlist] = useState([]);
+  const [wishlistLoading, setWishlistLoading] = useState(false);
+  const [wishlistError, setWishlistError] = useState('');
   const [toasts, setToasts] = useState([]);
   const variantCatalog = useRef(new Map());
-
-  const wishlistKey = user?.id ? `lyra_wishlist:${user.id}` : 'lyra_wishlist:guest';
-
-  useEffect(() => {
-    setWishlist(readStorage(wishlistKey, []));
-  }, [wishlistKey]);
 
   const showToast = useCallback((msg, icon = 'bi-check-circle') => {
     const id = Date.now() + Math.random();
     setToasts(prev => [...prev, { id, msg, icon }]);
     setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
   }, []);
+
+  const refreshWishlist = useCallback(async ({ silent = false } = {}) => {
+    if (!isLoggedIn) {
+      setWishlist([]);
+      setWishlistError('');
+      return [];
+    }
+    if (!silent) setWishlistLoading(true);
+    try {
+      const { data } = await wishlistApi.list();
+      const next = await normalizeWishlistResponse(data);
+      setWishlist(next);
+      setWishlistError('');
+      return next;
+    } catch (error) {
+      const message = extractErrorMessage(error, 'Không thể tải danh sách yêu thích');
+      setWishlistError(message);
+      if (!silent) showToast(message, 'bi-exclamation-circle');
+      return [];
+    } finally {
+      if (!silent) setWishlistLoading(false);
+    }
+  }, [isLoggedIn, showToast]);
 
   const applyCartResponse = useCallback((data) => {
     const next = (data?.items || []).map(item => normalizeCartItem(item, variantCatalog.current));
@@ -61,6 +80,10 @@ export function CartProvider({ children }) {
     }
     refreshCart();
   }, [isLoggedIn, user?.id, refreshCart]);
+
+  useEffect(() => {
+    refreshWishlist();
+  }, [isLoggedIn, user?.id, refreshWishlist]);
 
   const addToCart = useCallback(async (
     product,
@@ -141,18 +164,27 @@ export function CartProvider({ children }) {
     }
   }, [isLoggedIn, showToast]);
 
-  const toggleWishlist = useCallback((product) => {
-    setWishlist(prev => {
-      const exists = prev.some(p => p.id === product.id);
-      const next = exists ? prev.filter(p => p.id !== product.id) : [...prev, product];
-      writeStorage(wishlistKey, next);
+  const toggleWishlist = useCallback(async (product) => {
+    if (!isLoggedIn) {
+      showToast('Vui lòng đăng nhập để lưu sản phẩm yêu thích', 'bi-person');
+      navigate('auth');
+      return false;
+    }
+    const exists = wishlist.some(item => item.id === product.id);
+    try {
+      if (exists) await wishlistApi.remove(product.id);
+      else await wishlistApi.add(product.id);
+      await refreshWishlist({ silent: true });
       showToast(
         exists ? 'Đã xóa khỏi danh sách yêu thích' : 'Đã thêm vào danh sách yêu thích',
         exists ? 'bi-heart' : 'bi-heart-fill',
       );
-      return next;
-    });
-  }, [showToast, wishlistKey]);
+      return true;
+    } catch (error) {
+      showToast(extractErrorMessage(error, 'Không thể cập nhật danh sách yêu thích'), 'bi-x-circle');
+      return false;
+    }
+  }, [isLoggedIn, navigate, refreshWishlist, showToast, wishlist]);
 
   const isWishlisted = useCallback((id) => wishlist.some(p => p.id === id), [wishlist]);
 
@@ -167,7 +199,7 @@ export function CartProvider({ children }) {
     <CartContext.Provider value={{
       cart, cartCount, subtotal, shipping, discount, total, cartLoading,
       addToCart, removeFromCart, updateQty, clearCart, refreshCart,
-      wishlist, toggleWishlist, isWishlisted,
+      wishlist, wishlistLoading, wishlistError, refreshWishlist, toggleWishlist, isWishlisted,
       toasts, showToast,
     }}>
       {children}
@@ -220,11 +252,19 @@ function loadVariantCatalog() {
   return catalogPromise;
 }
 
-function readStorage(key, fallback) {
-  try { return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback)); }
-  catch { return fallback; }
-}
-
-function writeStorage(key, value) {
-  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+async function normalizeWishlistResponse(data) {
+  const entries = Array.isArray(data) ? data : (data?.items || []);
+  const products = await Promise.all(entries.map(async (entry, index) => {
+    const embedded = entry?.product || entry;
+    if (embedded?.name && embedded?.id) return normalizeProduct(embedded, index);
+    const productId = entry?.productId || embedded?.productId;
+    if (!productId) return null;
+    try {
+      const response = await productApi.get(productId);
+      return normalizeProduct(response.data, index);
+    } catch {
+      return null;
+    }
+  }));
+  return products.filter(Boolean);
 }

@@ -2,12 +2,12 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { productApi } from '../services/api';
+import { extractErrorMessage, productApi, reviewApi } from '../services/api';
 import { normalizeProduct, fmt } from '../data/products';
 import { Stars, ProductCard, Footer } from '../components/index.jsx';
 
 export default function ProductDetailPage() {
-  const { navigate, selectedProduct } = useApp();
+  const { navigate, selectedProduct, isLoggedIn, user } = useApp();
   const { addToCart, toggleWishlist, isWishlisted } = useCart();
 
   const [product, setProduct]         = useState(null);
@@ -19,6 +19,12 @@ export default function ProductDetailPage() {
   const [qty, setQty]                 = useState(1);
   const [activeTab, setActiveTab]     = useState('desc');
   const [activeThumb, setActiveThumb] = useState(0);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [reviewsError, setReviewsError] = useState('');
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   // Load product detail từ backend
   useEffect(() => {
@@ -66,6 +72,20 @@ export default function ProductDetailPage() {
       })
       .catch(() => {});
   }, [product?.categoryId, product?.id]);
+
+  useEffect(() => {
+    if (!product?.id) return;
+    let cancelled = false;
+    setReviewsLoading(true);
+    setReviewsError('');
+    reviewApi.list(product.id)
+      .then(({ data }) => { if (!cancelled) setReviews(data || []); })
+      .catch(error => {
+        if (!cancelled) setReviewsError(extractErrorMessage(error, 'Không thể tải đánh giá'));
+      })
+      .finally(() => { if (!cancelled) setReviewsLoading(false); });
+    return () => { cancelled = true; };
+  }, [product?.id]);
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 400 }}>
@@ -118,6 +138,36 @@ export default function ProductDetailPage() {
       selectedColor || null,
       selectedVariant?.id || null,
     );
+  };
+
+  const handleReviewSubmit = async () => {
+    if (!isLoggedIn) {
+      navigate('auth');
+      return;
+    }
+    setReviewSubmitting(true);
+    setReviewsError('');
+    try {
+      const { data } = await reviewApi.create(product.id, {
+        rating: reviewRating,
+        comment: reviewComment.trim() || null,
+      });
+      const next = [data, ...reviews];
+      setReviews(next);
+      setProduct(previous => ({
+        ...previous,
+        rating: next.reduce((sum, review) => sum + review.rating, 0) / next.length,
+        reviews: next.length,
+      }));
+      setReviewComment('');
+    } catch (reviewError) {
+      setReviewsError(extractErrorMessage(
+        reviewError,
+        'Bạn chỉ có thể đánh giá một lần sau khi đơn hàng đã được giao',
+      ));
+    } finally {
+      setReviewSubmitting(false);
+    }
   };
 
   return (
@@ -288,6 +338,7 @@ export default function ProductDetailPage() {
             {[
               { id: 'desc',  label: 'Mô tả' },
               { id: 'spec',  label: 'Thông số' },
+              { id: 'reviews', label: `Đánh giá (${reviews.length})` },
             ].map(tab => (
               <button key={tab.id}
                 className={`detail-tab-btn${activeTab === tab.id ? ' active' : ''}`}
@@ -323,6 +374,78 @@ export default function ProductDetailPage() {
               ))}
             </div>
           </div>
+
+          <div className={`tab-pane${activeTab === 'reviews' ? ' active' : ''}`}>
+            <div className="review-summary">
+              <div className="review-score">
+                <div className="review-score-num">{product.rating ? product.rating.toFixed(1) : '0.0'}</div>
+                <Stars rating={product.rating || 0} size={13} />
+                <div className="review-score-sub">{reviews.length} đánh giá từ khách hàng</div>
+              </div>
+            </div>
+
+            <div className="review-actions">
+              {isLoggedIn ? (
+                <div style={{ width: '100%' }}>
+                  <p className="review-form-lead">Bạn chỉ có thể đánh giá sản phẩm đã mua và được giao thành công.</p>
+                  <div className="review-field">
+                    <label className="review-label">Mức đánh giá</label>
+                    <div className="review-stars-input">
+                      {[1, 2, 3, 4, 5].map(value => (
+                        <button
+                          key={value}
+                          type="button"
+                          className={`review-star-btn${value <= reviewRating ? ' on' : ''}`}
+                          onClick={() => setReviewRating(value)}
+                          aria-label={`${value} sao`}
+                        >
+                          <i className={`bi bi-star${value <= reviewRating ? '-fill' : ''}`} />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="review-field">
+                    <label className="review-label">Nhận xét</label>
+                    <textarea
+                      className="review-input review-textarea"
+                      maxLength={2000}
+                      value={reviewComment}
+                      onChange={event => setReviewComment(event.target.value)}
+                      placeholder="Chia sẻ trải nghiệm của bạn về sản phẩm..."
+                    />
+                  </div>
+                  <button className="btn-lyra" onClick={handleReviewSubmit} disabled={reviewSubmitting}>
+                    {reviewSubmitting ? 'Đang gửi...' : 'Gửi đánh giá'}
+                  </button>
+                </div>
+              ) : (
+                <button className="btn-outline-lyra" onClick={() => navigate('auth')}>Đăng nhập để đánh giá</button>
+              )}
+            </div>
+
+            {reviewsError && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{reviewsError}</p>}
+            {reviewsLoading ? (
+              <p style={{ color: 'var(--muted)' }}>Đang tải đánh giá...</p>
+            ) : reviews.length === 0 ? (
+              <p style={{ color: 'var(--muted)' }}>Sản phẩm chưa có đánh giá nào.</p>
+            ) : (
+              <ul className="review-list">
+                {reviews.map(review => (
+                  <li key={review.id} className="review-item">
+                    <div className="review-item-head">
+                      <div className="review-author">
+                        {review.userId === user?.id ? user.name : 'Khách hàng đã mua'}
+                        {review.userId === user?.id && <span className="review-mine">Của bạn</span>}
+                      </div>
+                      <div className="review-date">{formatReviewDate(review.createdAt)}</div>
+                    </div>
+                    <Stars rating={review.rating} size={11} />
+                    {review.comment && <p className="review-text">{review.comment}</p>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </div>
 
@@ -343,4 +466,10 @@ export default function ProductDetailPage() {
       <Footer navigate={navigate} />
     </div>
   );
+}
+
+function formatReviewDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  return Number.isNaN(date.valueOf()) ? '' : date.toLocaleDateString('vi-VN');
 }

@@ -7,7 +7,10 @@ import { Stars, Footer } from '../components/index.jsx';
 
 export default function WishlistPage() {
   const { navigate } = useApp();
-  const { wishlist, toggleWishlist, addToCart, showToast } = useCart();
+  const {
+    wishlist, wishlistLoading, wishlistError,
+    toggleWishlist, addToCart, showToast, refreshWishlist,
+  } = useCart();
   const [sortBy, setSortBy] = useState('added');
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected]     = useState(new Set());
@@ -50,8 +53,10 @@ export default function WishlistPage() {
     setSelectMode(false);
   };
 
-  const removeSelected = () => {
-    wishlist.filter(p => selected.has(p.id)).forEach(p => toggleWishlist(p));
+  const removeSelected = async () => {
+    for (const product of wishlist.filter(p => selected.has(p.id))) {
+      await toggleWishlist(product);
+    }
     setSelected(new Set());
     setSelectMode(false);
   };
@@ -111,7 +116,16 @@ export default function WishlistPage() {
       <div style={{ padding: '40px 0 72px' }}>
         <div className="container-fluid px-4 px-lg-5">
 
-          {wishlist.length === 0 ? (
+          {wishlistLoading ? (
+            <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--muted)' }}>
+              Đang tải danh sách yêu thích...
+            </div>
+          ) : wishlistError ? (
+            <div style={{ textAlign: 'center', padding: '80px 20px' }}>
+              <p style={{ color: 'var(--danger)' }}>{wishlistError}</p>
+              <button className="btn-outline-lyra" onClick={() => refreshWishlist()}>Thử lại</button>
+            </div>
+          ) : wishlist.length === 0 ? (
             /* Empty state */
             <div style={{
               textAlign: 'center', padding: '80px 20px',
@@ -249,8 +263,19 @@ function WishlistCard({ product: p, selectMode, isSelected, onToggleSelect, onRe
           overflow: 'hidden',
         }}
       >
-        <i className={`bi ${p.icon}`} style={{ fontSize: 52, transition: 'transform .5s', transform: hovered ? 'scale(1.08)' : 'scale(1)' }} />
-        <span style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase' }}>Xem chi tiết</span>
+        {p.image ? (
+          <img
+            src={p.image}
+            alt={p.name}
+            loading="lazy"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform .5s', transform: hovered ? 'scale(1.04)' : 'scale(1)' }}
+          />
+        ) : (
+          <>
+            <i className={`bi ${p.icon}`} style={{ fontSize: 52, transition: 'transform .5s', transform: hovered ? 'scale(1.08)' : 'scale(1)' }} />
+            <span style={{ fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase' }}>Xem chi tiết</span>
+          </>
+        )}
       </div>
 
       {/* Badge */}

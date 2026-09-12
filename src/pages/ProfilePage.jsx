@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { fmt } from '../data/products';
 import { normalizeOrder } from '../data/orders';
-import { extractErrorMessage, orderApi } from '../services/api';
+import { addressApi, extractErrorMessage, orderApi } from '../services/api';
 import { isPhone, normPhone } from '../utils/validate';
 import { Footer, Stars } from '../components/index.jsx';
 
@@ -17,7 +17,10 @@ const NAV_ITEMS = [
 
 export default function ProfilePage() {
   const { navigate, user, logout, updateProfile, profileTab } = useApp();
-  const { showToast, wishlist, toggleWishlist, addToCart } = useCart();
+  const {
+    showToast, wishlist, wishlistLoading, wishlistError, refreshWishlist,
+    toggleWishlist, addToCart,
+  } = useCart();
   const [activeTab, setActiveTab] = useState(profileTab || 'orders');
 
   const handleLogout = async () => {
@@ -57,8 +60,16 @@ export default function ProfilePage() {
         {/* Content */}
         <main className="profile-content">
           {activeTab === 'orders' && <OrdersTab navigate={navigate} user={user} />}
-          {activeTab === 'wishlist' && <WishlistTab wishlist={wishlist} toggleWishlist={toggleWishlist} addToCart={addToCart} navigate={navigate} />}
-          {activeTab === 'address' && <AddressTab />}
+          {activeTab === 'wishlist' && <WishlistTab
+            wishlist={wishlist}
+            loading={wishlistLoading}
+            error={wishlistError}
+            refreshWishlist={refreshWishlist}
+            toggleWishlist={toggleWishlist}
+            addToCart={addToCart}
+            navigate={navigate}
+          />}
+          {activeTab === 'address' && <AddressTab showToast={showToast} />}
           {activeTab === 'profile' && <ProfileInfoTab user={user} updateProfile={updateProfile} showToast={showToast} />}
         </main>
       </div>
@@ -148,12 +159,16 @@ function OrdersTab({ navigate, user }) {
 }
 
 /* ── Wishlist Tab ── */
-function WishlistTab({ wishlist, toggleWishlist, addToCart, navigate }) {
+function WishlistTab({ wishlist, loading, error, refreshWishlist, toggleWishlist, addToCart, navigate }) {
   return (
     <>
       <h2 className="profile-section-title">Danh sách yêu thích ({wishlist.length})</h2>
       <p className="profile-section-sub">Các sản phẩm bạn đã lưu</p>
-      {wishlist.length === 0 ? (
+      {loading ? (
+        <p style={{ color: 'var(--muted)' }}>Đang tải danh sách yêu thích...</p>
+      ) : error ? (
+        <div><p style={{ color: 'var(--danger)' }}>{error}</p><button className="btn-outline-lyra" onClick={() => refreshWishlist()}>Thử lại</button></div>
+      ) : wishlist.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--muted)' }}>
           Chưa có sản phẩm nào trong danh sách yêu thích
         </div>
@@ -168,9 +183,12 @@ function WishlistTab({ wishlist, toggleWishlist, addToCart, navigate }) {
                 <div style={{
                   width: 54, height: 64, background: p.color,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0, cursor: 'pointer',
+                  flexShrink: 0, cursor: 'pointer', overflow: 'hidden',
                 }} onClick={() => navigate('detail', { product: p })}>
-                  <i className={`bi ${p.icon}`} style={{ fontSize: 22, opacity: .3 }} />
+                  {p.image
+                    ? <img src={p.image} alt={p.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    : <i className={`bi ${p.icon}`} style={{ fontSize: 22, opacity: .3 }} />
+                  }
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -205,20 +223,151 @@ function WishlistTab({ wishlist, toggleWishlist, addToCart, navigate }) {
 }
 
 /* ── Address Tab ── */
-function AddressTab() {
+const EMPTY_ADDRESS = {
+  recipientName: '', phone: '', addressLine: '', ward: '', district: '', city: '', isDefault: false,
+};
+
+function AddressTab({ showToast }) {
+  const [addresses, setAddresses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState(EMPTY_ADDRESS);
+  const [saving, setSaving] = useState(false);
+
+  const loadAddresses = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const { data } = await addressApi.list();
+      setAddresses((Array.isArray(data) ? data : data?.items || []).map(normalizeAddress));
+    } catch (loadError) {
+      setError(extractErrorMessage(loadError, 'Không thể tải sổ địa chỉ'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadAddresses(); }, []);
+
+  const change = field => event => setForm(previous => ({ ...previous, [field]: event.target.value }));
+  const startCreate = () => { setEditingId('new'); setForm(EMPTY_ADDRESS); };
+  const startEdit = address => { setEditingId(address.id); setForm(address); };
+
+  const saveAddress = async () => {
+    if (!form.recipientName.trim() || !form.phone.trim() || !form.addressLine.trim() || !form.district.trim() || !form.city.trim()) {
+      showToast('Vui lòng điền đủ thông tin địa chỉ', 'bi-exclamation-circle');
+      return;
+    }
+    if (!isPhone(form.phone)) {
+      showToast('Số điện thoại không đúng định dạng', 'bi-exclamation-circle');
+      return;
+    }
+    const payload = {
+      recipientName: form.recipientName.trim(),
+      phone: normPhone(form.phone),
+      addressLine: form.addressLine.trim(),
+      ward: form.ward.trim() || null,
+      district: form.district.trim(),
+      city: form.city.trim(),
+      isDefault: Boolean(form.isDefault),
+    };
+    setSaving(true);
+    try {
+      if (editingId === 'new') await addressApi.create(payload);
+      else await addressApi.update(editingId, payload);
+      await loadAddresses();
+      setEditingId(null);
+      showToast('Đã lưu địa chỉ', 'bi-check-circle');
+    } catch (saveError) {
+      showToast(extractErrorMessage(saveError, 'Không thể lưu địa chỉ'), 'bi-x-circle');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeAddress = async id => {
+    if (!window.confirm('Bạn có chắc muốn xóa địa chỉ này?')) return;
+    try {
+      await addressApi.remove(id);
+      await loadAddresses();
+      showToast('Đã xóa địa chỉ', 'bi-trash');
+    } catch (removeError) {
+      showToast(extractErrorMessage(removeError, 'Không thể xóa địa chỉ'), 'bi-x-circle');
+    }
+  };
+
+  const makeDefault = async id => {
+    try {
+      await addressApi.setDefault(id);
+      await loadAddresses();
+      showToast('Đã đặt làm địa chỉ mặc định', 'bi-check-circle');
+    } catch (defaultError) {
+      showToast(extractErrorMessage(defaultError, 'Không thể cập nhật địa chỉ mặc định'), 'bi-x-circle');
+    }
+  };
+
   return (
     <>
       <h2 className="profile-section-title">Sổ địa chỉ</h2>
       <p className="profile-section-sub">Quản lý địa chỉ giao nhận hàng</p>
-      <div style={{ border: '1px solid var(--border)', padding: 32, maxWidth: 520, background: '#fff', textAlign: 'center' }}>
-        <i className="bi bi-geo-alt" style={{ display: 'block', fontSize: 32, color: 'var(--muted)', marginBottom: 12 }} />
-        <div style={{ fontWeight: 500, marginBottom: 6 }}>Chưa có địa chỉ đã lưu</div>
-        <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.6 }}>
-          Backend chưa cung cấp API sổ địa chỉ. Địa chỉ giao hàng được nhập khi đặt đơn.
+      <button className="btn-lyra mb-4" onClick={startCreate}><i className="bi bi-plus" /> Thêm địa chỉ</button>
+
+      {editingId && (
+        <div className="address-form" style={{ border: '1px solid var(--border)', padding: 20, marginBottom: 24 }}>
+          <div className="row g-3">
+            <div className="col-md-6"><label className="form-field-label">Người nhận</label><input className="form-field-input" value={form.recipientName} onChange={change('recipientName')} /></div>
+            <div className="col-md-6"><label className="form-field-label">Số điện thoại</label><input className="form-field-input" value={form.phone} onChange={change('phone')} /></div>
+            <div className="col-12"><label className="form-field-label">Số nhà, tên đường</label><input className="form-field-input" value={form.addressLine} onChange={change('addressLine')} /></div>
+            <div className="col-md-4"><label className="form-field-label">Phường/Xã</label><input className="form-field-input" value={form.ward} onChange={change('ward')} /></div>
+            <div className="col-md-4"><label className="form-field-label">Quận/Huyện</label><input className="form-field-input" value={form.district} onChange={change('district')} /></div>
+            <div className="col-md-4"><label className="form-field-label">Tỉnh/Thành phố</label><input className="form-field-input" value={form.city} onChange={change('city')} /></div>
+          </div>
+          <label className="d-flex align-items-center gap-2 mb-3" style={{ fontSize: 13 }}>
+            <input type="checkbox" checked={form.isDefault} onChange={event => setForm(previous => ({ ...previous, isDefault: event.target.checked }))} /> Đặt làm mặc định
+          </label>
+          <div className="d-flex gap-2">
+            <button className="btn-lyra" disabled={saving} onClick={saveAddress}>{saving ? 'Đang lưu...' : 'Lưu địa chỉ'}</button>
+            <button className="btn-outline-lyra" onClick={() => setEditingId(null)}>Hủy</button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {loading ? <p>Đang tải địa chỉ...</p> : error ? (
+        <div><p style={{ color: 'var(--danger)' }}>{error}</p><button className="btn-outline-lyra" onClick={loadAddresses}>Thử lại</button></div>
+      ) : addresses.length === 0 ? <p style={{ color: 'var(--muted)' }}>Bạn chưa lưu địa chỉ nào.</p> : (
+        <div className="address-grid">
+          {addresses.map(address => (
+            <article key={address.id} className={`address-card${address.isDefault ? ' is-default' : ''}`}>
+              <div className="address-card-top">
+                <h3 className="address-name">{address.recipientName} · {address.phone}</h3>
+                {address.isDefault && <span className="address-badge">Mặc định</span>}
+              </div>
+              <p className="address-lines">{[address.addressLine, address.ward, address.district, address.city].filter(Boolean).join(', ')}</p>
+              <div className="address-actions">
+                <button className="btn-outline-lyra" onClick={() => startEdit(address)}>Sửa</button>
+                {!address.isDefault && <button className="btn-outline-lyra" onClick={() => makeDefault(address.id)}>Đặt mặc định</button>}
+                <button className="btn-outline-lyra" onClick={() => removeAddress(address.id)}>Xóa</button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
     </>
   );
+}
+
+function normalizeAddress(raw) {
+  return {
+    id: raw.id,
+    recipientName: raw.recipientName || raw.fullName || '',
+    phone: raw.phone || '',
+    addressLine: raw.addressLine || raw.address || '',
+    ward: raw.ward || '',
+    district: raw.district || '',
+    city: raw.city || raw.province || '',
+    isDefault: Boolean(raw.isDefault ?? raw.default),
+  };
 }
 
 /* ── Profile Info Tab ── */

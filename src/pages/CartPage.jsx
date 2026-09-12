@@ -1,10 +1,10 @@
 // src/pages/CartPage.jsx
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { fmt } from '../data/products';
 import { normalizeOrder } from '../data/orders';
-import { extractErrorMessage, orderApi } from '../services/api';
+import { addressApi, extractErrorMessage, orderApi } from '../services/api';
 import { isEmail, isPhone, normPhone } from '../utils/validate';
 import { Footer } from '../components/index.jsx';
 
@@ -130,15 +130,36 @@ function CheckoutView({ navigate, setView, setCreatedOrder }) {
   const [activePayment, setActivePayment] = useState('cod');
   const [step, setStep]   = useState(2);
   const [submitting, setSubmitting] = useState(false);
-  const [form, setForm]   = useState({
-    lastName: '', firstName: user?.name || '', email: user?.email || '', phone: user?.phone || '',
-    city: 'Hà Nội', district: 'Hoàn Kiếm', address: '', note: '',
+  const [savedAddresses, setSavedAddresses] = useState([]);
+  const [selectedAddressId, setSelectedAddressId] = useState('');
+  const [form, setForm] = useState(() => {
+    const name = splitFullName(user?.name);
+    return {
+      ...name,
+      email: user?.email || '', phone: user?.phone || '',
+      city: '', district: '', ward: '', address: '', note: '',
+    };
   });
 
   const payOptions = [
     { id: 'cod',     label: 'Thanh toán khi nhận hàng (COD)', icon: 'bi-cash' },
     { id: 'vnpay',   label: 'VNPay QR',                       icon: 'bi-qr-code' },
   ];
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    let cancelled = false;
+    addressApi.list()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : data?.items || [];
+        setSavedAddresses(list);
+        const preferred = list.find(item => item.isDefault ?? item.default) || list[0];
+        if (preferred) applySavedAddress(preferred, setForm, setSelectedAddressId);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [isLoggedIn]);
 
   const handleInputChange = (field) => (e) => {
     setForm(prev => ({ ...prev, [field]: e.target.value }));
@@ -150,7 +171,8 @@ function CheckoutView({ navigate, setView, setCreatedOrder }) {
       navigate('auth');
       return;
     }
-    if (!form.lastName || !form.firstName || !form.email || !form.phone || !form.address) {
+    const recipientName = `${form.lastName} ${form.firstName}`.trim();
+    if (!recipientName || !form.email || !form.phone || !form.address || !form.district || !form.city) {
       showToast('Vui lòng điền đầy đủ thông tin giao hàng', 'bi-exclamation-circle');
       return;
     }
@@ -166,14 +188,14 @@ function CheckoutView({ navigate, setView, setCreatedOrder }) {
     setSubmitting(true);
     try {
       const response = await orderApi.create({
-        shippingAddress: `${form.address}, ${form.district}, ${form.city}`,
+        shippingAddress: [form.address, form.ward, form.district, form.city].filter(Boolean).join(', '),
         shippingPhone: normPhone(form.phone),
         note: form.note || null,
         paymentMethod: activePayment.toUpperCase(),
       });
       const newOrder = normalizeOrder(response.data, {
         ...user,
-        name: `${form.lastName} ${form.firstName}`.trim(),
+        name: recipientName,
       });
       setCreatedOrder(newOrder);
       setStep(4);
@@ -221,6 +243,26 @@ function CheckoutView({ navigate, setView, setCreatedOrder }) {
             Thông tin giao hàng
           </div>
 
+          {savedAddresses.length > 0 && (
+            <>
+              <label className="form-field-label">Địa chỉ đã lưu</label>
+              <select
+                className="form-field-input"
+                value={selectedAddressId}
+                onChange={event => {
+                  const address = savedAddresses.find(item => String(item.id) === event.target.value);
+                  if (address) applySavedAddress(address, setForm, setSelectedAddressId);
+                }}
+              >
+                {savedAddresses.map(address => (
+                  <option key={address.id} value={address.id}>
+                    {address.recipientName || address.fullName} — {address.addressLine || address.address}
+                  </option>
+                ))}
+              </select>
+            </>
+          )}
+
           <div className="row g-3 mb-1">
             <div className="col-6">
               <label className="form-field-label">Họ</label>
@@ -237,25 +279,17 @@ function CheckoutView({ navigate, setView, setCreatedOrder }) {
           <input className="form-field-input" type="tel" placeholder="0912 345 678" value={form.phone} onChange={handleInputChange('phone')} />
 
           <div className="row g-3 mb-1">
-            <div className="col-6">
+            <div className="col-md-6">
               <label className="form-field-label">Tỉnh / Thành phố</label>
-              <select className="form-field-input" value={form.city} onChange={handleInputChange('city')}>
-                <option>Hà Nội</option>
-                <option>TP. Hồ Chí Minh</option>
-                <option>Đà Nẵng</option>
-                <option>Cần Thơ</option>
-              </select>
+              <input className="form-field-input" value={form.city} onChange={handleInputChange('city')} />
             </div>
-            <div className="col-6">
+            <div className="col-md-6">
               <label className="form-field-label">Quận / Huyện</label>
-              <select className="form-field-input" value={form.district} onChange={handleInputChange('district')}>
-                <option>Hoàn Kiếm</option>
-                <option>Ba Đình</option>
-                <option>Đống Đa</option>
-                <option>Cầu Giấy</option>
-              </select>
+              <input className="form-field-input" value={form.district} onChange={handleInputChange('district')} />
             </div>
           </div>
+          <label className="form-field-label">Phường / Xã</label>
+          <input className="form-field-input" value={form.ward} onChange={handleInputChange('ward')} />
           <label className="form-field-label">Địa chỉ cụ thể</label>
           <input className="form-field-input" placeholder="Số nhà, tên đường, phường/xã" value={form.address} onChange={handleInputChange('address')} />
           <label className="form-field-label">Ghi chú đơn hàng</label>
@@ -316,6 +350,28 @@ function CheckoutView({ navigate, setView, setCreatedOrder }) {
       </div>
     </div>
   );
+}
+
+function applySavedAddress(address, setForm, setSelectedAddressId) {
+  const name = splitFullName(address.recipientName || address.fullName);
+  setSelectedAddressId(String(address.id));
+  setForm(previous => ({
+    ...previous,
+    ...name,
+    phone: address.phone || '',
+    address: address.addressLine || address.address || '',
+    district: address.district || '',
+    ward: address.ward || '',
+    city: address.city || address.province || '',
+  }));
+}
+
+function splitFullName(value) {
+  const parts = String(value || '').trim().split(/\s+/).filter(Boolean);
+  return {
+    lastName: parts.shift() || '',
+    firstName: parts.join(' '),
+  };
 }
 
 /* ── Order Success ───────────────────────── */

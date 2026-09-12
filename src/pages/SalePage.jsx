@@ -1,17 +1,14 @@
 // src/pages/SalePage.jsx
 import { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../context/AppContext';
-import { useCart } from '../context/CartContext';
-import { productApi } from '../services/api';
-import { normalizeProduct, fmt } from '../data/products';
+import { extractErrorMessage, productApi, promotionApi } from '../services/api';
+import { normalizeProduct } from '../data/products';
 import { ProductCard, Footer } from '../components/index.jsx';
-
-// Sale kết thúc sau 2 ngày từ now
-const SALE_END = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
 
 function useCountdown(target) {
   const calc = () => {
-    const diff = Math.max(0, target - Date.now());
+    const end = target ? new Date(target).getTime() : 0;
+    const diff = Number.isFinite(end) ? Math.max(0, end - Date.now()) : 0;
     return {
       h: Math.floor(diff / 3600000),
       m: Math.floor((diff % 3600000) / 60000),
@@ -20,32 +17,41 @@ function useCountdown(target) {
   };
   const [time, setTime] = useState(calc);
   useEffect(() => {
+    setTime(calc());
     const id = setInterval(() => setTime(calc()), 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [target]);
   return time;
 }
 
 export default function SalePage() {
   const { navigate } = useApp();
-  const { showToast } = useCart();
-  const countdown = useCountdown(SALE_END);
+  const [promotion, setPromotion] = useState(null);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('all');
+  const [error, setError] = useState('');
   const [sortBy, setSortBy] = useState('price-asc');
+  const countdown = useCountdown(promotion?.endsAt);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    productApi.list({ size: 24, sort: 'basePrice,asc' })
-      .then(res => {
+    setError('');
+    promotionApi.active()
+      .then(async ({ data }) => {
         if (cancelled) return;
-        const list = (res.data?.content || []).map((p, idx) => normalizeProduct(p, idx));
-        setProducts(list);
+        const normalized = await normalizePromotion(data);
+        if (cancelled) return;
+        setPromotion(normalized.promotion);
+        setProducts(normalized.products);
       })
-      .catch(() => setProducts([]))
-      .finally(() => setLoading(false));
+      .catch(loadError => {
+        if (!cancelled) {
+          setProducts([]);
+          setError(extractErrorMessage(loadError, 'Không thể tải chương trình khuyến mãi'));
+        }
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
   }, []);
@@ -80,7 +86,7 @@ export default function SalePage() {
               }}>
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--warm)', display: 'inline-block' }} />
                 <span style={{ fontSize: 11, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--warm)' }}>
-                  Ưu đãi có hạn
+                  {promotion?.badge || 'Ưu đãi có hạn'}
                 </span>
               </div>
               <h1 style={{
@@ -89,11 +95,11 @@ export default function SalePage() {
                 fontWeight: 300, lineHeight: 1.05,
                 margin: '0 0 20px',
               }}>
-                Mùa Sale<br />
-                <em style={{ fontStyle: 'italic', color: 'var(--warm)' }}>Đặc Quyền</em>
+                {promotion?.title || 'Khuyến mãi'}<br />
+                <em style={{ fontStyle: 'italic', color: 'var(--warm)' }}>{promotion?.subtitle || 'Đặc quyền LYRA'}</em>
               </h1>
               <p style={{ fontSize: 14, color: 'rgba(247,244,239,.65)', maxWidth: 440, lineHeight: 1.8, marginBottom: 36 }}>
-                Bộ sưu tập các thiết kế cao cấp với mức giá ưu đãi nhất mùa. Số lượng có hạn cho từng sản phẩm.
+                {promotion?.description || 'Các chương trình ưu đãi đang hoạt động sẽ được cập nhật từ hệ thống.'}
               </p>
               <div className="d-flex gap-3 flex-wrap">
                 <button className="btn-warm" onClick={() => {
@@ -160,6 +166,10 @@ export default function SalePage() {
             <div className="products-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
               {[1, 2, 3, 4].map(i => <div key={i} className="product-card skeleton" style={{ height: 320 }} />)}
             </div>
+          ) : error ? (
+            <div style={{ textAlign: 'center', padding: '60px 0' }}>
+              <p style={{ color: 'var(--danger)' }}>{error}</p>
+            </div>
           ) : filtered.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--muted)' }}>
               Hiện chưa có sản phẩm nào
@@ -175,4 +185,44 @@ export default function SalePage() {
       <Footer navigate={navigate} />
     </div>
   );
+}
+
+async function normalizePromotion(data) {
+  const rawPromotion = Array.isArray(data) ? data[0] : (data?.promotion || data);
+  if (!rawPromotion) return { promotion: null, products: [] };
+  const entries = rawPromotion.products || rawPromotion.items || [];
+  const products = await Promise.all(entries.map(async (entry, index) => {
+    let raw = entry.product || entry;
+    if (!raw?.name) {
+      const productId = entry.productId || entry.id;
+      if (!productId) return null;
+      const response = await productApi.get(productId);
+      raw = response.data;
+    }
+    const product = normalizeProduct(raw, index);
+    const salePrice = Number(entry.salePrice ?? entry.discountedPrice ?? product.price);
+    const originalPrice = Number(entry.originalPrice ?? product.price);
+    const discount = Number(entry.discountPercent ?? (
+      originalPrice > salePrice ? Math.round((1 - salePrice / originalPrice) * 100) : 0
+    ));
+    return {
+      ...product,
+      price: salePrice,
+      oldPrice: originalPrice > salePrice ? originalPrice : null,
+      discount,
+      badge: discount > 0 ? 'Sale' : product.badge,
+    };
+  }));
+  return {
+    promotion: {
+      id: rawPromotion.id,
+      title: rawPromotion.title || rawPromotion.name,
+      subtitle: rawPromotion.subtitle,
+      description: rawPromotion.description,
+      badge: rawPromotion.badge,
+      startsAt: rawPromotion.startsAt,
+      endsAt: rawPromotion.endsAt,
+    },
+    products: products.filter(Boolean),
+  };
 }

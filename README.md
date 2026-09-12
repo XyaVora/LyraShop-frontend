@@ -48,11 +48,11 @@ src/
 ├── index.css               # hệ thống thiết kế toàn cục (token, lưới, component chung)
 ├── context/
 │   ├── AppContext.jsx      # điều hướng + URL + xác thực qua backend
-│   └── CartContext.jsx     # giỏ hàng, yêu thích, coupon, đơn hàng, toast, đã xem gần đây
+│   └── CartContext.jsx     # giỏ hàng, yêu thích và toast đồng bộ với backend
 ├── hooks/
 │   └── useReveal.js        # hiệu ứng nội dung vào màn (một IntersectionObserver dùng chung)
 ├── data/
-│   ├── products.js         # 16 sản phẩm, danh mục, coupon, đơn mẫu, đánh giá
+│   ├── products.js         # chuẩn hóa dữ liệu sản phẩm cho giao diện
 │   └── brand.js            # thông tin thương hiệu dùng chung (mùa, hotline, cam kết)
 ├── services/
 │   └── api.js              # axios client + tokenStore + isOffline()
@@ -95,7 +95,7 @@ Chữ: **Cormorant Garamond** (tiêu đề, giá) + **DM Sans** (giao diện). B
 
 Quản trị nằm ở repo **LyraShop-admin**, không còn route `/admin` trên storefront.
 
-Giỏ hàng, hồ sơ và đơn hàng được lưu bởi backend theo người dùng đang đăng nhập. Backend hiện chưa có endpoint wishlist và sổ địa chỉ, vì vậy wishlist tạm thời được lưu theo khóa `lyra_wishlist:<userId>` để các tài khoản trên cùng trình duyệt không dùng chung dữ liệu; sổ địa chỉ không hiển thị dữ liệu giả. Lịch sử tìm kiếm vẫn là dữ liệu cục bộ của trình duyệt.
+Giỏ hàng, hồ sơ, đơn hàng, đánh giá, wishlist và sổ địa chỉ đều đọc/ghi qua API theo người dùng đang đăng nhập. Frontend không dùng dữ liệu demo hoặc `localStorage` để giả lập các nghiệp vụ này. Lịch sử tìm kiếm vẫn là dữ liệu cục bộ của trình duyệt.
 
 ---
 
@@ -107,7 +107,17 @@ Giỏ hàng, hồ sơ và đơn hàng được lưu bởi backend theo người 
 cp .env.example .env      # rồi sửa VITE_API_URL trỏ tới backend của bạn
 ```
 
-Các nhóm endpoint đang dùng: `authApi`, `profileApi`, `productApi`, `categoryApi`, `cartApi` và `orderApi`. Lỗi kết nối hoặc lỗi xác thực được hiển thị cho người dùng; ứng dụng không tự chuyển sang tài khoản demo.
+Các nhóm endpoint đang dùng: `authApi`, `profileApi`, `productApi`, `categoryApi`, `cartApi`, `orderApi`, `reviewApi`, `wishlistApi`, `addressApi` và `promotionApi`. Lỗi kết nối hoặc lỗi xác thực được hiển thị cho người dùng; ứng dụng không tự chuyển sang tài khoản demo.
+
+Backend cung cấp API đánh giá sản phẩm và ba nhóm endpoint sau:
+
+| Chức năng | Endpoint |
+|---|---|
+| Wishlist | `GET /wishlist`, `POST /wishlist/items`, `DELETE /wishlist/items/{productId}`, `DELETE /wishlist` |
+| Sổ địa chỉ | `GET/POST /addresses`, `PUT/DELETE /addresses/{id}`, `PATCH /addresses/{id}/default` |
+| Khuyến mãi đang chạy | `GET /promotions/active` |
+
+`POST /wishlist/items` nhận `{ productId }`. Địa chỉ dùng các trường `{ recipientName, phone, addressLine, ward, district, city, isDefault }`. API khuyến mãi trả một chương trình gồm `title`, `subtitle`, `description`, `badge`, `startsAt`, `endsAt` và mảng `products`/`items`; mỗi phần tử có thể chứa `product` hoặc `productId` cùng `salePrice`, `originalPrice`, `discountPercent`.
 
 ---
 

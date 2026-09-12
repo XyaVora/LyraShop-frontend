@@ -48,7 +48,19 @@ export const csrfStore = {
 /* ── Request interceptor: đính kèm Bearer token & CSRF header ─ */
 api.interceptors.request.use((config) => {
   const token = tokenStore.get();
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  const url = config.url || '';
+  const skipsBearer = [
+    '/auth/login',
+    '/auth/register',
+    '/auth/refresh',
+    '/auth/csrf',
+  ].some((path) => url.includes(path));
+
+  // An expired Bearer token makes Spring Security reject refresh before the
+  // refresh cookie can be processed.
+  if (token && !skipsBearer) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
 
   // Đính kèm header X-XSRF-TOKEN cho refresh/logout khi cần
   const xsrf = csrfStore.get();
@@ -208,6 +220,34 @@ export const orderApi = {
   create: (payload) => api.post('/orders', payload),
   get: (id) => api.get(`/orders/${id}`),
   cancel: (id) => api.put(`/orders/${id}/cancel`),
+};
+
+/* ── Product reviews API ─────────────────────── */
+export const reviewApi = {
+  list: (productId) => api.get(`/products/${productId}/reviews`),
+  create: (productId, payload) => api.post(`/products/${productId}/reviews`, payload),
+};
+
+/* ── Wishlist API contract ───────────────────── */
+export const wishlistApi = {
+  list: () => api.get('/wishlist'),
+  add: (productId) => api.post('/wishlist/items', { productId }),
+  remove: (productId) => api.delete(`/wishlist/items/${productId}`),
+  clear: () => api.delete('/wishlist'),
+};
+
+/* ── Shipping addresses API contract ─────────── */
+export const addressApi = {
+  list: () => api.get('/addresses'),
+  create: (payload) => api.post('/addresses', payload),
+  update: (id, payload) => api.put(`/addresses/${id}`, payload),
+  remove: (id) => api.delete(`/addresses/${id}`),
+  setDefault: (id) => api.patch(`/addresses/${id}/default`),
+};
+
+/* ── Active sale/promotion API contract ──────── */
+export const promotionApi = {
+  active: () => api.get('/promotions/active'),
 };
 
 /* ── Products API ────────────────────────────── */
