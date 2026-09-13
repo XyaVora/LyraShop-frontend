@@ -185,16 +185,30 @@ export default function ShopPage() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="maison-pagination">
-              <button className="page-num-btn" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>
+            <div className="lyra-pagination maison-pagination">
+              <button
+                className="page-num-btn"
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={page === 0}
+                aria-label="Trang trước"
+              >
                 <i className="bi bi-chevron-left" />
               </button>
               {Array.from({ length: totalPages }, (_, i) => i).map(n => (
-                <button key={n} className={`page-num-btn${page === n ? ' active' : ''}`} onClick={() => setPage(n)}>
+                <button
+                  key={n}
+                  className={`page-num-btn${page === n ? ' active' : ''}`}
+                  onClick={() => setPage(n)}
+                >
                   {n + 1}
                 </button>
               ))}
-              <button className="page-num-btn" onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))} disabled={page === totalPages - 1}>
+              <button
+                className="page-num-btn"
+                onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                disabled={page === totalPages - 1}
+                aria-label="Trang sau"
+              >
                 <i className="bi bi-chevron-right" />
               </button>
             </div>

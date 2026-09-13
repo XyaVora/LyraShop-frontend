@@ -6,12 +6,33 @@ import { useCart } from '../context/CartContext';
 import { fmt } from '../data/products';
 
 /* ─── Stars ─────────────────────────────────── */
-export function Stars({ rating, size = 10 }) {
+export function Stars({ rating, size = 12, showScore = false }) {
+  const num = typeof rating === 'number' && !isNaN(rating) ? rating : 0;
   return (
-    <div className="product-stars">
-      {[1,2,3,4,5].map(i => (
-        <i key={i} className={`bi bi-star${i <= Math.round(rating) ? '-fill' : ''} star-icon${i > Math.round(rating) ? ' empty' : ''}`} style={{ fontSize: size }} />
-      ))}
+    <div className="product-stars" title={`${num.toFixed(1)} / 5`}>
+      <span className="stars-icons">
+        {[1, 2, 3, 4, 5].map(i => {
+          const diff = num - (i - 1);
+          let starClass = 'bi-star';
+          if (diff >= 0.75) {
+            starClass = 'bi-star-fill';
+          } else if (diff >= 0.25) {
+            starClass = 'bi-star-half';
+          }
+          return (
+            <i
+              key={i}
+              className={`bi ${starClass} star-icon${diff < 0.25 ? ' empty' : ''}`}
+              style={{ fontSize: size }}
+            />
+          );
+        })}
+      </span>
+      {showScore && num > 0 && (
+        <span className="stars-score-val" style={{ fontSize: size }}>
+          {num.toFixed(1)}
+        </span>
+      )}
     </div>
   );
 }
