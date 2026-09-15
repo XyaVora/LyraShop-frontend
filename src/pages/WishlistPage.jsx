@@ -1,5 +1,6 @@
 // src/pages/WishlistPage.jsx
 import { useState } from 'react';
+import { wishlistApi, extractErrorMessage } from '../services/api';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { fmt } from '../data/products';
@@ -61,13 +62,14 @@ export default function WishlistPage() {
     setSelectMode(false);
   };
 
-  const shareWishlist = () => {
-    const text = `Danh sách yêu thích của tôi tại LYRA:\n${wishlist.map(p => `• ${p.name} — ${fmt(p.price)}`).join('\n')}`;
-    if (navigator.share) {
-      navigator.share({ title: 'LYRA Wishlist', text }).catch(() => {});
-    } else {
-      navigator.clipboard?.writeText(text);
-      showToast('Đã sao chép danh sách yêu thích!', 'bi-share');
+  const shareWishlist = async () => {
+    try {
+      const { data } = await wishlistApi.share();
+      const url = `${window.location.origin}/shared-wishlist/${data.id}`;
+      if (navigator.share) await navigator.share({ title: 'LYRA Wishlist', url });
+      else { await navigator.clipboard?.writeText(url); showToast('Đã sao chép liên kết yêu thích!', 'bi-share'); }
+    } catch (error) {
+      showToast(extractErrorMessage(error, 'Không thể tạo liên kết chia sẻ'), 'bi-x-circle');
     }
   };
 

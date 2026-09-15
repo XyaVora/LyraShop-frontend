@@ -6,14 +6,17 @@ import { fmt } from '../data/products';
 import { normalizeOrder } from '../data/orders';
 import { extractErrorMessage, orderApi } from '../services/api';
 import { Footer } from '../components/index.jsx';
+import '../styles/order-detail.css';
 
 export default function OrderDetailPage() {
   const { navigate, selectedOrder, user } = useApp();
-  const { showToast } = useCart();
+  const { showToast, addToCart } = useCart();
   const [order, setOrder] = useState(selectedOrder || null);
   const [loading, setLoading] = useState(Boolean(selectedOrder?.id));
   const [error, setError] = useState('');
   const [cancelling, setCancelling] = useState(false);
+  const [repurchasing, setRepurchasing] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!selectedOrder?.id) {
@@ -23,28 +26,56 @@ export default function OrderDetailPage() {
     }
     let cancelled = false;
     orderApi.get(selectedOrder.id)
-      .then(({ data }) => { if (!cancelled) setOrder(normalizeOrder(data, user)); })
-      .catch(() => { if (!cancelled) setError('Không thể tải chi tiết đơn hàng.'); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+      .then(({ data }) => {
+        if (!cancelled) setOrder(normalizeOrder(data, user));
+      })
+      .catch(() => {
+        if (!cancelled) setError('Không thể tải chi tiết đơn hàng.');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
     return () => { cancelled = true; };
   }, [selectedOrder?.id, user]);
 
   const statusLabel = {
     pending: 'Chờ xác nhận',
     confirmed: 'Đã xác nhận',
-    delivered: 'Đã giao thành công',
-    shipping: 'Đang vận chuyển',
     processing: 'Đang chuẩn bị hàng',
+    shipping: 'Đang vận chuyển',
+    delivered: 'Đã giao thành công',
     cancelled: 'Đã hủy',
   };
 
+  const statusSteps = [
+    { key: 'pending', title: 'Đặt hàng thành công', icon: 'bi-bag-check' },
+    { key: 'confirmed', title: 'Đã xác nhận', icon: 'bi-check2-circle' },
+    { key: 'processing', title: 'Chuẩn bị hàng', icon: 'bi-box-seam' },
+    { key: 'shipping', title: 'Đang vận chuyển', icon: 'bi-truck' },
+    { key: 'delivered', title: 'Giao thành công', icon: 'bi-house-check' },
+  ];
+
+  const getStepIndex = (status) => {
+    switch (status) {
+      case 'pending': return 0;
+      case 'confirmed': return 1;
+      case 'processing': return 2;
+      case 'shipping': return 3;
+      case 'delivered': return 4;
+      case 'cancelled': return -1;
+      default: return 1;
+    }
+  };
+
+  const activeStepIdx = getStepIndex(order?.status);
+
   const handleCancel = async () => {
-    if (!window.confirm('Bạn có chắc muốn hủy đơn hàng này?')) return;
+    if (!window.confirm('Quý khách có chắc chắn muốn hủy đơn hàng này?')) return;
     setCancelling(true);
     try {
       const { data } = await orderApi.cancel(order.id);
       setOrder(normalizeOrder(data, user));
-      showToast('Đã hủy đơn hàng', 'bi-check-circle');
+      showToast('Đã hủy đơn hàng thành công', 'bi-check-circle');
     } catch (cancelError) {
       showToast(extractErrorMessage(cancelError, 'Không thể hủy đơn hàng'), 'bi-x-circle');
     } finally {
@@ -52,121 +83,365 @@ export default function OrderDetailPage() {
     }
   };
 
-  if (loading) return <div className="not-found"><div className="not-found-title">Đang tải đơn hàng...</div></div>;
-  if (error || !order) return (
-    <div className="not-found">
-      <h2 className="not-found-title">{error || 'Không tìm thấy đơn hàng'}</h2>
-      <button className="btn-outline-lyra" onClick={() => navigate('profile')}>Quay lại hồ sơ</button>
-    </div>
-  );
+  const handleRepurchase = async () => {
+    if (!order?.items?.length) return;
+    setRepurchasing(true);
+    try {
+      let count = 0;
+      for (const item of order.items) {
+        const ok = await addToCart(
+          { id: item.productId || item.id, name: item.name },
+          item.qty || 1,
+          item.size,
+          item.colorName,
+          item.variantId
+        );
+        if (ok) count++;
+      }
+      if (count > 0) {
+        showToast(`Đã thêm ${count} sản phẩm vào giỏ hàng`, 'bi-bag-check');
+        navigate('cart');
+      } else {
+        showToast('Không thể thêm sản phẩm vào giỏ hàng', 'bi-exclamation-circle');
+      }
+    } catch {
+      showToast('Có lỗi xảy ra khi mua lại sản phẩm', 'bi-x-circle');
+    } finally {
+      setRepurchasing(false);
+    }
+  };
+
+  const handleCopyTracking = (code) => {
+    if (!code) return;
+    navigator.clipboard?.writeText(code);
+    setCopied(true);
+    showToast('Đã sao chép mã vận đơn', 'bi-clipboard-check');
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  if (loading) {
+    return (
+      <div className="not-found" style={{ minHeight: '60vh' }}>
+        <div className="spinner-border text-secondary mb-3" role="status" style={{ width: '2.5rem', height: '2.5rem' }} />
+        <div className="not-found-title">Đang tải thông tin đơn hàng...</div>
+      </div>
+    );
+  }
+
+  if (error || !order) {
+    return (
+      <div className="not-found" style={{ minHeight: '60vh' }}>
+        <h2 className="not-found-title">{error || 'Không tìm thấy đơn hàng'}</h2>
+        <p style={{ color: 'var(--muted)', marginBottom: 24, fontSize: 14 }}>
+          Mã đơn hàng không hợp lệ hoặc đã bị thay đổi.
+        </p>
+        <button className="btn-hero-primary" onClick={() => navigate('profile', { profileTab: 'orders' })}>
+          Quay lại danh sách đơn hàng
+        </button>
+      </div>
+    );
+  }
+
+  const trackingCode = `VN${String(order.id || '982341').padStart(8, '0').slice(-8)}LX`;
+  const isCancelled = order.status === 'cancelled';
 
   return (
-    <div>
-      <div style={{ maxWidth: 960, margin: '0 auto', padding: '40px 20px 80px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+    <div className="order-detail-root">
+      <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 24px' }}>
+        
+        {/* Top Header Card */}
+        <div className="order-detail-header-card">
           <div>
-            <div style={{ fontSize: 11, letterSpacing: '.16em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 6 }}>
-              Chi tiết đơn hàng
-            </div>
-            <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, margin: 0 }}>
-              {order.displayId || order.id}
+            <div className="order-detail-id-label">Mã Đơn Hàng</div>
+            <h1 className="order-detail-title">
+              {order.displayId || `#LY-${String(order.id).slice(0, 8).toUpperCase()}`}
+              <span className={`order-status-pill ${order.status || 'processing'}`}>
+                {order.status === 'pending' && <i className="bi bi-clock-history" />}
+                {order.status === 'confirmed' && <i className="bi bi-check2" />}
+                {order.status === 'processing' && <i className="bi bi-box" />}
+                {order.status === 'shipping' && <i className="bi bi-truck" />}
+                {order.status === 'delivered' && <i className="bi bi-patch-check" />}
+                {order.status === 'cancelled' && <i className="bi bi-x-circle" />}
+                {statusLabel[order.status] || 'Đang xử lý'}
+              </span>
             </h1>
+            <div className="order-detail-meta-text">
+              Ngày tạo: <strong>{order.date || 'Gần đây'}</strong> · Phương thức: <strong>{order.payment}</strong>
+            </div>
           </div>
-          <div className="d-flex gap-2">
+
+          {/* Action buttons */}
+          <div className="order-header-actions">
+            <button className="btn-copy-tracking" onClick={handlePrint} title="In phiếu giao nhận & hóa đơn">
+              <i className="bi bi-printer" /> In hóa đơn
+            </button>
+            <button
+              className="btn-copy-tracking"
+              onClick={handleRepurchase}
+              disabled={repurchasing}
+              title="Thêm lại tất cả sản phẩm của đơn này vào giỏ"
+            >
+              <i className="bi bi-arrow-repeat" /> {repurchasing ? 'Đang thêm...' : 'Mua lại toàn bộ'}
+            </button>
             {order.status === 'pending' && (
               <button
-                className="btn-outline-lyra"
-                style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
+                className="btn-copy-tracking"
+                style={{ color: '#C53030', borderColor: '#F8B4B4' }}
                 onClick={handleCancel}
                 disabled={cancelling}
               >
                 <i className="bi bi-x-circle" /> {cancelling ? 'Đang hủy...' : 'Hủy đơn'}
               </button>
             )}
-            <button className="btn-outline-lyra" onClick={() => navigate('profile')}>
-              <i className="bi bi-arrow-left" /> Quay lại hồ sơ
+            <button
+              className="btn-copy-tracking"
+              style={{ background: 'var(--ink)', color: '#FFFFFF', borderColor: 'var(--ink)' }}
+              onClick={() => navigate('profile', { profileTab: 'orders' })}
+            >
+              <i className="bi bi-arrow-left" /> Danh sách đơn
             </button>
           </div>
         </div>
 
-        <div className="row g-4">
-          {/* Left: Products list */}
-          <div className="col-lg-8">
-            <div style={{ border: '1px solid var(--border)', background: '#fff', padding: 24, marginBottom: 24 }}>
-              <h3 style={{ fontSize: 16, marginBottom: 16 }}>Sản phẩm ({order.items?.length || 0})</h3>
-              {order.items?.map((item, idx) => (
-                <div key={idx} style={{
-                  display: 'flex', gap: 16, alignItems: 'center',
-                  padding: '12px 0', borderBottom: idx < order.items.length - 1 ? '1px solid var(--border)' : 'none',
-                }}>
-                  <div style={{
-                    width: 48, height: 56, background: (item.color || '#E4DAD0') + '88',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                  }}>
-                    <i className={`bi ${item.icon || 'bi-bag'}`} style={{ fontSize: 18 }} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 500, fontSize: 13.5 }}>{item.name}</div>
-                    <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                      Size: {item.size} · Số lượng: {item.qty}
+        {/* Stepper Timeline */}
+        <div className="order-stepper-card">
+          <div className="order-stepper-title">
+            {isCancelled ? 'Đơn hàng đã được hủy' : 'Tiến trình thực hiện & Vận chuyển'}
+          </div>
+
+          {!isCancelled ? (
+            <div className="order-stepper-track">
+              {/* Connector line */}
+              <div className="stepper-connector-line">
+                <div
+                  className="stepper-connector-progress"
+                  style={{ width: `${(Math.max(0, activeStepIdx) / (statusSteps.length - 1)) * 100}%` }}
+                />
+              </div>
+
+              {statusSteps.map((st, idx) => {
+                const isDone = idx < activeStepIdx;
+                const isActive = idx === activeStepIdx;
+                return (
+                  <div
+                    key={st.key}
+                    className={`stepper-node ${isDone ? 'done' : ''} ${isActive ? 'active' : ''}`}
+                  >
+                    <div className="stepper-icon-circle">
+                      <i className={`bi ${isDone ? 'bi-check' : st.icon}`} />
+                    </div>
+                    <div className="stepper-node-title">{st.title}</div>
+                    <div className="stepper-node-time">
+                      {isDone ? 'Hoàn thành' : isActive ? 'Hiện tại' : 'Chờ xử lý'}
                     </div>
                   </div>
-                  <div style={{ fontFamily: 'var(--font-serif)', fontSize: 15 }}>
-                    {fmt(item.price * item.qty)}
-                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '12px 0', color: '#C53030' }}>
+              <i className="bi bi-info-circle me-2" />
+              Đơn hàng này đã kết thúc ở trạng thái hủy. Nếu cần hỗ trợ hoàn tiền hoặc tư vấn lại, vui lòng liên hệ bộ phận CSKH của LyraShop.
+            </div>
+          )}
+        </div>
+
+        {/* Logistics & Tracking Card */}
+        {!isCancelled && (
+          <div className="order-logistics-card">
+            <div className="logistics-partner-box">
+              <div className="logistics-partner-icon">
+                <i className="bi bi-box2-heart" />
+              </div>
+              <div>
+                <div className="logistics-partner-name">
+                  Đơn vị vận chuyển: SPX Express (Chuyển phát tiêu chuẩn LYRA)
                 </div>
-              ))}
+                <div className="logistics-partner-status" style={{ fontSize: 13, color: 'var(--muted)' }}>
+                  Mã vận đơn: <span className="logistics-tracking-code">{trackingCode}</span>
+                </div>
+              </div>
             </div>
 
-            {/* Address */}
-            <div style={{ border: '1px solid var(--border)', background: '#fff', padding: 24 }}>
-              <h3 style={{ fontSize: 16, marginBottom: 14 }}>Địa chỉ nhận hàng</h3>
-              <div style={{ fontSize: 14, fontWeight: 500, marginBottom: 4 }}>
-                {order.address?.name} · {order.address?.phone}
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-                {order.address?.address}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <button
+                className="btn-copy-tracking"
+                onClick={() => handleCopyTracking(trackingCode)}
+              >
+                <i className={`bi ${copied ? 'bi-check-lg text-success' : 'bi-clipboard'}`} />
+                {copied ? 'Đã sao chép' : 'Sao chép mã'}
+              </button>
+              <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'right' }}>
+                Dự kiến giao: <strong>2-3 ngày làm việc</strong>
               </div>
             </div>
           </div>
+        )}
 
-          {/* Right: Payment summary */}
-          <div className="col-lg-4">
-            <div style={{ border: '1px solid var(--border)', background: '#fff', padding: 24 }}>
-              <h3 style={{ fontSize: 16, marginBottom: 16 }}>Tóm tắt đơn hàng</h3>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
-                <span style={{ color: 'var(--muted)' }}>Trạng thái</span>
-                <span className={`order-status-badge ${order.status || 'processing'}`}>
-                  {statusLabel[order.status] || 'Đang xử lý'}
+        {/* Order 2-Column Content Grid */}
+        <div className="order-detail-grid">
+          
+          {/* Left Column: Products + Recipient Info */}
+          <div>
+            {/* Products list card */}
+            <div className="order-items-card">
+              <h2 className="order-card-title">
+                <span>Kiện hàng ({order.items?.length || 0} sản phẩm)</span>
+                <span style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
+                  Đóng gói tiêu chuẩn Lyra Luxury Box
                 </span>
+              </h2>
+
+              <div>
+                {order.items?.map((item, idx) => (
+                  <div key={item.key || idx} className="order-product-row">
+                    <div className="order-product-info">
+                      {item.image ? (
+                        <img src={item.image} alt={item.name} className="order-product-thumb" />
+                      ) : (
+                        <div
+                          className="order-product-thumb"
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: '#F0EAE1',
+                            color: 'var(--warm)',
+                            fontSize: 22,
+                          }}
+                        >
+                          <i className={`bi ${item.icon || 'bi-bag'}`} />
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="order-product-name">{item.name}</h3>
+                        <div className="order-product-meta">
+                          Phân loại: <strong>{item.colorName || 'Màu Tiêu Chuẩn'}</strong> · Size: <strong>{item.size || 'Freesize'}</strong>
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+                          Số lượng: × {item.qty}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="order-product-price">
+                      {fmt(item.price * item.qty)}
+                      {item.qty > 1 && (
+                        <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 400 }}>
+                          ({fmt(item.price)}/sp)
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
-                <span style={{ color: 'var(--muted)' }}>Phương thức</span>
-                <span>{order.payment}</span>
+            </div>
+
+            {/* Delivery address & buyer note */}
+            <div className="order-address-card">
+              <h2 className="order-card-title">
+                <span>Thông tin giao nhận</span>
+                <i className="bi bi-geo-alt" style={{ fontSize: 16, color: 'var(--warm)' }} />
+              </h2>
+              <div className="address-recipient-name">
+                {order.address?.name || 'Quý khách'}
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
-                <span style={{ color: 'var(--muted)' }}>Tạm tính</span>
+              <div className="address-recipient-phone">
+                <i className="bi bi-telephone me-1" /> {order.address?.phone || 'Chưa cung cấp'}
+              </div>
+              <div className="address-recipient-full">
+                <i className="bi bi-pin-map me-1" /> {order.address?.address || 'Địa chỉ tiêu chuẩn'}
+              </div>
+
+              {order.note && (
+                <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px dashed var(--border)' }}>
+                  <div style={{ fontSize: 11.5, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--warm)', fontWeight: 600, marginBottom: 4 }}>
+                    Ghi chú từ khách hàng
+                  </div>
+                  <div style={{ fontSize: 13, fontStyle: 'italic', color: 'var(--muted)' }}>
+                    "{order.note}"
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Right Column: Sticky Payment & Order Summary */}
+          <div>
+            <div className="order-summary-card">
+              <h2 className="order-card-title">
+                <span>Tóm tắt thanh toán</span>
+              </h2>
+
+              <div className="order-summary-row">
+                <span>Tạm tính sản phẩm</span>
                 <span>{fmt(order.subtotal || order.total)}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13 }}>
-                <span style={{ color: 'var(--muted)' }}>Phí giao hàng</span>
+
+              <div className="order-summary-row">
+                <span>Phí vận chuyển</span>
                 <span>{order.shipping ? fmt(order.shipping) : 'Miễn phí'}</span>
               </div>
+
               {order.discount > 0 && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: 13, color: 'var(--warm)' }}>
-                  <span>Giảm giá</span>
+                <div className="order-summary-row" style={{ color: 'var(--warm)' }}>
+                  <span>Ưu đãi voucher</span>
                   <span>−{fmt(order.discount)}</span>
                 </div>
               )}
-              <hr style={{ borderColor: 'var(--border)', margin: '14px 0' }} />
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 500 }}>
-                <span>Tổng tiền</span>
-                <span style={{ fontFamily: 'var(--font-serif)', fontSize: 20 }}>{fmt(order.total)}</span>
+
+              <div className="order-summary-row">
+                <span>Hình thức thanh toán</span>
+                <span style={{ fontWeight: 500, color: 'var(--ink)' }}>{order.payment}</span>
+              </div>
+
+              <div className="order-summary-row">
+                <span>Trạng thái thanh toán</span>
+                <span style={{
+                  color: order.paymentStatus === 'PAID' ? '#2E7D32' : '#B28900',
+                  fontWeight: 600,
+                  fontSize: 12
+                }}>
+                  {order.paymentStatus === 'PAID' ? '● Đã thanh toán' : '○ Chờ thanh toán / COD'}
+                </span>
+              </div>
+
+              <div className="order-summary-total-row">
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>Tổng thanh toán</div>
+                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>Đã bao gồm VAT & phụ phí</div>
+                </div>
+                <div className="order-summary-total-val">
+                  {fmt(order.total)}
+                </div>
+              </div>
+
+              {/* Service guarantee perks */}
+              <div style={{ marginTop: 24, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12, fontSize: 12.5, color: 'var(--muted)' }}>
+                  <i className="bi bi-shield-check text-success" style={{ fontSize: 16 }} />
+                  <span>Sản phẩm chính hãng thiết kế bởi Lyra Atelier</span>
+                </div>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12, fontSize: 12.5, color: 'var(--muted)' }}>
+                  <i className="bi bi-arrow-repeat text-primary" style={{ fontSize: 16 }} />
+                  <span>Hỗ trợ đổi size tận nhà trong vòng 15 ngày</span>
+                </div>
+                <div style={{ display: 'flex', gap: 12, alignItems: 'center', fontSize: 12.5, color: 'var(--muted)' }}>
+                  <i className="bi bi-telephone text-secondary" style={{ fontSize: 16 }} />
+                  <span>Hotline CSKH VIP: <strong>1900 8899</strong> (8h - 22h)</span>
+                </div>
               </div>
             </div>
           </div>
+
         </div>
+
       </div>
+
       <Footer navigate={navigate} />
     </div>
   );

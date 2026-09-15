@@ -1,23 +1,25 @@
 // src/pages/BrandsPage.jsx
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { productApi } from '../services/api';
+import { productApi, brandApi } from '../services/api';
 import { normalizeProduct } from '../data/products';
 import { ProductCard, Footer } from '../components/index.jsx';
 
 export default function BrandsPage() {
   const { navigate } = useApp();
   const [products, setProducts]   = useState([]);
+  const [brand, setBrand] = useState(null);
   const [loading, setLoading]     = useState(true);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    productApi.list({ size: 12, sort: 'createdAt,desc' })
-      .then(res => {
+    Promise.all([productApi.list({ size: 12, sort: 'createdAt,desc' }), brandApi.get()])
+      .then(([res, brandRes]) => {
         if (cancelled) return;
         const list = (res.data?.content || []).map((p, idx) => normalizeProduct(p, idx));
         setProducts(list);
+        setBrand(brandRes.data);
       })
       .catch(() => setProducts([]))
       .finally(() => setLoading(false));
@@ -43,7 +45,7 @@ export default function BrandsPage() {
                 display: 'flex', alignItems: 'center', gap: 10,
               }}>
                 <span style={{ width: 28, height: 1, background: 'var(--warm)', display: 'block' }} />
-                Thương hiệu LYRA
+                Thương hiệu {brand?.name || 'LYRA'}
               </div>
               <h1 style={{
                 fontFamily: 'var(--font-serif)',
@@ -51,14 +53,13 @@ export default function BrandsPage() {
                 fontWeight: 300, lineHeight: 1.05,
                 margin: '0 0 24px',
               }}>
-                Phong cách<br />
-                <em style={{ fontStyle: 'italic', color: 'var(--warm)' }}>Định nghĩa bạn</em>
+                {brand?.tagline || 'Phong cách định nghĩa bạn'}
               </h1>
               <p style={{
                 fontSize: 15, color: 'rgba(247,244,239,.65)',
                 maxWidth: 480, lineHeight: 1.8, marginBottom: 36,
               }}>
-                Thương hiệu thời trang cao cấp tập trung vào thiết kế tối giản, chất liệu bền vững và đường nét thủ công tinh xảo.
+                {brand?.story || 'Thương hiệu thời trang cao cấp tập trung vào thiết kế tối giản và chất liệu bền vững.'}
               </p>
             </div>
           </div>
@@ -74,10 +75,10 @@ export default function BrandsPage() {
             padding: '40px 48px', marginBottom: 64,
           }}>
             <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 32, marginBottom: 16 }}>
-              Câu chuyện LYRA
+              Câu chuyện {brand?.name || 'LYRA'}
             </h2>
             <p style={{ fontSize: 14.5, color: 'var(--muted)', lineHeight: 1.9, maxWidth: 800 }}>
-              Từ xưởng may thủ công, LYRA không ngừng theo đuổi sự hoàn hảo trong từng đường kim mũi chỉ. Mỗi bộ sưu tập là sự giao thoa hài hòa giữa phom dáng hiện đại và chất liệu thiên nhiên thân thiện với môi trường, mang lại cảm giác thoải mái và thanh lịch cho người mặc.
+              {brand?.story || 'LYRA theo đuổi sự hoàn hảo trong từng thiết kế và chất liệu.'}
             </p>
           </div>
 

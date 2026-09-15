@@ -20,6 +20,7 @@ import NotFoundPage       from './pages/NotFoundPage';
 import SearchPage         from './pages/SearchPage';
 import WishlistPage       from './pages/WishlistPage';
 import OrderDetailPage    from './pages/OrderDetailPage';
+import SharedWishlistPage from './pages/SharedWishlistPage';
 
 export default function App() {
   const { currentPage, isLoggedIn, authReady } = useApp();
@@ -55,6 +56,7 @@ export default function App() {
       case 'cart':         return <CartPage />;
       case 'auth':         return <AuthPage />;
       case 'wishlist':     return <WishlistPage />;
+      case 'shared-wishlist': return <SharedWishlistPage />;
       case 'order-detail': return <OrderDetailPage />;
       case 'profile':      return isLoggedIn ? <ProfilePage /> : <AuthPage />;
       default:             return <NotFoundPage />;

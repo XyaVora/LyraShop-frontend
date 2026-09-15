@@ -1,9 +1,93 @@
 // src/components/index.jsx  — shared UI components
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { fmt } from '../data/products';
+
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+let lockCount = 0;
+let savedOverflow = '';
+let savedPaddingRight = '';
+
+export function useBodyScrollLock(active) {
+  useEffect(() => {
+    if (!active || typeof document === 'undefined') return undefined;
+    if (lockCount === 0) {
+      const sbw = window.innerWidth - document.documentElement.clientWidth;
+      savedOverflow = document.body.style.overflow;
+      savedPaddingRight = document.body.style.paddingRight;
+      document.body.style.overflow = 'hidden';
+      if (sbw > 0) document.body.style.paddingRight = `${sbw}px`;
+    }
+    lockCount += 1;
+    return () => {
+      lockCount = Math.max(0, lockCount - 1);
+      if (lockCount === 0) {
+        document.body.style.overflow = savedOverflow;
+        document.body.style.paddingRight = savedPaddingRight;
+      }
+    };
+  }, [active]);
+}
+
+export function useDialogA11y(open, panelRef, onClose, opts = {}) {
+  const { initialFocus } = opts;
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
+  useEffect(() => {
+    if (!open || typeof document === 'undefined') return undefined;
+    const previouslyFocused = document.activeElement;
+
+    const raf = requestAnimationFrame(() => {
+      const panel = panelRef.current;
+      const target =
+        (initialFocus && initialFocus.current) ||
+        (panel && panel.querySelector(FOCUSABLE)) ||
+        panel;
+      if (target && typeof target.focus === 'function') target.focus();
+    });
+
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        closeRef.current?.();
+        return;
+      }
+      if (e.key !== 'Tab' || !panelRef.current) return;
+      const nodes = Array.from(panelRef.current.querySelectorAll(FOCUSABLE)).filter(
+        (el) => el.offsetParent !== null || el === document.activeElement
+      );
+      if (!nodes.length) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      if (!panelRef.current.contains(document.activeElement)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+        return;
+      }
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      cancelAnimationFrame(raf);
+      document.removeEventListener('keydown', onKeyDown, true);
+      if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+        previouslyFocused.focus();
+      }
+    };
+  }, [open, panelRef, initialFocus]);
+}
 
 /* ─── Stars ─────────────────────────────────── */
 export function Stars({ rating, size = 12, showScore = false }) {
@@ -38,7 +122,7 @@ export function Stars({ rating, size = 12, showScore = false }) {
 }
 
 /* ─── ProductCard ────────────────────────────── */
-export function ProductCard({ product, delay = 0 }) {
+export function ProductCard({ product, delay = 0, onQuickView }) {
   const { navigate } = useApp();
   const { addToCart, toggleWishlist, isWishlisted } = useCart();
   const wished = isWishlisted(product.id);
@@ -54,11 +138,20 @@ export function ProductCard({ product, delay = 0 }) {
           <div className={`product-badge ${product.badge.toLowerCase()}`}>{product.badge}</div>
         )}
         <div className="product-card-actions">
+          {onQuickView && (
+            <button
+              className="product-action-btn quick-view-btn"
+              onClick={e => { e.stopPropagation(); onQuickView(product); }}
+              title="Xem nhanh"
+            >
+              <i className="bi bi-eye" />
+            </button>
+          )}
           <button
             className="product-action-btn"
             onClick={e => { e.stopPropagation(); addToCart(product); }}
           >
-            + Giỏ hàng
+            + Giỏ
           </button>
           <button
             className="product-action-btn wish-btn"

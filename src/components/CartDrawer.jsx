@@ -1,15 +1,14 @@
-// src/components/CartDrawer.jsx — giỏ hàng trượt từ mép phải.
-// Mount MỘT LẦN ở App; mở/đóng qua CartContext (cartOpen / openCart / closeCart).
+// src/components/CartDrawer.jsx
 import { useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { PRODUCTS, fmt, FREE_SHIPPING_THRESHOLD } from '../data/products';
 import { buildUrl } from '../router.js';
-import { Pic, useBodyScrollLock, useDialogA11y, isModifiedClick } from './index.jsx';
-import '../styles/components.css';
+import { useBodyScrollLock, useDialogA11y, isModifiedClick } from './index.jsx';
+import '../styles/cart.css';
 
-// Gợi ý cố định cho giỏ rỗng — tính một lần ở module scope, KHÔNG mutate PRODUCTS.
+// Fallback suggestions for empty cart
 const SUGGESTED = [...PRODUCTS].sort((a, b) => (b.sold || 0) - (a.sold || 0)).slice(0, 3);
 
 export default function CartDrawer() {
@@ -34,13 +33,9 @@ export default function CartDrawer() {
   if (!cartOpen || typeof document === 'undefined') return null;
 
   const threshold = FREE_SHIPPING_THRESHOLD || 500000;
-  // `freeShipRemaining` đã tính cả trường hợp miễn phí nhờ mã FREESHIP, nên khi
-  // đã miễn phí thì thanh phải đầy 100% — nếu vẫn vẽ theo tạm tính, khách sẽ
-  // thấy thanh mới hơn nửa trong khi dòng chữ báo đã được miễn phí.
-  const freeShipDone = freeShipRemaining <= 0;
-  const progress = freeShipDone
-    ? 100
-    : Math.max(0, Math.min(100, Math.round((subtotal / threshold) * 100)));
+  const freeShipDone = subtotal >= threshold;
+  const remaining = Math.max(0, threshold - subtotal);
+  const progress = freeShipDone ? 100 : Math.min(100, Math.round((subtotal / threshold) * 100));
 
   const goTo = (page) => (e) => {
     if (isModifiedClick(e)) return;
@@ -70,12 +65,12 @@ export default function CartDrawer() {
       >
         <header className="cart-drawer-head">
           <h2 className="cart-drawer-title">
-            Giỏ hàng <span className="cart-drawer-count">({cartCount})</span>
+            Giỏ Hàng <span className="cart-drawer-count">({cartCount})</span>
           </h2>
           <button
             ref={closeBtnRef}
             type="button"
-            className="modal-close"
+            className="cart-drawer-close-btn"
             onClick={closeCart}
             aria-label="Đóng giỏ hàng"
           >
@@ -83,159 +78,137 @@ export default function CartDrawer() {
           </button>
         </header>
 
-        {/* Thanh tiến trình miễn phí vận chuyển */}
-        {cart.length > 0 && (
-          <div className={`freeship${freeShipDone ? ' done' : ''}`}>
-            <p className="freeship-text">
-              {freeShipDone ? (
-                <>
-                  <i className="bi bi-truck" aria-hidden="true" /> Đơn hàng của bạn được{' '}
-                  <strong>miễn phí giao hàng</strong>
-                </>
-              ) : (
-                <>
-                  Mua thêm <strong>{fmt(freeShipRemaining)}</strong> để được{' '}
-                  <strong>miễn phí giao hàng</strong>
-                </>
-              )}
-            </p>
-            <div
-              className="freeship-track"
-              role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={progress}
-              aria-label="Tiến trình miễn phí giao hàng"
-            >
-              <span className="freeship-fill" style={{ width: `${progress}%` }} />
-            </div>
+        {/* Freeship Progress Bar */}
+        <div className="drawer-freeship-bar">
+          <div className="drawer-freeship-text">
+            <i className="bi bi-truck" />
+            {freeShipDone ? (
+              <span>Đơn hàng của bạn đã đạt điều kiện <strong>Miễn Phí Giao Hàng</strong>!</span>
+            ) : (
+              <span>
+                Mua thêm <strong>{fmt(remaining)}</strong> để được <strong>Miễn Phí Giao Hàng</strong>
+              </span>
+            )}
           </div>
-        )}
+          <div className="drawer-freeship-track">
+            <div className="drawer-freeship-fill" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
 
+        {/* Drawer Body */}
         <div className="cart-drawer-body">
           {cart.length === 0 ? (
-            /* ── Giỏ rỗng: gợi ý sản phẩm bán chạy ── */
-            <div className="drawer-empty">
-              <i className="bi bi-bag" aria-hidden="true" />
-              <h3>Giỏ hàng đang trống</h3>
-              <p>Hãy chọn cho mình một thiết kế yêu thích của mùa Thu – Đông 2026.</p>
+            <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+              <i className="bi bi-bag" style={{ fontSize: 44, color: 'var(--muted)', marginBottom: 16, display: 'block' }} />
+              <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 24, marginBottom: 8 }}>Giỏ hàng đang trống</h3>
+              <p style={{ fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.6, marginBottom: 24 }}>
+                Khám phá ngay các thiết kế may đo mới nhất trong BST Xuân Hè 2026.
+              </p>
               <button
                 type="button"
-                className="btn-lyra"
+                className="btn-hero-primary"
                 onClick={() => {
                   closeCart();
                   navigate('shop');
                 }}
               >
-                Khám phá sản phẩm
+                Khám phá Cửa Hàng
               </button>
-
-              <div className="cart-suggest">
-                <div className="eyebrow">Gợi ý cho bạn</div>
-                {SUGGESTED.map((p) => (
-                  <a
-                    key={p.id}
-                    className="cart-suggest-row"
-                    href={buildUrl('detail', { product: p.slug || p.id })}
-                    onClick={openProduct(p.slug || p.id)}
-                  >
-                    <Pic
-                      src={p.images?.[0]}
-                      alt={p.name}
-                      tint={p.color}
-                      icon={p.icon}
-                      ratio="3/4"
-                      as="span"
-                      className="cart-suggest-pic"
-                    />
-                    <span className="cart-suggest-info">
-                      <span className="cart-suggest-name">{p.name}</span>
-                      <span className="cart-suggest-price">{fmt(p.price)}</span>
-                    </span>
-                  </a>
-                ))}
-              </div>
             </div>
           ) : (
-            <ul className="drawer-list">
+            <ul className="drawer-items-list">
               {cart.map((item) => (
-                <li key={item.key} className="drawer-item">
-                  <a
-                    className="drawer-item-img"
-                    href={buildUrl('detail', { product: item.slug || item.productId })}
+                <li key={item.key} className="drawer-item-card">
+                  <div
+                    className="drawer-item-thumb-box"
                     onClick={openProduct(item.slug || item.productId)}
-                    aria-label={item.name}
-                    tabIndex={-1}
+                    style={{ cursor: 'pointer' }}
                   >
-                    <Pic src={item.image} alt={item.name} tint={item.tint} icon={item.icon} ratio="3/4" />
-                  </a>
+                    <img
+                      src={item.image || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=200&auto=format&fit=crop'}
+                      alt={item.name}
+                      className="drawer-item-thumb"
+                    />
+                  </div>
 
-                  <div className="drawer-item-main">
+                  <div className="drawer-item-info">
                     <a
-                      className="drawer-item-name"
+                      className="drawer-item-title"
                       href={buildUrl('detail', { product: item.slug || item.productId })}
                       onClick={openProduct(item.slug || item.productId)}
                     >
                       {item.name}
                     </a>
                     <div className="drawer-item-meta">
-                      Size {item.size} · {item.variantColor}
+                      Size: {item.size || 'F'} {item.colorName || item.variantColor ? `· Màu: ${item.colorName || item.variantColor}` : ''}
                     </div>
 
-                    <div className="drawer-item-row">
-                      <div className="qty-ctrl">
+                    <div className="drawer-item-bottom">
+                      <div className="pdp-qty-stepper" style={{ height: 32 }}>
                         <button
                           type="button"
+                          className="pdp-qty-btn"
+                          style={{ width: 28, fontSize: 13 }}
                           onClick={() => updateQty(item.key, -1)}
-                          /* Ở số lượng 1, updateQty không giảm được nữa nên nút
-                             sẽ là nút chết. Vô hiệu hoá cho giống trang Giỏ hàng
-                             (muốn bỏ hẳn thì dùng nút xoá bên cạnh). */
                           disabled={item.qty <= 1}
-                          aria-label={`Giảm số lượng ${item.name}`}
                         >
-                          <i className="bi bi-dash" aria-hidden="true" />
+                          −
                         </button>
-                        <span aria-label={`Số lượng: ${item.qty}`}>{item.qty}</span>
+                        <span className="pdp-qty-val" style={{ width: 28, fontSize: 12 }}>{item.qty}</span>
                         <button
                           type="button"
+                          className="pdp-qty-btn"
+                          style={{ width: 28, fontSize: 13 }}
                           onClick={() => updateQty(item.key, 1)}
-                          disabled={item.stock ? item.qty >= item.stock : false}
-                          aria-label={`Tăng số lượng ${item.name}`}
                         >
-                          <i className="bi bi-plus" aria-hidden="true" />
+                          +
                         </button>
                       </div>
+
                       <span className="drawer-item-price">{fmt(item.price * item.qty)}</span>
+
+                      <button
+                        type="button"
+                        className="drawer-item-del-btn"
+                        onClick={() => removeFromCart(item.key)}
+                        title="Xóa sản phẩm"
+                      >
+                        <i className="bi bi-trash3" />
+                      </button>
                     </div>
                   </div>
-
-                  <button
-                    type="button"
-                    className="drawer-item-remove"
-                    onClick={() => removeFromCart(item.key)}
-                    aria-label={`Xoá ${item.name} khỏi giỏ hàng`}
-                  >
-                    <i className="bi bi-trash3" aria-hidden="true" />
-                  </button>
                 </li>
               ))}
             </ul>
           )}
         </div>
 
+        {/* Drawer Footer */}
         {cart.length > 0 && (
           <footer className="cart-drawer-foot">
-            <div className="drawer-subtotal">
-              <span>Tạm tính</span>
-              <strong>{fmt(subtotal)}</strong>
+            <div className="drawer-subtotal-row">
+              <span style={{ fontSize: 13, letterSpacing: '.1em', textTransform: 'uppercase', color: 'var(--muted)' }}>
+                Tạm tính:
+              </span>
+              <span className="drawer-subtotal-val">{fmt(subtotal)}</span>
             </div>
-            <p className="drawer-note">Phí vận chuyển và mã giảm giá được tính ở bước thanh toán.</p>
-            <a className="btn-lyra" href={buildUrl('checkout')} onClick={goTo('checkout')}>
-              Thanh toán
-            </a>
-            <a className="btn-outline-lyra" href={buildUrl('cart')} onClick={goTo('cart')}>
-              Xem giỏ hàng
-            </a>
+            <p style={{ fontSize: 11.5, color: 'var(--muted)', margin: 0 }}>
+              Thuế và phí vận chuyển sẽ được tính tại bước hoàn tất đơn.
+            </p>
+            <button
+              className="btn-hero-primary w-100 justify-content-center"
+              style={{ height: 46 }}
+              onClick={goTo('checkout')}
+            >
+              Tiến hành thanh toán <i className="bi bi-arrow-right" />
+            </button>
+            <button
+              className="btn-hero-secondary w-100 justify-content-center"
+              style={{ height: 40, fontSize: 11.5 }}
+              onClick={goTo('cart')}
+            >
+              Xem chi tiết giỏ hàng
+            </button>
           </footer>
         )}
       </aside>

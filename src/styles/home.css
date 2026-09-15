@@ -1,366 +1,987 @@
-/* =============================================================
-   src/styles/home.css — CSS RIÊNG của trang chủ LYRA.
-   Chỉ dùng cho các khối do HomePage.jsx dựng. Mọi class dùng chung
-   (.wrap, .section, .products-grid, .hero*, .cat-*, .mosaic-*,
-   .scroll-row, .quote-card, .promise-row, .eyebrow, .t-display…)
-   đã có sẵn trong src/index.css — ở đây chỉ tinh chỉnh, không định
-   nghĩa lại. Bo góc = 0. Chuyển động chậm, một chiều.
-   ============================================================= */
+/* ==========================================================================
+   LyraShop - Home Page Stylesheet (Luxury Editorial Minimalist)
+   Palette: Cream #F7F4EF, Charcoal #0E0E0E/#1A1815, Gold #C8A97E, Amber #8B5E34
+   ========================================================================== */
 
-/* Nhịp dọc của trang: rộng rãi nhưng không để hai khối cách nhau
-   tới 2× var(--section) như khi để .section mặc định chồng nhau. */
-.home-page>section.section {
-  padding-block: clamp(48px, 6.2vw, 100px);
-}
-
-/* ══════════════════════════════════════════════
-   1. HERO
-   ══════════════════════════════════════════════ */
+/* ── HERO SECTION ── */
 .home-hero {
-  border-bottom: 1px solid var(--border);
-}
-
-/* Canh chữ trong panel theo lề nội dung của trang, panel vẫn đè lên
-   mép trái của ảnh (margin-right âm đã khai báo ở .hero-panel). */
-.home-hero .hero-panel {
-  padding-inline-start: clamp(24px, 6vw, 104px);
-  padding-inline-end: clamp(24px, 5vw, 76px);
-  padding-block: clamp(40px, 5vw, 80px);
-  max-width: 100%;
-}
-
-.home-hero .hero-panel .eyebrow {
-  margin-bottom: -4px;
-}
-
-.home-hero .hero-lead {
-  max-width: 40ch;
-}
-
-/* Ảnh hero: khung mặt/áo nằm ở phần trên của khung hình. */
-.home-hero .hero-media img {
-  object-position: 50% 18%;
-}
-
-.home-hero .hero-badge-value {
-  font-variant-numeric: lining-nums tabular-nums;
-  color: var(--ink);
-}
-
-@media (max-width: 1024px) {
-
-  /* Ghi đè lại bản mobile của index.css với đúng độ ưu tiên. */
-  .home-hero .hero-panel {
-    padding-inline: var(--gutter);
-    padding-block: 36px 48px;
-  }
-}
-
-/* ══════════════════════════════════════════════
-   3. DANH MỤC — chỉ chỉnh phần chữ trong lớp phủ
-   ══════════════════════════════════════════════ */
-.home-cats .cat-card {
-  text-decoration: none;
-}
-
-/* Các phần tử trong lớp phủ là <span> (nằm trong <a>) → cần block. */
-.home-cats .cat-overlay,
-.home-cats .cat-name,
-.home-cats .cat-count,
-.home-cats .cat-blurb {
-  display: block;
-}
-
-.home-cats .cat-blurb {
-  /* Chỉ hiện mô tả ở ô lớn đầu tiên để 3 ô nhỏ không bị chật chữ. */
-  display: none;
-}
-
-.home-cats .cat-grid .cat-card:first-child .cat-blurb {
-  display: block;
-}
-
-@media (max-width: 1024px) {
-  .home-cats .cat-grid .cat-card:first-child .cat-blurb {
-    display: none;
-  }
-}
-
-/* ══════════════════════════════════════════════
-   5. CÂU CHUYỆN LYRA
-   ══════════════════════════════════════════════ */
-.home-story {
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-}
-
-.story-grid {
   display: grid;
-  grid-template-columns: minmax(0, .82fr) minmax(0, 1fr);
-  gap: clamp(28px, 5vw, 76px);
-  align-items: center;
-}
-
-.story-media {
-  min-width: 0;
-}
-
-.story-body {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 18px;
-}
-
-.story-body .t-h1 {
-  margin: 0;
-}
-
-.story-text {
-  font-size: 14px;
-  line-height: 1.85;
-  color: var(--ink-2);
-  max-width: 54ch;
-  margin: 0;
-}
-
-.story-stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
-  gap: 20px 18px;
-  width: 100%;
-  margin: 10px 0 4px;
-  padding-top: 26px;
-  border-top: 1px solid var(--border);
-}
-
-.story-stat {
-  min-width: 0;
-}
-
-.story-stat-value {
-  font-family: var(--font-serif);
-  font-variant-numeric: lining-nums tabular-nums;
-  font-size: clamp(30px, 3.2vw, 44px);
-  font-weight: 300;
-  line-height: 1;
-  color: var(--ink);
-}
-
-.story-stat-label {
-  margin: 6px 0 0;
-  font-size: 11px;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  line-height: 1.5;
-  color: var(--warm-text);
-}
-
-@media (max-width: 900px) {
-  .story-grid {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-/* ══════════════════════════════════════════════
-   6. BANNER SALE — ảnh nền + lớp phủ mực
-   ══════════════════════════════════════════════ */
-.home-sale {
-  padding-block: clamp(10px, 2vw, 28px);
-}
-
-.sale-banner {
+  grid-template-columns: 1.05fr 0.95fr;
+  min-height: calc(100vh - 68px - var(--marquee-height, 44px));
+  background: var(--bg);
   position: relative;
   overflow: hidden;
+  border-bottom: 1px solid var(--border);
+}
+
+.home-hero-left {
   display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: clamp(20px, 4vw, 44px);
-  padding: clamp(28px, 5.5vw, 76px);
-  min-height: clamp(260px, 32vw, 420px);
-  background: var(--ink);
-}
-
-.sale-banner .sale-banner-media {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  aspect-ratio: auto;
-}
-
-.sale-banner .sale-banner-media img {
-  object-position: 50% 45%;
-}
-
-/* Lớp phủ mực: chữ trắng luôn đạt tương phản ≥ 7:1 ở nửa trái. */
-.sale-banner::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  pointer-events: none;
-  background: linear-gradient(100deg,
-      rgba(14, 14, 14, .92) 0%,
-      rgba(14, 14, 14, .76) 44%,
-      rgba(14, 14, 14, .44) 100%);
-}
-
-.sale-banner-body {
+  flex-direction: column;
+  justify-content: center;
+  padding: 80px 72px 80px 88px;
   position: relative;
   z-index: 2;
-  min-width: 0;
-  max-width: 46ch;
 }
 
-.sale-banner-body .eyebrow {
-  margin-bottom: 14px;
+.home-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--warm);
+  margin-bottom: 24px;
 }
 
-.sale-banner-title {
+.home-hero-eyebrow::before {
+  content: '';
+  display: inline-block;
+  width: 36px;
+  height: 1px;
+  background: var(--warm);
+}
+
+.home-hero-title {
   font-family: var(--font-serif);
-  font-size: clamp(30px, 4.2vw, 58px);
+  font-size: clamp(48px, 5.2vw, 80px);
   font-weight: 300;
-  line-height: 1.06;
-  letter-spacing: -.005em;
-  color: #fff;
-  margin: 0;
+  line-height: 1.05;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  margin: 0 0 24px 0;
 }
 
-.sale-banner-title em {
+.home-hero-title em {
   font-style: italic;
+  font-weight: 400;
   color: var(--warm);
 }
 
-.sale-banner-sub {
-  margin: 16px 0 0;
-  font-size: 13.5px;
-  line-height: 1.7;
-  color: rgba(255, 255, 255, .86);
+.home-hero-subtitle {
+  font-size: 16px;
+  font-weight: 300;
+  line-height: 1.85;
+  color: var(--muted);
+  max-width: 440px;
+  margin-bottom: 40px;
 }
 
-.sale-banner .sale-banner-cta {
+.home-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 48px;
+}
+
+.btn-hero-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--ink);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 16px 36px;
+  border-radius: 0;
+  border: 1px solid var(--ink);
+  cursor: pointer;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+}
+
+.btn-hero-primary:hover {
+  background: #2a2521;
+  color: #fff;
+  border-color: #2a2521;
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+}
+
+.btn-hero-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--ink);
+  font-size: 12.5px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 16px 30px;
+  border-radius: 0;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.btn-hero-secondary:hover {
+  border-color: var(--ink);
+  background: rgba(0, 0, 0, 0.03);
+  color: var(--ink);
+}
+
+.home-hero-guarantees {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.hero-guarantee-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.hero-guarantee-item span.star-bullet {
+  color: var(--warm);
+  font-size: 11px;
+}
+
+/* Hero Right: Lookbook Visual */
+.home-hero-right {
   position: relative;
-  z-index: 2;
-  flex: none;
-  background: var(--cream);
+  background: #EDE6DC;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-visual-container {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.hero-visual-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
+  filter: brightness(0.97) contrast(1.02);
+  transition: transform 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.home-hero:hover .hero-visual-img {
+  transform: scale(1.03);
+}
+
+.hero-visual-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(14, 14, 14, 0.05) 0%,
+    rgba(14, 14, 14, 0) 40%,
+    rgba(14, 14, 14, 0.35) 100%
+  );
+  pointer-events: none;
+}
+
+.hero-top-badge {
+  position: absolute;
+  top: 32px;
+  right: 32px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  padding: 10px 18px;
+  border: 1px solid rgba(232, 226, 217, 0.8);
+  font-size: 10px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
   color: var(--ink);
-  border-color: var(--cream);
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
-.sale-banner .sale-banner-cta:hover,
-.sale-banner .sale-banner-cta:focus-visible {
-  background: var(--warm);
-  border-color: var(--warm);
+.hero-floating-card {
+  position: absolute;
+  bottom: 40px;
+  left: 40px;
+  right: 40px;
+  max-width: 380px;
+  background: rgba(247, 244, 239, 0.94);
+  backdrop-filter: blur(16px);
+  padding: 20px 24px;
+  border-left: 3px solid var(--warm);
+  border-top: 1px solid rgba(255, 255, 255, 0.7);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  transition: all 0.35s ease;
+}
+
+.hero-floating-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.16);
+  background: #ffffff;
+}
+
+.hero-floating-label {
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--warm);
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.hero-floating-title {
+  font-family: var(--font-serif);
+  font-size: 19px;
   color: var(--ink);
-}
-
-/* ══════════════════════════════════════════════
-   8. ĐÃ XEM GẦN ĐÂY
-   ══════════════════════════════════════════════ */
-.home-recent .scroll-row {
-  /* chừa chỗ cho vòng focus của thẻ sản phẩm */
-  padding: 4px 4px 14px;
-  margin-inline: -4px;
-}
-
-/* ══════════════════════════════════════════════
-   9. CẢM NHẬN KHÁCH HÀNG
-   ══════════════════════════════════════════════ */
-.quote-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(258px, 1fr));
-  gap: clamp(26px, 3.4vw, 48px);
-}
-
-.quote-card {
   margin: 0;
-  min-width: 0;
+  line-height: 1.25;
 }
 
-.quote-card .product-stars {
-  margin-bottom: 14px;
+.hero-floating-price {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-top: 2px;
 }
 
-.quote-card .quote-text {
-  margin: 0 0 16px;
+.hero-floating-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
 }
 
-.quote-card figcaption {
+.hero-floating-card:hover .hero-floating-btn {
+  background: var(--warm);
+  transform: translateX(3px);
+}
+
+/* ── SECTION HEADER EDITORIAL ── */
+.editorial-header {
+  margin-bottom: 48px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 24px;
+}
+
+.editorial-header-left {
+  max-width: 600px;
+}
+
+.editorial-subtitle {
+  font-size: 11px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--warm);
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.editorial-title {
+  font-family: var(--font-serif);
+  font-size: clamp(32px, 3.8vw, 48px);
+  font-weight: 300;
+  line-height: 1.15;
+  color: var(--ink);
+  margin: 0;
+}
+
+.editorial-title em {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--warm);
+}
+
+.editorial-view-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  text-decoration: none;
+  padding-bottom: 4px;
+  border-bottom: 1px solid transparent;
+}
+
+.editorial-view-all:hover {
+  color: var(--warm);
+  border-bottom-color: var(--warm);
+  gap: 12px;
+}
+
+/* ── CURATED CATEGORIES SECTION ── */
+.curated-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+
+.curated-cat-card {
+  position: relative;
+  height: 380px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #EAE4DC;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  justify-content: flex-end;
+  padding: 32px 28px;
 }
 
-.quote-card .quote-author {
-  display: block;
+.curated-cat-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.quote-meta {
-  display: block;
-  font-size: 11px;
-  letter-spacing: .1em;
+.curated-cat-card:hover .curated-cat-img {
+  transform: scale(1.06);
+}
+
+.curated-cat-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(14, 14, 14, 0.05) 0%,
+    rgba(14, 14, 14, 0.2) 40%,
+    rgba(14, 14, 14, 0.8) 100%
+  );
+  transition: opacity 0.4s ease;
+}
+
+.curated-cat-card:hover .curated-cat-gradient {
+  background: linear-gradient(
+    to bottom,
+    rgba(14, 14, 14, 0.1) 0%,
+    rgba(14, 14, 14, 0.3) 30%,
+    rgba(14, 14, 14, 0.88) 100%
+  );
+}
+
+.curated-cat-content {
+  position: relative;
+  z-index: 2;
+  color: #fff;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.curated-cat-tag {
+  font-size: 10px;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--warm-text);
+  color: var(--champagne, #DFC59E);
+  margin-bottom: 6px;
+  font-weight: 500;
 }
 
-/* ══════════════════════════════════════════════
-   10. #LYRASTYLE — mosaic 6 ảnh
-   ══════════════════════════════════════════════ */
-.home-mosaic {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+.curated-cat-name {
+  font-family: var(--font-serif);
+  font-size: 26px;
+  font-weight: 300;
+  line-height: 1.2;
+  margin: 0 0 8px 0;
+  color: #ffffff;
+}
+
+.curated-cat-link {
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.85;
+  transform: translateY(6px);
+  transition: all 0.3s ease;
+}
+
+.curated-cat-card:hover .curated-cat-link {
+  opacity: 1;
+  transform: translateY(0);
+  color: #ffffff;
   gap: 10px;
 }
 
-.home-mosaic .mosaic-item {
-  display: block;
-  text-decoration: none;
-  color: inherit;
+/* ── PRODUCT SHOWCASE WITH FILTER TABS ── */
+.home-filter-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 36px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: none;
 }
 
-.home-mosaic .mosaic-item .pic {
-  width: 100%;
+.home-filter-tabs::-webkit-scrollbar {
+  display: none;
 }
 
-.home-mosaic .mosaic-item img {
-  transition: transform var(--dur-3) var(--ease-out);
+.home-filter-pill {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 9px 20px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+  font-family: var(--font-sans);
 }
 
-.home-mosaic .mosaic-item:hover img,
-.home-mosaic .mosaic-item:focus-visible img {
-  transform: scale(1.04);
+.home-filter-pill:hover {
+  color: var(--ink);
+  border-color: var(--ink);
 }
 
-@media (max-width: 1024px) {
-  .home-mosaic {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
+.home-filter-pill.active {
+  background: var(--ink);
+  color: #ffffff;
+  border-color: var(--ink);
+  font-weight: 500;
 }
 
-@media (max-width: 576px) {
-  .home-mosaic {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-}
-
-/* ══════════════════════════════════════════════
-   11. DẢI CAM KẾT
-   ══════════════════════════════════════════════ */
-.home-promises {
+/* ── "SHOP THE LOOK" CURATED ENSEMBLE SECTION ── */
+.shop-the-look-section {
+  background: #FAF8F5;
   border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 100px 0;
+}
+
+.look-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 64px;
+  align-items: center;
+}
+
+.look-visual-wrap {
+  position: relative;
+  height: 640px;
+  background: #E8E2D9;
+  overflow: hidden;
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.08);
+}
+
+.look-visual-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.look-visual-wrap:hover .look-visual-img {
+  transform: scale(1.03);
+}
+
+.look-badge {
+  position: absolute;
+  top: 28px;
+  left: 28px;
+  background: rgba(14, 14, 14, 0.85);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  padding: 8px 16px;
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+/* Hotspot Pins */
+.look-hotspot {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  transition: all 0.3s ease;
+  z-index: 10;
+}
+
+.look-hotspot::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.6);
+  animation: pulseHotspot 2s infinite;
+}
+
+@keyframes pulseHotspot {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.3); opacity: 0; }
+  100% { transform: scale(0.9); opacity: 0; }
+}
+
+.look-hotspot:hover {
+  transform: scale(1.2);
+  background: var(--warm);
+  color: #fff;
+}
+
+/* Look Details Column */
+.look-details-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.look-tag-top {
+  font-size: 11px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--warm);
+  margin-bottom: 12px;
+  font-weight: 600;
+}
+
+.look-main-title {
+  font-family: var(--font-serif);
+  font-size: clamp(36px, 4vw, 52px);
+  font-weight: 300;
+  line-height: 1.1;
+  color: var(--ink);
+  margin: 0 0 18px 0;
+}
+
+.look-main-title em {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--warm);
+}
+
+.look-desc {
+  font-size: 15px;
+  line-height: 1.8;
+  color: var(--muted);
+  margin-bottom: 32px;
+  max-width: 480px;
+}
+
+/* Items in Ensemble */
+.look-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 36px;
+}
+
+.look-item-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  transition: all 0.25s ease;
+  cursor: pointer;
+}
+
+.look-item-card:hover {
+  border-color: var(--warm);
+  transform: translateX(4px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+}
+
+.look-item-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.look-item-thumb {
+  width: 52px;
+  height: 64px;
+  object-fit: cover;
+  background: #ECE6DE;
+}
+
+.look-item-name {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  color: var(--ink);
+  margin: 0 0 4px 0;
+}
+
+.look-item-meta {
+  font-size: 12.5px;
+  color: var(--warm);
+  font-weight: 500;
+}
+
+.look-item-action {
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  opacity: 0.8;
+}
+
+.look-item-card:hover .look-item-action {
+  opacity: 1;
+  color: var(--warm);
+}
+
+/* ── ARTISANAL CRAFTSMANSHIP & PHILOSOPHY ── */
+.craftsmanship-section {
+  padding: 100px 0;
+  background: var(--bg);
+}
+
+.craftsmanship-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 36px;
+  margin-top: 48px;
+}
+
+.craftsmanship-card {
+  padding: 44px 36px;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  position: relative;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.craftsmanship-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--warm);
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.06);
+}
+
+.craftsmanship-num {
+  font-family: var(--font-serif);
+  font-size: 28px;
+  font-style: italic;
+  color: var(--warm);
+  margin-bottom: 24px;
+  display: block;
+}
+
+.craftsmanship-title {
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 400;
+  color: var(--ink);
+  margin: 0 0 14px 0;
+  line-height: 1.25;
+}
+
+.craftsmanship-text {
+  font-size: 14.5px;
+  line-height: 1.8;
+  color: var(--muted);
+  margin: 0;
+  flex-grow: 1;
+}
+
+.craftsmanship-badge {
+  display: inline-block;
+  margin-top: 24px;
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--warm);
+  font-weight: 600;
+}
+
+/* ── CAMPAIGN EDITORIAL BANNER ── */
+.home-campaign-banner {
+  background: #141311;
+  color: #fff;
+  padding: 80px 0;
+  position: relative;
+  overflow: hidden;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.campaign-banner-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 36px;
+}
+
+.campaign-banner-text {
+  max-width: 620px;
+}
+
+.campaign-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--champagne, #DFC59E);
+  margin-bottom: 14px;
+  font-weight: 500;
+}
+
+.campaign-title {
+  font-family: var(--font-serif);
+  font-size: clamp(34px, 4vw, 56px);
+  font-weight: 300;
+  line-height: 1.1;
+  color: #ffffff;
+  margin: 0 0 14px 0;
+}
+
+.campaign-title em {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--champagne, #DFC59E);
+}
+
+.campaign-desc {
+  font-size: 15px;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.75;
+  margin: 0;
+}
+
+.campaign-action-box {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 24px 32px;
+  backdrop-filter: blur(12px);
+}
+
+.campaign-voucher-code {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.voucher-pill {
+  background: #ffffff;
+  color: var(--ink);
+  font-family: monospace;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  padding: 8px 16px;
+  border-radius: 2px;
+}
+
+.btn-copy-voucher {
+  background: var(--champagne, #DFC59E);
+  color: #141311;
+  border: none;
+  font-size: 11.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 10px 18px;
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.btn-copy-voucher:hover {
+  background: #fff;
+}
+
+/* ── THE LYRA STANDARD (PERKS & SERVICE) ── */
+.home-standards-section {
+  padding: 64px 0;
+  background: #FAF8F5;
   border-bottom: 1px solid var(--border);
 }
 
-/* ══════════════════════════════════════════════
-   GIẢM CHUYỂN ĐỘNG
-   ══════════════════════════════════════════════ */
-@media (prefers-reduced-motion: reduce) {
+.standards-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
+}
 
-  .home-mosaic .mosaic-item img,
-  .home-cats .cat-card img {
-    transition: none !important;
-    transform: none !important;
+.standard-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 16px 12px;
+}
+
+.standard-icon-wrap {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: var(--warm);
+  margin-bottom: 16px;
+  transition: all 0.3s ease;
+}
+
+.standard-item:hover .standard-icon-wrap {
+  background: var(--ink);
+  color: #fff;
+  border-color: var(--ink);
+  transform: translateY(-3px);
+}
+
+.standard-title {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.standard-desc {
+  font-size: 12.5px;
+  color: var(--muted);
+  line-height: 1.6;
+  max-width: 240px;
+}
+
+/* ── CLIENT TESTIMONIAL MARQUEE ── */
+.home-quotes-section {
+  padding: 60px 0;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+}
+
+.quote-eyebrow {
+  font-size: 10.5px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--warm);
+  margin-bottom: 16px;
+  font-weight: 600;
+}
+
+.quote-text {
+  font-family: var(--font-serif);
+  font-size: clamp(20px, 2.4vw, 32px);
+  font-style: italic;
+  font-weight: 300;
+  color: var(--ink);
+  max-width: 780px;
+  margin: 0 auto 16px auto;
+  line-height: 1.45;
+}
+
+.quote-author {
+  font-size: 12px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ── RESPONSIVE DESIGN ── */
+@media (max-width: 1024px) {
+  .home-hero {
+    grid-template-columns: 1fr;
+    min-height: auto;
+  }
+  .home-hero-left {
+    padding: 60px 36px;
+  }
+  .home-hero-right {
+    height: 480px;
+  }
+  .curated-cat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .look-grid {
+    grid-template-columns: 1fr;
+    gap: 40px;
+  }
+  .look-visual-wrap {
+    height: 480px;
+  }
+  .craftsmanship-grid {
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
+  .standards-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .home-hero-left {
+    padding: 48px 24px;
+  }
+  .home-hero-title {
+    font-size: 40px;
+  }
+  .home-hero-guarantees {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .hero-floating-card {
+    left: 20px;
+    right: 20px;
+    bottom: 20px;
+  }
+  .curated-cat-grid {
+    grid-template-columns: 1fr;
+  }
+  .standards-grid {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .campaign-banner-content {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

@@ -1,377 +1,1812 @@
-/* src/styles/profile.css — trang Tài khoản (ProfilePage)
-   Chỉ bổ sung; các class .profile-layout / .profile-nav-item / .order-card /
-   .order-status-badge / .form-field-* / .chip đã có sẵn trong index.css. */
+/* ══════════════════════════════════════════════════════════════════
+   LYRA LUXURY STOREFRONT — PROFILE & ACCOUNT STYLING
+   Hoàn toàn tinh gọn, sang trọng, không đóng khung nút, thẩm mỹ cao
+   ══════════════════════════════════════════════════════════════════ */
 
-/* ── Dải tiêu đề ─────────────────────────────────────────────── */
+/* ── Reset cơ bản cho tất cả button trong trang Profile ──────── */
+.profile-page button {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  outline: none;
+  box-shadow: none;
+  text-decoration: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+.profile-page button:focus-visible {
+  outline: 2px solid var(--warm, #C8A97E);
+  outline-offset: 2px;
+}
+
+/* ── Dải tiêu đề trang Profile ───────────────────────────────── */
 .profile-head {
-  padding: clamp(36px, 5vw, 72px) 0 clamp(24px, 3.4vw, 40px);
-  border-bottom: 1px solid var(--border);
+  padding: clamp(32px, 4vw, 56px) 0 clamp(20px, 2.5vw, 32px);
+  border-bottom: 1px solid var(--border, #E8E2D9);
+  background: linear-gradient(180deg, rgba(247, 244, 239, 0.6) 0%, rgba(247, 244, 239, 0) 100%);
+}
+
+.profile-head .wrap {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 24px;
 }
 
 .profile-head .eyebrow {
-  margin-bottom: 14px;
+  margin-bottom: 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--warm-hover, #B8956E);
 }
 
 .profile-title {
-  margin: 0 0 16px;
+  margin: 0 0 10px;
+  font-family: var(--font-serif, 'Cormorant Garamond', serif);
+  font-size: clamp(30px, 3.5vw, 42px);
+  font-weight: 300;
+  line-height: 1.15;
+  color: var(--ink, #0E0E0E);
 }
 
 .profile-title em {
   font-style: italic;
-  color: var(--warm-deep);
+  font-weight: 400;
+  color: #8B5E34;
 }
 
 .profile-head-sub {
-  max-width: 54ch;
+  max-width: 60ch;
   margin: 0;
-  font-size: 14px;
-  line-height: 1.75;
-  color: var(--ink-2);
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: var(--muted, #8A8680);
 }
 
-/* ── Sidebar ─────────────────────────────────────────────────── */
-.profile-side-inner {
+/* ── Bố cục 2 cột chính ─────────────────────────────────────── */
+.profile-layout {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 36px 24px 72px;
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 36px;
+  align-items: start;
+}
+
+/* ── CỘT TRÁI: SIDEBAR THẨM MỸ CAO (KHÔNG ĐÓNG KHUNG) ───────── */
+.profile-sidebar {
+  background: #FFFFFF;
+  border: 1px solid var(--border, #E8E2D9);
+  border-radius: 12px;
+  padding: 24px 18px;
+  box-shadow: 0 4px 16px rgba(14, 14, 14, 0.03);
   position: sticky;
-  top: calc(var(--nav-h) + 24px);
+  top: calc(var(--nav-h, 72px) + 20px);
 }
 
-.profile-sidebar .profile-name {
-  margin: 0 0 3px;
+.profile-side-inner {
+  display: flex;
+  flex-direction: column;
 }
 
-.profile-sidebar .profile-email,
-.profile-sidebar .profile-since {
-  margin-top: 0;
+/* Header tài khoản trong sidebar */
+.profile-avatar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #F0ECE6;
 }
 
-.profile-side-foot {
-  margin-top: 18px;
+.profile-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: var(--warm-pale, #F5EEE4);
+  border: 2px solid var(--warm, #C8A97E);
+  color: #8B5E34;
+  font-family: var(--font-serif, 'Cormorant Garamond', serif);
+  font-size: 24px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  box-shadow: 0 2px 8px rgba(200, 169, 126, 0.2);
+}
+
+.profile-avatar-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.profile-name {
+  font-family: var(--font-serif, 'Cormorant Garamond', serif);
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ink, #0E0E0E);
+  margin: 0 0 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.profile-vip-mini-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #8B5E34;
+  background: #FAF3E8;
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(200, 169, 126, 0.4);
+  letter-spacing: 0.04em;
+}
+
+.profile-vip-mini-tag i {
+  font-size: 11px;
+  color: #C8A97E;
+}
+
+/* Nhóm Menu trong Sidebar */
+.profile-nav {
+  display: flex;
+  flex-direction: column;
   padding-top: 14px;
-  border-top: 1px solid var(--border);
+}
+
+.profile-nav-group {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid #F4EFEA;
+}
+
+.profile-nav-group:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.profile-nav-group-title {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted, #8A8680);
+  margin: 0 0 6px 12px;
+}
+
+.profile-nav-group-items {
   display: flex;
   flex-direction: column;
   gap: 2px;
 }
 
-.profile-nav-link {
-  color: var(--warm-text);
+/* Nút liên kết điều hướng sidebar - KHÔNG BỊ ĐÓNG KHUNG */
+.profile-nav-item {
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  padding: 9px 12px !important;
+  font-size: 13.5px !important;
+  font-weight: 400 !important;
+  color: var(--ink-soft, #2D2925) !important;
+  text-decoration: none !important;
+  border-radius: 6px !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  outline: none !important;
+  cursor: pointer !important;
+  transition: all 0.18s ease !important;
+  text-align: left !important;
 }
 
-.profile-nav-link i {
-  color: var(--warm-text);
+.profile-nav-item i {
+  font-size: 16px;
+  color: var(--muted, #8A8680);
+  width: 20px;
+  text-align: center;
+  margin-right: 10px;
+  flex-shrink: 0;
+  transition: color 0.18s ease;
 }
 
-.profile-logout,
+.profile-nav-label {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.profile-nav-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: var(--warm-pale, #F5EEE4);
+  color: #8B5E34;
+  margin-left: 6px;
+}
+
+/* Hover & Active states */
+.profile-nav-item:hover {
+  background: var(--warm-pale, #F5EEE4) !important;
+  color: var(--ink, #0E0E0E) !important;
+}
+
+.profile-nav-item:hover i {
+  color: #8B5E34;
+}
+
+.profile-nav-item.active {
+  background: #F5EFE6 !important;
+  color: #8B5E34 !important;
+  font-weight: 600 !important;
+  border-left: 3px solid var(--warm, #C8A97E) !important;
+  border-radius: 2px 6px 6px 2px !important;
+}
+
+.profile-nav-item.active i {
+  color: #8B5E34;
+}
+
+.profile-side-foot {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #F0ECE6;
+}
+
+.profile-logout {
+  color: var(--danger, #A84444) !important;
+}
+
 .profile-logout i {
-  color: var(--danger);
+  color: var(--danger, #A84444) !important;
 }
 
 .profile-logout:hover {
-  background: rgba(160, 58, 58, .07);
+  background: #FDF2F2 !important;
+  color: #B91C1C !important;
 }
 
-/* ── Tiêu đề từng tab ────────────────────────────────────────── */
+.profile-logout:hover i {
+  color: #B91C1C !important;
+}
+
+/* ── CỘT PHẢI: NỘI DUNG CHÍNH (PROFILE CONTENT) ─────────────── */
+.profile-content {
+  min-width: 0;
+  padding: 0;
+}
+
+/* Tiêu đề từng tab */
 .profile-tab-head {
-  margin-bottom: 26px;
+  margin-bottom: 24px;
 }
 
 .profile-tab-head .eyebrow {
-  margin-bottom: 12px;
+  margin-bottom: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--warm-hover, #B8956E);
 }
 
 .profile-tab-head .profile-section-title {
-  margin: 0 0 8px;
+  margin: 0 0 6px;
+  font-family: var(--font-serif, 'Cormorant Garamond', serif);
+  font-size: 28px;
+  font-weight: 400;
+  color: var(--ink, #0E0E0E);
+  line-height: 1.2;
 }
 
 .profile-tab-head .profile-section-sub {
   margin: 0;
-  max-width: 56ch;
-  line-height: 1.7;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--muted, #8A8680);
 }
 
-/* ── Dải số liệu tài khoản ───────────────────────────────────── */
+/* ══════════════════════════════════════════════════════════════════
+   1. DASHBOARD TAB: TỔNG QUAN TÀI KHOẢN (SHOPEE STYLE LUXURY)
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Hero VIP Gold Card */
+.profile-hero-card {
+  background: linear-gradient(135deg, #201D19 0%, #2D271E 60%, #1D1A16 100%);
+  border-radius: 12px;
+  padding: 26px 30px;
+  color: #FFFFFF;
+  margin-bottom: 24px;
+  box-shadow: 0 8px 24px rgba(14, 14, 14, 0.08);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(200, 169, 126, 0.25);
+}
+
+.profile-hero-card::after {
+  content: '';
+  position: absolute;
+  top: -80px;
+  right: -80px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(200, 169, 126, 0.18) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.profile-hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.profile-hero-user {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.profile-hero-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: rgba(200, 169, 126, 0.2);
+  border: 2px solid #C8A97E;
+  color: #E8D9C4;
+  font-family: var(--font-serif, 'Cormorant Garamond', serif);
+  font-size: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  text-transform: uppercase;
+}
+
+.profile-hero-meta {
+  min-width: 0;
+}
+
+.profile-hero-name-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+  flex-wrap: wrap;
+}
+
+.profile-hero-name {
+  font-family: var(--font-serif, 'Cormorant Garamond', serif);
+  font-size: 22px;
+  font-weight: 500;
+  color: #FFFFFF;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.profile-vip-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(200, 169, 126, 0.22);
+  border: 1px solid #C8A97E;
+  color: #E8D9C4;
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.profile-hero-email {
+  font-size: 12.5px;
+  color: #B0ACA8;
+  margin: 0;
+}
+
+.profile-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  color: #FFFFFF !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  padding: 7px 16px !important;
+  border-radius: 20px !important;
+  transition: all 0.2s ease !important;
+}
+
+.profile-edit-btn:hover {
+  background: rgba(255, 255, 255, 0.16) !important;
+  border-color: #C8A97E !important;
+  color: #E8D9C4 !important;
+}
+
+/* Thước đo chi tiêu thăng hạng */
+.profile-tier-progress-card {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tier-progress-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+  margin-bottom: 8px;
+}
+
+.tier-current {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #E8D9C4;
+  font-weight: 600;
+}
+
+.tier-current i {
+  color: #C8A97E;
+}
+
+.tier-target {
+  color: #B0ACA8;
+  font-size: 12px;
+}
+
+.tier-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.tier-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #C8A97E 0%, #F5EEE4 100%);
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+
+.tier-progress-sub {
+  font-size: 12px;
+  color: #A09C96;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.tier-progress-sub strong {
+  color: #E8D9C4;
+}
+
+/* Hàng 4 số liệu nhanh (Voucher, Xu, Thẻ, Yêu thích) */
+.profile-quick-stats-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.profile-quick-stat-box {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  color: inherit;
+}
+
+.profile-quick-stat-box:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #C8A97E;
+  transform: translateY(-2px);
+}
+
+.stat-box-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(200, 169, 126, 0.16);
+  color: #E8D9C4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+  flex-shrink: 0;
+}
+
+.stat-box-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-box-num {
+  font-family: var(--font-serif, 'Cormorant Garamond', serif);
+  font-size: 19px;
+  font-weight: 600;
+  color: #FFFFFF;
+  line-height: 1.2;
+}
+
+.stat-box-title {
+  font-size: 11.5px;
+  color: #B0ACA8;
+  white-space: nowrap;
+}
+
+/* ── 2. DẢI 5 TRẠNG THÁI ĐƠN HÀNG (SHOPEE STYLE QUICK HUB) ───── */
+.order-quick-hub {
+  background: #FFFFFF;
+  border: 1px solid var(--border, #E8E2D9);
+  border-radius: 12px;
+  padding: 22px 24px;
+  margin-bottom: 24px;
+  box-shadow: 0 4px 16px rgba(14, 14, 14, 0.03);
+}
+
+.order-quick-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #F4EFEA;
+}
+
+.order-quick-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.order-quick-title-wrap i {
+  font-size: 18px;
+  color: #8B5E34;
+}
+
+.order-quick-title-wrap h3 {
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink, #0E0E0E);
+  margin: 0;
+}
+
+.order-quick-all-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: #8B5E34;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+
+.order-quick-all-link:hover {
+  color: #633F1F;
+  text-decoration: underline;
+}
+
+.order-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 12px;
+  margin-top: 18px;
+}
+
+/* Từng ô trạng thái - HOÀN TOÀN KHÔNG BỊ ĐÓNG KHUNG DEFAULT */
+.order-quick-item {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  padding: 12px 6px !important;
+  border-radius: 8px !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.order-quick-item:hover {
+  background: #FAF6F0 !important;
+  border-color: #E8E2D9 !important;
+  transform: translateY(-2px) !important;
+}
+
+.order-quick-icon-wrap {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--warm-pale, #F5EEE4);
+  color: #8B5E34;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  position: relative;
+  margin-bottom: 8px;
+  transition: transform 0.2s ease;
+}
+
+.order-quick-item:hover .order-quick-icon-wrap {
+  transform: scale(1.06);
+}
+
+.order-quick-badge {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  background: #DC2626;
+  color: #FFFFFF;
+  font-size: 10.5px;
+  font-weight: 700;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 2px solid #FFFFFF;
+  box-shadow: 0 2px 4px rgba(220, 38, 38, 0.35);
+}
+
+.order-quick-label {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--ink-soft, #2D2925);
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* ── 3. BANNER THEO DÕI BƯU KIỆN ĐANG GIAO (SPX EXPRESS) ─────── */
+.active-order-banner {
+  background: #F6FCF7;
+  border: 1px solid #D1E7D5;
+  border-left: 4px solid #2E7D32;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin-bottom: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.active-order-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.active-order-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: #E8F5E9;
+  color: #2E7D32;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.active-order-details {
+  min-width: 0;
+}
+
+.active-order-badge {
+  display: inline-block;
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #2E7D32;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.active-order-title {
+  margin: 0 0 2px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #1B5E20;
+}
+
+.active-order-sub {
+  margin: 0;
+  font-size: 12.5px;
+  color: #4B6350;
+  line-height: 1.4;
+}
+
+.active-order-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.btn-order-track {
+  padding: 7px 14px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: #2E7D32 !important;
+  border: 1px solid #2E7D32 !important;
+  border-radius: 4px !important;
+  transition: all 0.15s ease !important;
+}
+
+.btn-order-track:hover {
+  background: #E8F5E9 !important;
+}
+
+.btn-order-received {
+  padding: 7px 16px !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  color: #FFFFFF !important;
+  background: #2E7D32 !important;
+  border: 1px solid #2E7D32 !important;
+  border-radius: 4px !important;
+  transition: all 0.15s ease !important;
+}
+
+.btn-order-received:hover {
+  background: #1B5E20 !important;
+}
+
+/* ── 4. PHẦN VOUCHERS TRÊN DASHBOARD & TAB VOUCHER ───────────── */
+.dashboard-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.dashboard-section-head h3 {
+  font-family: var(--font-sans, system-ui, sans-serif);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink, #0E0E0E);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dashboard-section-head h3 i {
+  color: #8B5E34;
+}
+
+.see-all-link {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #8B5E34;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.see-all-link:hover {
+  color: #633F1F;
+  text-decoration: underline;
+}
+
+.dashboard-vouchers-section {
+  margin-bottom: 28px;
+}
+
+.vouchers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+/* Thẻ Voucher vé răng cưa cổ điển */
+.voucher-card-item {
+  background: #FFFFFF;
+  border: 1px solid var(--border, #E8E2D9);
+  border-radius: 8px;
+  display: flex;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(14, 14, 14, 0.03);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  position: relative;
+}
+
+.voucher-card-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(14, 14, 14, 0.06);
+}
+
+.voucher-left-stub {
+  width: 88px;
+  background: linear-gradient(135deg, #8B5E34 0%, #A67C52 100%);
+  color: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 14px 6px;
+  text-align: center;
+  position: relative;
+  border-right: 1px dashed rgba(255, 255, 255, 0.4);
+}
+
+.voucher-stub-badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.9;
+  margin-bottom: 2px;
+}
+
+.voucher-stub-val {
+  font-family: var(--font-serif, 'Cormorant Garamond', serif);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.voucher-right-body {
+  flex: 1;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.voucher-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink, #0E0E0E);
+  margin: 0 0 2px;
+  line-height: 1.3;
+}
+
+.voucher-spend {
+  font-size: 12px;
+  color: var(--muted, #8A8680);
+  margin: 0 0 4px;
+}
+
+.voucher-exp {
+  font-size: 11px;
+  color: #C2410C;
+  margin: 0 0 8px;
+}
+
+.voucher-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-voucher-copy {
+  padding: 4px 10px !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  color: var(--ink, #0E0E0E) !important;
+  border: 1px solid var(--border, #E8E2D9) !important;
+  border-radius: 4px !important;
+  background: var(--cream, #F7F4EF) !important;
+  transition: all 0.15s ease !important;
+}
+
+.btn-voucher-copy:hover {
+  background: var(--warm-pale, #F5EEE4) !important;
+  border-color: var(--warm, #C8A97E) !important;
+}
+
+.btn-voucher-use {
+  padding: 4px 12px !important;
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+  color: #FFFFFF !important;
+  background: var(--ink, #0E0E0E) !important;
+  border-radius: 4px !important;
+  transition: background 0.15s ease !important;
+}
+
+.btn-voucher-use:hover {
+  background: #333333 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   2. ORDERS TAB: QUẢN LÝ ĐƠN MUA CHUẨN SHOPEE (LUXURY STYLE)
+   ══════════════════════════════════════════════════════════════════ */
+
+/* Dải số liệu thống kê đơn */
 .profile-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-  gap: 1px;
-  background: var(--border);
-  border: 1px solid var(--border);
-  margin-bottom: 26px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .profile-stat {
-  background: var(--cream, #F7F4EF);
-  padding: 18px 20px;
-  min-width: 0;
+  background: #FFFFFF;
+  border: 1px solid var(--border, #E8E2D9);
+  border-radius: 8px;
+  padding: 14px 18px;
 }
 
 .profile-stat-value {
   display: block;
-  font-family: var(--font-serif);
-  font-size: 30px;
-  font-weight: 300;
+  font-family: var(--font-serif, 'Cormorant Garamond', serif);
+  font-size: 26px;
+  font-weight: 500;
+  color: var(--ink, #0E0E0E);
   line-height: 1.1;
-  font-variant-numeric: lining-nums tabular-nums;
 }
 
 .profile-stat-label {
   display: block;
-  margin-top: 6px;
-  font-size: 10.5px;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: var(--warm-text);
-}
-
-/* ── Bộ lọc đơn hàng ─────────────────────────────────────────── */
-.order-filter-row {
-  margin-bottom: 20px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
-  padding-bottom: 2px;
-}
-
-.order-filter-row::-webkit-scrollbar {
-  height: 0;
-}
-
-.order-filter-row .chip {
-  white-space: nowrap;
-}
-
-/* ── Thẻ đơn hàng ────────────────────────────────────────────── */
-.order-card-list {
-  display: grid;
-  gap: 14px;
-}
-
-.order-card-list .order-card {
-  margin-bottom: 0;
-}
-
-.order-card .order-id,
-.order-card .order-date {
-  margin: 0;
-}
-
-.order-card .order-date {
   margin-top: 4px;
+  font-size: 11.5px;
+  color: var(--muted, #8A8680);
 }
 
-.order-card-body {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
+/* Thanh Tabs trạng thái Shopee */
+.shopee-tabs-wrapper {
+  background: #FFFFFF;
+  border: 1px solid var(--border, #E8E2D9);
+  border-radius: 8px;
   margin-bottom: 16px;
+  overflow: hidden;
 }
 
-.order-card-body .order-total-text {
-  margin: 0 0 0 auto;
-  font-family: var(--font-serif);
-  font-variant-numeric: lining-nums tabular-nums;
-}
-
-.order-more {
-  align-self: flex-end;
-  min-width: 34px;
-  height: 58px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border-dark);
-  font-size: 12px;
-  color: var(--muted);
-  font-variant-numeric: lining-nums;
-}
-
-.order-card-foot {
+.shopee-tabs-nav {
   display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.shopee-tabs-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.shopee-tab-btn {
+  padding: 12px 18px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  color: var(--muted, #8A8680) !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  white-space: nowrap !important;
+  border-bottom: 2px solid transparent !important;
+  transition: all 0.15s ease !important;
+}
+
+.shopee-tab-btn i {
+  font-size: 14px;
+}
+
+.shopee-tab-btn:hover {
+  color: var(--ink, #0E0E0E) !important;
+}
+
+.shopee-tab-btn.active {
+  color: #8B5E34 !important;
+  font-weight: 600 !important;
+  border-bottom-color: #8B5E34 !important;
+  background: #FAF6F0 !important;
+}
+
+.shopee-tab-badge {
+  font-size: 10.5px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: #FAF3E8;
+  color: #8B5E34;
+  border: 1px solid rgba(200, 169, 126, 0.4);
+}
+
+/* Ô tìm kiếm đơn hàng Shopee */
+.shopee-order-search-box {
+  display: flex;
+  align-items: center;
+  background: #FFFFFF;
+  border: 1px solid var(--border, #E8E2D9);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin-bottom: 20px;
+  gap: 10px;
+}
+
+.shopee-order-search-box i {
+  color: var(--muted, #8A8680);
+  font-size: 14px;
+}
+
+.shopee-order-search-input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+  font-size: 13px;
+  width: 100%;
+  color: var(--ink, #0E0E0E);
+}
+
+.shopee-order-search-clear {
+  color: var(--muted, #8A8680) !important;
+  font-size: 14px !important;
+}
+
+/* Danh sách Card đơn hàng Shopee */
+.order-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.order-card-shopee {
+  background: #FFFFFF;
+  border: 1px solid var(--border, #E8E2D9);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 6px rgba(14, 14, 14, 0.02);
+}
+
+.order-shopee-head {
+  padding: 12px 18px;
+  background: #FAF8F5;
+  border-bottom: 1px solid #F0ECE6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
   gap: 10px;
 }
 
-/* ── Nút cảnh báo ────────────────────────────────────────────── */
-.btn-danger-outline {
-  color: var(--danger);
-  border-color: var(--danger);
-}
-
-.btn-danger-outline:hover,
-.btn-danger-outline:focus-visible {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: #fff;
-}
-
-.btn-lyra.btn-danger-solid {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: #fff;
-}
-
-.btn-lyra.btn-danger-solid:hover,
-.btn-lyra.btn-danger-solid:focus-visible {
-  background: #8A3030;
-  border-color: #8A3030;
-  color: #fff;
-}
-
-/* ── Nội dung modal ──────────────────────────────────────────── */
-.modal-text {
-  font-size: 13.5px;
-  line-height: 1.75;
-  color: var(--ink-2);
-  margin: 0 0 12px;
-}
-
-.modal-text:last-child {
-  margin-bottom: 0;
-}
-
-.modal-text.muted {
+.order-shop-tag {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 12.5px;
-  color: var(--muted);
 }
 
-/* ── Sổ địa chỉ ──────────────────────────────────────────────── */
-.address-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 270px), 1fr));
+.shop-mall-badge {
+  background: var(--ink, #0E0E0E);
+  color: #FFFFFF;
+  font-size: 9.5px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px;
+  letter-spacing: 0.06em;
+}
+
+.order-code {
+  font-weight: 600;
+  color: var(--ink, #0E0E0E);
+}
+
+.order-date-text {
+  color: var(--muted, #8A8680);
+}
+
+.order-status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.order-status-badge.delivered {
+  background: #E8F5E9;
+  color: #2E7D32;
+}
+
+.order-status-badge.shipping {
+  background: #EFF6FF;
+  color: #1D4ED8;
+}
+
+.order-status-badge.cancelled {
+  background: #FEE2E2;
+  color: #B91C1C;
+}
+
+.order-status-badge.pending,
+.order-status-badge.processing {
+  background: #FFFBEB;
+  color: #B45309;
+}
+
+.order-shopee-items {
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.order-shopee-item-row {
+  display: flex;
+  align-items: center;
   gap: 14px;
 }
 
-.address-card {
-  border: 1.5px solid var(--border);
-  padding: 20px;
-  min-width: 0;
-  transition: border-color var(--dur-1) var(--ease-out);
+.order-item-thumb {
+  width: 54px;
+  height: 64px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: #F5EEE4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.address-card:hover {
-  border-color: var(--border-dark);
+.order-item-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.order-item-thumb i {
+  font-size: 20px;
+  color: #8A8680;
+}
+
+.order-item-desc {
+  flex: 1;
+  min-width: 0;
+}
+
+.order-item-title {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--ink, #0E0E0E);
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.order-item-variant {
+  font-size: 12px;
+  color: var(--muted, #8A8680);
+  margin-bottom: 2px;
+}
+
+.order-item-qty {
+  font-size: 12px;
+  color: var(--muted, #8A8680);
+}
+
+.order-item-price-col {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.order-item-price {
+  font-family: var(--font-serif, 'Cormorant Garamond', serif);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink, #0E0E0E);
+}
+
+.order-shopee-footer {
+  padding: 14px 18px;
+  background: #FAF8F5;
+  border-top: 1px solid #F0ECE6;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.order-total-block {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.order-total-lbl {
+  font-size: 12.5px;
+  color: var(--muted, #8A8680);
+}
+
+.order-total-num {
+  font-family: var(--font-serif, 'Cormorant Garamond', serif);
+  font-size: 19px;
+  font-weight: 600;
+  color: #8B5E34;
+}
+
+.order-shopee-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-shopee-primary {
+  padding: 7px 16px !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  color: #FFFFFF !important;
+  background: #8B5E34 !important;
+  border-radius: 4px !important;
+  transition: background 0.15s ease !important;
+}
+
+.btn-shopee-primary:hover {
+  background: #6D4825 !important;
+}
+
+.btn-shopee-outline {
+  padding: 7px 14px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: var(--ink-soft, #2D2925) !important;
+  border: 1px solid var(--border, #E8E2D9) !important;
+  background: #FFFFFF !important;
+  border-radius: 4px !important;
+  transition: all 0.15s ease !important;
+}
+
+.btn-shopee-outline:hover {
+  background: var(--cream, #F7F4EF) !important;
+  border-color: #8B5E34 !important;
+  color: #8B5E34 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   3. MEMBERSHIP TAB: THẺ VIP GOLD ÁNH KIM & LYRA XU
+   ══════════════════════════════════════════════════════════════════ */
+.membership-gold-card {
+  background: linear-gradient(135deg, #1C1916 0%, #2A241B 50%, #171512 100%);
+  border-radius: 12px;
+  padding: 28px 32px;
+  color: #FFFFFF;
+  margin-bottom: 24px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(200, 169, 126, 0.35);
+  position: relative;
+  overflow: hidden;
+}
+
+.membership-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+
+.membership-brand {
+  font-family: var(--font-serif, 'Cormorant Garamond', serif);
+  font-size: 18px;
+  letter-spacing: 0.14em;
+  color: #E8D9C4;
+}
+
+.membership-chip {
+  width: 38px;
+  height: 28px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #D4AF37 0%, #AA8C2C 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1A1A1A;
+  font-size: 16px;
+}
+
+.membership-card-mid {
+  margin-bottom: 24px;
+}
+
+.membership-tier-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: #C8A97E;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.membership-card-number {
+  font-family: monospace;
+  font-size: 18px;
+  letter-spacing: 0.16em;
+  color: #F7F4EF;
+  margin: 0;
+}
+
+.membership-card-bot {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.membership-lbl {
+  font-size: 10px;
+  color: #A09C96;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: block;
+}
+
+.membership-val {
+  font-family: var(--font-serif, 'Cormorant Garamond', serif);
+  font-size: 15px;
+  color: #FFFFFF;
+  font-weight: 500;
+}
+
+/* Card Lyra Xu & Điểm danh */
+.lyra-coin-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border, #E8E2D9);
+  border-radius: 8px;
+  padding: 18px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 28px;
+  flex-wrap: wrap;
+}
+
+.coin-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.coin-icon-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #FEF3C7;
+  color: #D97706;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+
+.coin-balance {
+  font-family: var(--font-serif, 'Cormorant Garamond', serif);
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--ink, #0E0E0E);
+  margin: 0;
+  line-height: 1.1;
+}
+
+.coin-balance span {
+  font-size: 14px;
+  color: var(--muted, #8A8680);
+}
+
+.coin-sub {
+  font-size: 12px;
+  color: var(--muted, #8A8680);
+  margin: 2px 0 0;
+}
+
+.btn-checkin {
+  padding: 9px 18px !important;
+  font-size: 12.5px !important;
+  font-weight: 600 !important;
+  background: #8B5E34 !important;
+  color: #FFFFFF !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  transition: all 0.2s ease !important;
+}
+
+.btn-checkin:hover {
+  background: #6D4825 !important;
+}
+
+.btn-checkin.disabled {
+  background: #E5E0D8 !important;
+  color: #8A8680 !important;
+  cursor: default !important;
+}
+
+/* Lưới 4 đặc quyền VIP */
+.membership-perks-section h3.perks-title {
+  font-family: var(--font-serif, 'Cormorant Garamond', serif);
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--ink, #0E0E0E);
+  margin: 0 0 16px;
+}
+
+.membership-perks-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.perk-box {
+  background: #FFFFFF;
+  border: 1px solid var(--border, #E8E2D9);
+  border-radius: 8px;
+  padding: 18px;
+}
+
+.perk-icon {
+  font-size: 24px;
+  color: #8B5E34;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.perk-box h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink, #0E0E0E);
+  margin: 0 0 4px;
+}
+
+.perk-box p {
+  font-size: 12px;
+  color: var(--muted, #8A8680);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   4. PAYMENT CARDS TAB: THẺ & NGÂN HÀNG LIÊN KẾT
+   ══════════════════════════════════════════════════════════════════ */
+.payment-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.payment-card-box {
+  background: #FFFFFF;
+  border: 1px solid var(--border, #E8E2D9);
+  border-radius: 8px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 140px;
+  transition: border-color 0.2s;
+}
+
+.payment-card-box.is-default {
+  border-color: #8B5E34;
+  background: #FAF8F5;
+}
+
+.payment-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.payment-bank-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink, #0E0E0E);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.payment-default-badge {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #8B5E34;
+  background: #FAF3E8;
+  padding: 2px 7px;
+  border-radius: 10px;
+  border: 1px solid rgba(200, 169, 126, 0.4);
+}
+
+.payment-card-num {
+  font-family: monospace;
+  font-size: 16px;
+  color: var(--ink, #0E0E0E);
+  margin: 14px 0 10px;
+  letter-spacing: 0.12em;
+}
+
+.payment-card-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--muted, #8A8680);
+}
+
+.payment-card-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid #F0ECE6;
+}
+
+.btn-card-action {
+  font-size: 12px !important;
+  color: var(--muted, #8A8680) !important;
+  cursor: pointer !important;
+  transition: color 0.15s !important;
+}
+
+.btn-card-action:hover {
+  color: var(--ink, #0E0E0E) !important;
+}
+
+.btn-card-action.danger {
+  color: var(--danger, #A84444) !important;
+}
+
+.btn-card-action.danger:hover {
+  color: #B91C1C !important;
+}
+
+.add-card-placeholder {
+  border: 1px dashed var(--border, #E8E2D9);
+  border-radius: 8px;
+  background: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 140px;
+  cursor: pointer;
+  color: var(--muted, #8A8680);
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+.add-card-placeholder:hover {
+  border-color: #8B5E34;
+  color: #8B5E34;
+  background: #FAF8F5;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   5. ADDRESS, PROFILE & PASSWORD FORMS
+   ══════════════════════════════════════════════════════════════════ */
+.address-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.address-card {
+  background: #FFFFFF;
+  border: 1px solid var(--border, #E8E2D9);
+  border-radius: 8px;
+  padding: 18px;
 }
 
 .address-card.is-default {
-  border-color: var(--warm-deep);
+  border-color: #8B5E34;
+  background: #FAF8F5;
 }
 
 .address-card-top {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
   margin-bottom: 8px;
 }
 
 .address-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink, #0E0E0E);
   margin: 0;
-  font-size: 13.5px;
-  font-weight: 500;
 }
 
 .address-badge {
-  flex: none;
-  font-size: 10px;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  padding: 3px 9px;
-  background: var(--warm-pale);
-  color: var(--warm-text);
-  border: 1px solid var(--warm-light);
-  white-space: nowrap;
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #8B5E34;
+  background: #FAF3E8;
+  padding: 2px 7px;
+  border-radius: 10px;
 }
 
 .address-lines {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.8;
-  color: var(--ink-2);
-  overflow-wrap: anywhere;
+  font-size: 13px;
+  color: var(--muted, #8A8680);
+  margin: 0 0 14px;
+  line-height: 1.5;
 }
 
 .address-actions {
   display: flex;
-  flex-wrap: wrap;
   gap: 8px;
-  margin-top: 16px;
 }
 
-.address-form .field-block {
-  margin-bottom: 4px;
+/* Form Styles */
+.field-block {
+  margin-bottom: 16px;
 }
 
-/* ── Biểu mẫu hồ sơ / mật khẩu ───────────────────────────────── */
-.profile-form {
-  max-width: 560px;
+.form-field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted, #8A8680);
+  margin-bottom: 6px;
 }
 
-.profile-form-actions {
+.form-field-input {
+  width: 100%;
+  padding: 10px 14px;
+  background: #FFFFFF;
+  border: 1px solid var(--border, #E8E2D9);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 13.5px;
+  color: var(--ink, #0E0E0E);
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-field-input:focus {
+  border-color: var(--warm, #C8A97E);
+  box-shadow: 0 0 0 2px rgba(200, 169, 126, 0.2);
+}
+
+.password-wrap {
+  position: relative;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted, #8A8680) !important;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.password-strength-bar {
+  height: 4px;
+  background: #E5E7EB;
+  border-radius: 2px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.password-strength-fill {
+  height: 100%;
+  transition: width 0.3s, background-color 0.3s;
+}
+
+.password-strength-fill.weak { width: 33%; background: #EF4444; }
+.password-strength-fill.medium { width: 66%; background: #F59E0B; }
+.password-strength-fill.strong { width: 100%; background: #10B981; }
+
+/* Filter chips */
+.voucher-filters {
   display: flex;
+  gap: 8px;
   flex-wrap: wrap;
-  gap: 10px;
-  margin-top: 20px;
 }
 
-.profile-form-note {
-  margin: 14px 0 0;
-  font-size: 11.5px;
-  line-height: 1.7;
-  color: var(--muted);
-  max-width: 52ch;
+.voucher-filters .chip {
+  padding: 6px 14px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: var(--muted, #8A8680) !important;
+  background: #FFFFFF !important;
+  border: 1px solid var(--border, #E8E2D9) !important;
+  border-radius: 20px !important;
+  transition: all 0.15s ease !important;
 }
 
-/* ── Lưới yêu thích trong khung tài khoản ────────────────────── */
-.profile-content .products-grid {
-  margin-bottom: 4px;
+.voucher-filters .chip:hover {
+  border-color: #8B5E34 !important;
+  color: #8B5E34 !important;
 }
 
-/* ── Responsive ──────────────────────────────────────────────── */
-@media (max-width: 1024px) {
-  .profile-side-inner {
+.voucher-filters .chip.is-active {
+  background: #FAF6F0 !important;
+  border-color: #8B5E34 !important;
+  color: #8B5E34 !important;
+  font-weight: 600 !important;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   6. RESPONSIVE DESIGN (TABLET & MOBILE)
+   ══════════════════════════════════════════════════════════════════ */
+@media (max-width: 992px) {
+  .profile-layout {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+
+  .profile-sidebar {
     position: static;
   }
 
-  .profile-side-foot {
-    margin-top: 12px;
-    padding-top: 12px;
-    flex-direction: row;
-    flex-wrap: wrap;
-  }
-
-  .profile-side-foot .profile-nav-item {
-    width: auto;
+  .profile-quick-stats-row {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 576px) {
-  .profile-head {
-    padding-top: 28px;
+@media (max-width: 768px) {
+  .order-quick-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
   }
 
   .profile-stats {
-    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+    grid-template-columns: 1fr;
   }
 
-  .profile-stat {
-    padding: 14px;
+  .vouchers-grid {
+    grid-template-columns: 1fr;
   }
 
-  .profile-stat-value {
-    font-size: 25px;
+  .profile-hero-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .order-quick-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 
-  .order-card-body .order-total-text {
-    margin-left: 0;
-    width: 100%;
-  }
-
-  .order-card-foot .btn-outline-lyra {
-    flex: 1 1 140px;
-  }
-
-  .address-actions .btn-outline-lyra {
-    flex: 1 1 100px;
+  .profile-quick-stats-row {
+    grid-template-columns: 1fr;
   }
 }

@@ -29,9 +29,9 @@ export function normalizeOrder(raw, user = null) {
     paymentStatus: raw?.paymentStatus || 'UNPAID',
     paymentUrl: raw?.paymentUrl || null,
     total,
-    subtotal: total,
-    shipping: 0,
-    discount: 0,
+    subtotal: Number(raw?.subtotalAmount ?? total),
+    shipping: Number(raw?.shippingFee ?? 0),
+    discount: Number(raw?.discountAmount ?? 0),
     items,
     note: raw?.note || '',
     address: {

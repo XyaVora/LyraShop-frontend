@@ -8,6 +8,7 @@ const CartContext = createContext(null);
 export function CartProvider({ children }) {
   const { isLoggedIn, user, navigate } = useApp();
   const [cart, setCart] = useState([]);
+  const [cartPricing, setCartPricing] = useState({ subtotal: 0, discount: 0, shipping: 0, total: 0 });
   const [cartLoading, setCartLoading] = useState(false);
   const [wishlist, setWishlist] = useState([]);
   const [wishlistLoading, setWishlistLoading] = useState(false);
@@ -47,6 +48,13 @@ export function CartProvider({ children }) {
   const applyCartResponse = useCallback((data) => {
     const next = (data?.items || []).map(item => normalizeCartItem(item, variantCatalog.current));
     setCart(next);
+    const fallbackSubtotal = next.reduce((sum, item) => sum + item.price * item.qty, 0);
+    setCartPricing({
+      subtotal: Number(data?.subtotalAmount ?? fallbackSubtotal),
+      discount: Number(data?.discountAmount ?? 0),
+      shipping: Number(data?.shippingFee ?? 0),
+      total: Number(data?.totalAmount ?? fallbackSubtotal),
+    });
     return next;
   }, []);
 
@@ -75,6 +83,7 @@ export function CartProvider({ children }) {
   useEffect(() => {
     if (!isLoggedIn) {
       setCart([]);
+      setCartPricing({ subtotal: 0, discount: 0, shipping: 0, total: 0 });
       variantCatalog.current = new Map();
       return;
     }
@@ -158,6 +167,7 @@ export function CartProvider({ children }) {
     try {
       await cartApi.clear();
       setCart([]);
+      setCartPricing({ subtotal: 0, discount: 0, shipping: 0, total: 0 });
     } catch (error) {
       showToast(extractErrorMessage(error, 'Không thể xóa giỏ hàng'), 'bi-x-circle');
       throw error;
@@ -189,11 +199,7 @@ export function CartProvider({ children }) {
   const isWishlisted = useCallback((id) => wishlist.some(p => p.id === id), [wishlist]);
 
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
-  const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
-  // Backend hiện chưa có phí vận chuyển trong mô hình đơn hàng.
-  const shipping = 0;
-  const discount = 0;
-  const total = subtotal;
+  const { subtotal, shipping, discount, total } = cartPricing;
 
   return (
     <CartContext.Provider value={{

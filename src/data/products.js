@@ -9,6 +9,10 @@ export const fmt = (n) => {
   return num.toLocaleString('vi-VN') + 'đ';
 };
 
+/** Ngưỡng miễn phí vận chuyển mặc định (500.000₫) */
+export const FREE_SHIPPING_THRESHOLD = 500000;
+export const PRODUCTS = [];
+
 /**
  * Map icon Bootstrap theo tên danh mục (fallback khi backend không trả về icon).
  * Backend không có trường icon/color, ta map theo slug/name.

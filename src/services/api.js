@@ -234,6 +234,8 @@ export const wishlistApi = {
   add: (productId) => api.post('/wishlist/items', { productId }),
   remove: (productId) => api.delete(`/wishlist/items/${productId}`),
   clear: () => api.delete('/wishlist'),
+  share: () => api.post('/wishlist/share'),
+  shared: (shareId) => api.get(`/wishlist/shared/${shareId}`),
 };
 
 /* ── Shipping addresses API contract ─────────── */
@@ -248,6 +250,14 @@ export const addressApi = {
 /* ── Active sale/promotion API contract ──────── */
 export const promotionApi = {
   active: () => api.get('/promotions/active'),
+};
+
+export const brandApi = { get: () => api.get('/brand') };
+export const searchHistoryApi = {
+  list: () => api.get('/search-history'),
+  add: (query) => api.post('/search-history', { query }),
+  remove: (query) => api.delete('/search-history/item', { params: { query } }),
+  clear: () => api.delete('/search-history'),
 };
 
 /* ── Products API ────────────────────────────── */
@@ -284,7 +294,17 @@ export const productApi = {
    *             variants: [{ id, sku, size, color, price, stock }] }
    */
   get: (id) => getProductDetail(id),
+  featured: async (size = 4) => hydrateProductArray(await api.get('/products/featured', { params: { size } })),
+  related: async (id, size = 4) => hydrateProductArray(await api.get(`/products/${id}/related`, { params: { size } })),
 };
+
+async function hydrateProductArray(response) {
+  const summaries = Array.isArray(response.data) ? response.data : [];
+  const details = await Promise.allSettled(summaries.map(product => getProductDetail(product.id)));
+  return { ...response, data: summaries.map((product, index) =>
+    details[index]?.status === 'fulfilled' ? details[index].value.data : product
+  ) };
+}
 
 /* ── Categories API ──────────────────────────── */
 export const categoryApi = {
