@@ -3,7 +3,7 @@
 // · mới về · đã xem gần đây · cảm nhận · #LYRAstyle · cam kết + newsletter + footer.
 // Mọi con số quảng cáo đều TÍNH TỪ DỮ LIỆU trong src/data/products.js.
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { useCatalog } from '../context/CatalogContext';
@@ -81,8 +81,7 @@ function toDMY(iso) {
 
 export default function HomePage() {
   const { navigate } = useApp();
-  const { recentlyViewed = [], addToCart } = useCart();
-  const [saleActive, setSaleActive] = useState(0);
+  const { recentlyViewed = [] } = useCart();
   const { products, categories, empty: catalogEmpty } = useCatalog();
 
   const featured = useMemo(
@@ -132,7 +131,7 @@ export default function HomePage() {
     <div className="home-page">
       {/* ── 1. HERO + MARQUEE: vừa một viewport ────────────────── */}
       <div className="home-screen home-screen-hero">
-      <section className={`hero home-hero${salePicks.length ? ' has-topsale' : ''}`} aria-labelledby="home-hero-title">
+      <section className="hero home-hero" aria-labelledby="home-hero-title">
         <div className="hero-media">
           <Pic
             src={HERO_IMG}
@@ -168,38 +167,14 @@ export default function HomePage() {
           </div>
         </div>
 
-        {salePicks.length > 0 ? (
-          <button
-            type="button"
-            className="hero-badge"
-            onClick={() => setSaleActive((i) => (i + 1) % salePicks.length)}
-            aria-controls="home-topsale"
-            title="Xem món sale tiếp theo"
-          >
-            <div className="hero-badge-label">Giảm đến</div>
-            <div className="hero-badge-value">{maxOff}%</div>
-          </button>
-        ) : (
-          <div className="hero-badge">
-            <div className="hero-badge-label">Giảm đến</div>
-            <div className="hero-badge-value">{maxOff}%</div>
-          </div>
-        )}
+        <div className="hero-badge">
+          <div className="hero-badge-label">Giảm đến</div>
+          <div className="hero-badge-value">{maxOff}%</div>
+        </div>
 
         <div className="hero-scroll" aria-hidden="true">
           Cuộn xuống
         </div>
-
-        {salePicks.length > 0 && (
-          <HomeTopSale
-            picks={salePicks}
-            active={saleActive % salePicks.length}
-            onActiveChange={setSaleActive}
-            addToCart={addToCart}
-            navigate={navigate}
-            maxOff={maxOff}
-          />
-        )}
       </section>
 
       {/* ── 2. MARQUEE ─────────────────────────────────────────── */}
@@ -572,92 +547,4 @@ export default function HomePage() {
       <Footer />
     </div>
   );
-}
-
-function HomeTopSale({ picks, active, onActiveChange, addToCart, navigate, maxOff }) {
-  const total = picks.length;
-  const goTo = (index) => onActiveChange((index + total) % total);
-
-  const openProduct = (product) => (e) => {
-    if (isModifiedClick(e)) return;
-    e.preventDefault();
-    navigate('detail', { product });
-  };
-
-  return (
-    <aside
-      id="home-topsale"
-      className="home-topsale"
-      aria-label="Top sale — món giảm sâu nhất"
-      onKeyDown={(e) => {
-        if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); goTo(active - 1); }
-        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); goTo(active + 1); }
-      }}
-    >
-      <header className="home-topsale-head">
-        <div>
-          <p className="eyebrow">Top sale</p>
-          <p className="home-topsale-kicker">Giảm đến {maxOff}%</p>
-        </div>
-        <a className="link-underline home-topsale-all" href={buildUrl('sale')} onClick={openSale}>
-          Tất cả
-        </a>
-      </header>
-
-      <div className="home-topsale-list">
-        {picks.map((product, i) => {
-          const images = Array.isArray(product.images) ? product.images : [];
-          const href = buildUrl('detail', { product: product.slug || product.id });
-          const isOn = i === active;
-          return (
-            <article
-              key={product.id}
-              className={`home-topsale-item${isOn ? ' is-on' : ''}`}
-              onClick={() => goTo(i)}
-            >
-              <a className="home-topsale-media" href={href} onClick={openProduct(product)} tabIndex={-1} aria-hidden="true">
-                <Pic
-                  src={images[0]}
-                  alt=""
-                  tint={product.color}
-                  icon={product.icon}
-                  ratio="3/4"
-                  sizes="120px"
-                />
-                {images[1] && (
-                  <Pic src={images[1]} alt="" tint={product.color} icon={product.icon} ratio="3/4" className="pic--hover" />
-                )}
-                {product.discount > 0 && (
-                  <span className="home-topsale-off">−{product.discount}%</span>
-                )}
-              </a>
-              <div className="home-topsale-info">
-                <p className="home-topsale-cat">{product.cat}</p>
-                <a className="home-topsale-name" href={href} onClick={openProduct(product)}>{product.name}</a>
-                <div className="home-topsale-price">
-                  <span>{fmt(product.price)}</span>
-                  {product.oldPrice > product.price && (
-                    <span className="home-topsale-old">{fmt(product.oldPrice)}</span>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  className="btn-lyra"
-                  onClick={(e) => { e.stopPropagation(); addToCart(product, 1); }}
-                >
-                  <i className="bi bi-bag-plus" aria-hidden="true" /> Thêm giỏ
-                </button>
-              </div>
-            </article>
-          );
-        })}
-      </div>
-    </aside>
-  );
-
-  function openSale(e) {
-    if (isModifiedClick(e)) return;
-    e.preventDefault();
-    navigate('sale');
-  }
 }
