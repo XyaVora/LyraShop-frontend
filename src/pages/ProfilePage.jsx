@@ -6,7 +6,8 @@ import { fmt } from '../data/products';
 import { normalizeOrder } from '../data/orders';
 import { addressApi, extractErrorMessage, orderApi } from '../services/api';
 import { isPhone, normPhone } from '../utils/validate';
-import { Footer, ProductCard } from '../components/index.jsx';
+import { buildUrl } from '../router.js';
+import { Footer, Pic, ProductCard, Stars, isModifiedClick } from '../components/index.jsx';
 import Modal from '../components/Modal.jsx';
 import '../styles/profile.css';
 
@@ -1414,6 +1415,15 @@ function PaymentCardsTab({ showToast }) {
 
 /* ══════════════ Tab 6: Yêu thích (WishlistTab) ══════════════ */
 function WishlistTab({ wishlist, loading, error, refreshWishlist, toggleWishlist, addToCart, navigate }) {
+  const totalValue = useMemo(
+    () => wishlist.reduce((sum, p) => sum + Number(p.price || 0), 0),
+    [wishlist],
+  );
+  const totalSaving = useMemo(
+    () => wishlist.reduce((sum, p) => sum + Math.max(0, Number(p.oldPrice || 0) - Number(p.price || 0)), 0),
+    [wishlist],
+  );
+
   return (
     <>
       <TabHead
@@ -1433,94 +1443,159 @@ function WishlistTab({ wishlist, loading, error, refreshWishlist, toggleWishlist
           <button className="btn-outline-lyra" onClick={() => refreshWishlist()}>Thử lại</button>
         </div>
       ) : wishlist.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--muted)' }}>
-          <i className="bi bi-heart" style={{ fontSize: 40, display: 'block', marginBottom: 12, opacity: 0.35 }} />
-          <div>Chưa có sản phẩm nào trong danh sách yêu thích</div>
-          <button className="btn-lyra mt-3" onClick={() => navigate('shop')}>
+        <div className="profile-wish-empty">
+          <i className="bi bi-heart" aria-hidden="true" />
+          <p>Chưa có sản phẩm nào trong danh sách yêu thích</p>
+          <button className="btn-lyra" onClick={() => navigate('shop')}>
             Khám phá bộ sưu tập ngay
           </button>
         </div>
       ) : (
-        <div className="row g-3">
-          {wishlist.map((p) => (
-            <div key={p.id} className="col-sm-6">
-              <div
-                style={{
-                  border: '1px solid var(--border)',
-                  padding: 16,
-                  display: 'flex',
-                  gap: 14,
-                  alignItems: 'center',
-                }}
-              >
-                <div
-                  style={{
-                    width: 60,
-                    height: 72,
-                    background: p.color,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    cursor: 'pointer',
-                    overflow: 'hidden',
-                  }}
-                  onClick={() => navigate('detail', { product: p })}
-                >
-                  {p.image ? (
-                    <img
-                      src={p.image}
-                      alt={p.name}
-                      loading="lazy"
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                    />
-                  ) : (
-                    <i className={`bi ${p.icon || 'bi-bag'}`} style={{ fontSize: 22, opacity: 0.3 }} />
-                  )}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      fontWeight: 500,
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                    }}
-                  >
-                    {p.name}
-                  </div>
-                  <div style={{ fontFamily: 'var(--font-serif)', fontSize: 14, margin: '4px 0' }}>
-                    {fmt(p.price)}
-                  </div>
-                  <div className="d-flex gap-2">
-                    <button
-                      className="btn-lyra"
-                      style={{ padding: '4px 10px', fontSize: 11 }}
-                      onClick={() => addToCart(p)}
-                    >
-                      + Giỏ hàng
-                    </button>
-                    <button
-                      style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--muted)',
-                        cursor: 'pointer',
-                        fontSize: 14,
-                      }}
-                      onClick={() => toggleWishlist(p)}
-                    >
-                      <i className="bi bi-trash" />
-                    </button>
-                  </div>
-                </div>
-              </div>
+        <>
+          <div className="profile-wish-stats" aria-label="Tóm tắt danh sách yêu thích">
+            <div className="profile-wish-stat">
+              <span className="profile-wish-stat-label">Đã lưu</span>
+              <span className="profile-wish-stat-value">{wishlist.length}</span>
             </div>
-          ))}
-        </div>
+            <div className="profile-wish-stat">
+              <span className="profile-wish-stat-label">Tổng giá trị</span>
+              <span className="profile-wish-stat-value">{fmt(totalValue)}</span>
+            </div>
+            <div className="profile-wish-stat">
+              <span className="profile-wish-stat-label">Đang tiết kiệm</span>
+              <span className="profile-wish-stat-value">{totalSaving ? fmt(totalSaving) : '—'}</span>
+            </div>
+          </div>
+
+          <div className="profile-wish-toolbar">
+            <button type="button" className="btn-lyra" onClick={() => wishlist.forEach((p) => addToCart(p, 1, undefined, undefined, { openDrawer: false }))}>
+              <i className="bi bi-bag-plus" aria-hidden="true" /> Thêm tất cả vào giỏ
+            </button>
+            <button type="button" className="btn-outline-lyra" onClick={() => navigate('wishlist')}>
+              Mở danh sách đầy đủ
+            </button>
+          </div>
+
+          <div className="profile-wish-list">
+            {wishlist.map((p) => (
+              <ProfileWishCard
+                key={p.id}
+                product={p}
+                onOpen={() => navigate('detail', { product: p })}
+                onAdd={() => addToCart(p)}
+                onRemove={() => toggleWishlist(p)}
+              />
+            ))}
+          </div>
+        </>
       )}
     </>
+  );
+}
+
+function ProfileWishCard({ product: p, onOpen, onAdd, onRemove }) {
+  const href = buildUrl('detail', { product: p.slug || p.id });
+  const images = Array.isArray(p.images) && p.images.length
+    ? p.images
+    : (p.image ? [p.image] : []);
+  const colors = Array.isArray(p.colors) ? p.colors : [];
+  const discount = p.discount || (p.oldPrice > p.price
+    ? Math.round((1 - p.price / p.oldPrice) * 100)
+    : 0);
+  const inStock = Number(p.stock) > 0;
+
+  const open = (e) => {
+    if (isModifiedClick(e)) return;
+    e.preventDefault();
+    onOpen();
+  };
+
+  return (
+    <article className="profile-wish-card">
+      <a className="profile-wish-media" href={href} onClick={open} tabIndex={-1} aria-hidden="true">
+        <Pic
+          src={images[0]}
+          alt={p.name}
+          tint={p.color}
+          icon={p.icon}
+          ratio="3/4"
+          sizes="(max-width: 700px) 40vw, 180px"
+        />
+        {images[1] && (
+          <Pic src={images[1]} alt="" tint={p.color} icon={p.icon} ratio="3/4" className="pic--hover" />
+        )}
+        {p.badge && (
+          <span className={`profile-wish-badge${String(p.badge).toLowerCase() === 'sale' ? ' is-sale' : ''}`}>
+            {p.badge}
+          </span>
+        )}
+      </a>
+
+      <div className="profile-wish-body">
+        <div className="profile-wish-kicker">
+          <span>{[p.brand, p.cat].filter(Boolean).join(' · ') || 'LYRA'}</span>
+          {p.sold ? <span>{p.sold} đã bán</span> : null}
+        </div>
+
+        <a className="profile-wish-name" href={href} onClick={open}>{p.name}</a>
+
+        <div className="profile-wish-rating">
+          <Stars rating={p.rating} size={11} />
+          <span>{Number(p.rating || 0).toFixed(1)}</span>
+          {p.reviews ? <span>({p.reviews} đánh giá)</span> : null}
+        </div>
+
+        <div className="profile-wish-price-row">
+          <span className="profile-wish-price">{fmt(p.price)}</span>
+          {p.oldPrice > p.price && (
+            <>
+              <span className="profile-wish-price-old">{fmt(p.oldPrice)}</span>
+              {discount > 0 && <span className="profile-wish-off">−{discount}%</span>}
+            </>
+          )}
+        </div>
+
+        {p.desc && <p className="profile-wish-desc">{p.desc}</p>}
+
+        {colors.length > 0 && (
+          <div className="profile-wish-colors" aria-label="Màu sắc">
+            {colors.map((c) => (
+              <span
+                key={c.name || c.hex}
+                className="profile-wish-swatch"
+                style={{ background: c.hex || c.color || '#E4DAD0' }}
+                title={c.name}
+              />
+            ))}
+          </div>
+        )}
+
+        <p className={`profile-wish-stock${inStock ? '' : ' is-out'}${inStock && p.stock <= 5 ? ' is-low' : ''}`}>
+          {inStock
+            ? (p.stock <= 5 ? `Chỉ còn ${p.stock} sản phẩm` : `Còn hàng · ${p.stock} sản phẩm`)
+            : 'Tạm hết hàng'}
+        </p>
+
+        {p.material && <p className="profile-wish-meta">Chất liệu: {p.material}</p>}
+
+        <div className="profile-wish-actions">
+          <button type="button" className="btn-lyra" onClick={onAdd} disabled={!inStock}>
+            <i className="bi bi-bag-plus" aria-hidden="true" /> Thêm vào giỏ
+          </button>
+          <a className="btn-outline-lyra" href={href} onClick={open}>
+            Xem chi tiết
+          </a>
+          <button
+            type="button"
+            className="profile-wish-remove"
+            onClick={onRemove}
+            aria-label={`Bỏ ${p.name} khỏi danh sách yêu thích`}
+          >
+            <i className="bi bi-heart-fill" aria-hidden="true" /> Bỏ lưu
+          </button>
+        </div>
+      </div>
+    </article>
   );
 }
 
