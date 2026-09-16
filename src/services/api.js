@@ -216,6 +216,15 @@ export const profileApi = {
   update: (payload) => api.put('/me', payload),
 };
 
+/* ── Shipping addresses — requires CUSTOMER or ADMIN ── */
+export const addressApi = {
+  list: () => api.get('/addresses'),
+  create: (payload) => api.post('/addresses', payload),
+  update: (id, payload) => api.put(`/addresses/${id}`, payload),
+  remove: (id) => api.delete(`/addresses/${id}`),
+  setDefault: (id) => api.patch(`/addresses/${id}/default`),
+};
+
 /* ── Reviews ─────────────────────────────────── */
 export const reviewApi = {
   list: (productId) => api.get(`/products/${productId}/reviews`),

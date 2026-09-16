@@ -510,6 +510,10 @@ export function CartProvider({ children }) {
     [wishlistIds],
   );
 
+  const wishlistLoading = false;
+  const wishlistError = '';
+  const refreshWishlist = useCallback(async () => {}, []);
+
   const toggleWishlist = useCallback((product, { silent = false } = {}) => {
     if (!product) return;
     // Quyết định TRƯỚC khi gọi setState để không đặt side effect trong updater.
@@ -784,7 +788,7 @@ export function CartProvider({ children }) {
     cart, cartCount, subtotal, shipping, discount, total, freeShipRemaining, freeShipping, couponEligible,
     addToCart, removeFromCart, updateQty, setQty, clearCart,
     cartOpen, openCart, closeCart,
-    wishlist, toggleWishlist, isWishlisted,
+    wishlist, wishlistLoading, wishlistError, refreshWishlist, toggleWishlist, isWishlisted,
     coupon, applyCoupon, removeCoupon,
     toasts, showToast, dismissToast,
     orders, allOrders, placeOrder, cancelOrder, updateOrderStatus, getOrder, loadOrder,
@@ -794,7 +798,7 @@ export function CartProvider({ children }) {
     cart, cartCount, subtotal, shipping, discount, total, freeShipRemaining, freeShipping, couponEligible,
     addToCart, removeFromCart, updateQty, setQty, clearCart,
     cartOpen, openCart, closeCart,
-    wishlist, toggleWishlist, isWishlisted,
+    wishlist, refreshWishlist, toggleWishlist, isWishlisted,
     coupon, applyCoupon, removeCoupon,
     toasts, showToast, dismissToast,
     orders, allOrders, placeOrder, cancelOrder, updateOrderStatus, getOrder, loadOrder,

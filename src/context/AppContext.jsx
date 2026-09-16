@@ -94,6 +94,9 @@ export function AppProvider({ children }) {
     }
     // order luôn lưu trong URL ở dạng không có '#'.
     if (next.order !== undefined && next.order !== null && next.order !== '') {
+      if (typeof next.order === 'object') {
+        next.order = next.order.id || next.order.displayId || '';
+      }
       next.order = String(next.order).replace(/^#/, '');
     }
 
@@ -143,7 +146,7 @@ export function AppProvider({ children }) {
     [params.order],
   );
   const searchQuery = params.q || '';
-  const profileTab = params.tab || 'orders';
+  const profileTab = params.tab || 'dashboard';
 
   // Tiêu đề tài liệu theo trang (kèm tên sản phẩm / danh mục / từ khoá).
   useEffect(() => {
@@ -288,6 +291,11 @@ export function AppProvider({ children }) {
     });
   }, [persistUser]);
 
+  /** Chữ ký UI tài khoản trên main: updateProfile(fullName, phone). */
+  const updateProfile = useCallback(async (fullName, phone = null) => {
+    await updateUser({ name: fullName, fullName, phone });
+  }, [updateUser]);
+
   const value = useMemo(() => ({
     // định tuyến
     currentPage, params, pathname, navigate,
@@ -296,11 +304,11 @@ export function AppProvider({ children }) {
     user,
     isLoggedIn: Boolean(user),
     authLoading,
-    login, register, logout, updateUser,
+    login, register, logout, updateUser, updateProfile,
   }), [
     currentPage, params, pathname, navigate,
     selectedProduct, selectedOrder, searchQuery, profileTab,
-    user, authLoading, login, register, logout, updateUser,
+    user, authLoading, login, register, logout, updateUser, updateProfile,
   ]);
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
