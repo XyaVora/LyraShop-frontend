@@ -1,43 +1,61 @@
-// src/components/Navbar.jsx
-import { useState, useEffect, useRef } from 'react';
+// src/components/Navbar.jsx — thanh điều hướng chính (cố định trên đầu trang).
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
+import { buildUrl } from '../router.js';
+import { useScrollDirection } from '../hooks/useScrollDirection';
+import { useBodyScrollLock, useDialogA11y, isModifiedClick } from './index.jsx';
 import SearchModal from './SearchModal';
-import '../styles/navigation.css';
+import '../styles/components.css';
+
+const NAV_LINKS = [
+  { label: 'Trang chủ', page: 'home' },
+  { label: 'Shop', page: 'shop' },
+  { label: 'Sale', page: 'sale' },
+  { label: 'Mới về', page: 'new' },
+  { label: 'Thương hiệu', page: 'brands' },
+];
 
 export default function Navbar() {
-  const { currentPage, navigate, isLoggedIn, user, logout } = useApp();
-  const { cartCount, wishlist } = useCart();
-  const [scrolled, setScrolled]               = useState(false);
-  const [drawerOpen, setDrawerOpen]           = useState(false);
-  const [prevCount, setPrevCount]             = useState(0);
-  const [badgeBounce, setBadgeBounce]         = useState(false);
-  const [searchOpen, setSearchOpen]           = useState(false);
-  const [megaMenuOpen, setMegaMenuOpen]       = useState(false);
-  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
-  const [showTopBar, setShowTopBar]           = useState(true);
+  const { currentPage, navigate, isLoggedIn, user } = useApp();
+  const { cartCount = 0, wishlist = [], openCart } = useCart();
+  const { compact, hidden } = useScrollDirection();
 
-  const userDropdownRef = useRef(null);
-  const megaMenuRef = useRef(null);
+  const [scrolled, setScrolled] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [badgeBounce, setBadgeBounce] = useState(false);
 
+  const prevCount = useRef(cartCount);   // seed = số hiện tại → không nhảy khi tải lại trang
+  const searchBtnRef = useRef(null);
+  const drawerRef = useRef(null);
+
+  const links = NAV_LINKS;
+
+  /* Đổ bóng khi cuộn */
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
-    window.addEventListener('scroll', onScroll);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  /* Hiệu ứng nảy của badge giỏ — chỉ khi số lượng THỰC SỰ tăng, có dọn timer */
   useEffect(() => {
-    if (cartCount > prevCount) {
+    if (cartCount > prevCount.current) {
       setBadgeBounce(true);
-      setTimeout(() => setBadgeBounce(false), 500);
+      prevCount.current = cartCount;
+      const t = setTimeout(() => setBadgeBounce(false), 500);
+      return () => clearTimeout(t);
     }
-    setPrevCount(cartCount);
-  }, [cartCount, prevCount]);
+    prevCount.current = cartCount;
+    return undefined;
+  }, [cartCount]);
 
-  // Ctrl+K / Cmd+K open search
+  /* Ctrl/Cmd + K mở tìm kiếm (không phụ thuộc Caps Lock) */
   useEffect(() => {
     const handler = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      if ((e.ctrlKey || e.metaKey) && typeof e.key === 'string' && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         setSearchOpen(true);
       }
@@ -46,335 +64,179 @@ export default function Navbar() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  // Click outside to close user dropdown & mega menu
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (userDropdownRef.current && !userDropdownRef.current.contains(e.target)) {
-        setUserDropdownOpen(false);
-      }
-      if (megaMenuRef.current && !megaMenuRef.current.contains(e.target)) {
-        setMegaMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+  /* Điều hướng → luôn đóng drawer mobile */
+  const go = useCallback(
+    (e, page, params) => {
+      if (e && isModifiedClick(e)) return;
+      e?.preventDefault();
+      setDrawerOpen(false);
+      navigate(page, params || {});
+    },
+    [navigate]
+  );
+
+  const closeSearch = useCallback(() => {
+    setSearchOpen(false);
+    // Trả focus về nút đã mở hộp tìm kiếm.
+    requestAnimationFrame(() => searchBtnRef.current?.focus());
   }, []);
 
-  const go = (page, extra = {}) => {
-    navigate(page, extra);
-    setDrawerOpen(false);
-    setMegaMenuOpen(false);
-    setUserDropdownOpen(false);
-  };
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
 
-  const handleLogout = async () => {
-    setUserDropdownOpen(false);
-    await logout();
-    navigate('home');
-  };
+  /* Back/Forward của trình duyệt phải đóng menu mobile và hộp tìm kiếm.
+     AppContext phát sự kiện 'lyra:navigated' khi popstate xảy ra; nếu không
+     nghe, lớp phủ sẽ nằm lại trên trang mới và cuộn trang bị khoá. */
+  useEffect(() => {
+    const onNavigated = () => { setDrawerOpen(false); setSearchOpen(false); };
+    window.addEventListener('lyra:navigated', onNavigated);
+    return () => window.removeEventListener('lyra:navigated', onNavigated);
+  }, []);
+
+  useBodyScrollLock(drawerOpen);
+  useDialogA11y(drawerOpen, drawerRef, closeDrawer);
 
   return (
     <>
-      <div className="lyra-navbar-wrapper">
-        {/* Top Announcement Bar */}
-        {showTopBar && (
-          <div className="top-announcement-bar">
-            <div className="top-announcement-text">
-              <span>Miễn phí giao hàng cho đơn từ 500.000₫</span>
-              <span className="top-announcement-bullet">●</span>
-              <span>Đổi size tận nơi trong 15 ngày</span>
-              <span className="top-announcement-bullet">●</span>
-              <span>Hotline CSKH VIP: 1900 8899</span>
-            </div>
-            <button
-              className="top-announcement-close"
-              onClick={() => setShowTopBar(false)}
-              aria-label="Đóng thông báo"
-              title="Đóng"
-            >
-              <i className="bi bi-x" />
-            </button>
-          </div>
-        )}
+      <nav className={`lyra-navbar${scrolled || compact ? ' scrolled' : ''}${compact ? ' compact' : ''}${hidden && !drawerOpen ? ' nav-hidden' : ''}`} aria-label="Điều hướng chính">
+        <a
+          className="navbar-logo"
+          href={buildUrl('home')}
+          onClick={(e) => go(e, 'home')}
+          aria-label="LYRA — về trang chủ"
+        >
+          LYRA
+        </a>
 
-        {/* Main Navigation Bar */}
-        <nav className={`lyra-navbar${scrolled ? ' scrolled' : ''}`}>
-          {/* Brand Logo */}
-          <div className="navbar-brand-group" onClick={() => go('home')}>
-            <span className="navbar-brand-logo">LYRA</span>
-            <span className="navbar-brand-sub">ATELIER</span>
-          </div>
-
-          {/* Desktop Nav Links */}
-          <ul className="navbar-nav-links">
-            <li className="navbar-nav-item">
+        <ul className="navbar-nav-links">
+          {links.map(({ label, page }) => (
+            <li key={page}>
               <a
-                className={currentPage === 'home' ? 'active' : ''}
-                onClick={() => go('home')}
+                href={buildUrl(page)}
+                className={currentPage === page ? 'active' : ''}
+                aria-current={currentPage === page ? 'page' : undefined}
+                onClick={(e) => go(e, page)}
               >
                 Trang Chủ
               </a>
             </li>
 
-            {/* Shop with Lookbook Mega Menu */}
-            <li
-              className="navbar-nav-item"
-              ref={megaMenuRef}
-              onMouseEnter={() => setMegaMenuOpen(true)}
-              onMouseLeave={() => setMegaMenuOpen(false)}
-            >
-              <a
-                className={currentPage === 'shop' ? 'active' : ''}
-                onClick={() => go('shop')}
-              >
-                Cửa Hàng <i className="bi bi-chevron-down navbar-caret-icon" />
-              </a>
-
-              {/* Elegant Dropdown Menu */}
-              <div className={`nav-shop-dropdown ${megaMenuOpen ? 'open' : ''}`}>
-                <div className="nav-shop-dropdown-inner">
-                  <div className="nav-shop-title">Tuyển Tập Thiết Kế</div>
-                  <ul className="nav-shop-list">
-                    <li className="nav-shop-item">
-                      <a onClick={() => go('shop')}>
-                        <span>Tất Cả Thiết Kế</span>
-                        <i className="bi bi-arrow-right nav-shop-arrow" />
-                      </a>
-                    </li>
-                    <li className="nav-shop-item">
-                      <a onClick={() => go('shop', { query: 'đầm' })}>
-                        <span>Đầm & Váy Dạ Hội</span>
-                        <span className="nav-shop-tag">Hot</span>
-                      </a>
-                    </li>
-                    <li className="nav-shop-item">
-                      <a onClick={() => go('shop', { query: 'sơ mi' })}>
-                        <span>Áo Sơ Mi & Lụa Tơ Tằm</span>
-                      </a>
-                    </li>
-                    <li className="nav-shop-item">
-                      <a onClick={() => go('shop', { query: 'blazer' })}>
-                        <span>Áo Khoác Blazer May Đo</span>
-                      </a>
-                    </li>
-                    <li className="nav-shop-item">
-                      <a onClick={() => go('shop', { query: 'quần' })}>
-                        <span>Quần Âu & Chân Váy</span>
-                      </a>
-                    </li>
-                    <li className="nav-shop-item">
-                      <a onClick={() => go('shop', { query: 'phụ kiện' })}>
-                        <span>Túi Xách & Phụ Kiện</span>
-                      </a>
-                    </li>
-                  </ul>
-
-                  <div className="nav-shop-divider" />
-
-                  <a className="nav-shop-footer-link" onClick={() => go('shop', { query: 'autumn' })}>
-                    <i className="bi bi-stars" />
-                    <span>Bộ Sưu Tập Mùa Thu '26</span>
-                    <i className="bi bi-chevron-right" style={{ fontSize: 10, marginLeft: 'auto' }} />
-                  </a>
-                </div>
-              </div>
-            </li>
-
-            <li className="navbar-nav-item">
-              <a
-                className={currentPage === 'sale' ? 'active' : ''}
-                onClick={() => go('sale')}
-              >
-                Ưu Đãi
-              </a>
-            </li>
-
-            <li className="navbar-nav-item">
-              <a
-                className={currentPage === 'new' ? 'active' : ''}
-                onClick={() => go('new')}
-              >
-                Mới Về
-              </a>
-            </li>
-
-            <li className="navbar-nav-item">
-              <a
-                className={currentPage === 'brands' ? 'active' : ''}
-                onClick={() => go('brands')}
-              >
-                Thương Hiệu
-              </a>
-            </li>
-          </ul>
-
-          {/* Action Icons */}
-          <div className="navbar-actions">
-            {/* Search Trigger */}
-            <button
-              className="nav-action-btn"
-              onClick={() => setSearchOpen(true)}
-              title="Tìm kiếm sản phẩm (Ctrl+K)"
-            >
-              <i className="bi bi-search" />
-            </button>
-
-            {/* Wishlist */}
-            <button
-              className="nav-action-btn"
-              onClick={() => go('wishlist')}
-              title="Danh sách yêu thích"
-              style={{ position: 'relative' }}
-            >
-              <i className="bi bi-heart" />
-              {wishlist.length > 0 && (
-                <span className="cart-badge-dot" style={{ background: 'var(--danger)' }}>
-                  {wishlist.length}
-                </span>
-              )}
-            </button>
-
-            {/* Cart */}
-            <button
-              className="nav-action-btn"
-              onClick={() => go('cart')}
-              title="Giỏ hàng"
-              style={{ position: 'relative' }}
-            >
-              <i className="bi bi-bag" />
-              {cartCount > 0 && (
-                <span className={`cart-badge-dot${badgeBounce ? ' bounce' : ''}`}>
-                  {cartCount}
-                </span>
-              )}
-            </button>
-
-            {/* User Account / Dropdown */}
-            {isLoggedIn ? (
-              <div className="user-dropdown-wrapper" ref={userDropdownRef}>
-                <button
-                  className="nav-action-btn"
-                  onClick={() => setUserDropdownOpen(v => !v)}
-                  title={user?.name || 'Tài khoản'}
-                >
-                  <i className="bi bi-person-check" />
-                </button>
-
-                {userDropdownOpen && (
-                  <div className="user-dropdown-menu">
-                    <div className="user-dropdown-header">
-                      <div className="user-dropdown-name">{user?.name || 'Quý khách'}</div>
-                      <div className="user-dropdown-email">{user?.email || 'Thành viên Lyra Club'}</div>
-                      <div className="user-dropdown-tier-badge">
-                        <i className="bi bi-gem" /> VIP Gold Atelier
-                      </div>
-                    </div>
-
-                    <ul className="user-dropdown-links">
-                      <li
-                        className="user-dropdown-link-item"
-                        onClick={() => go('profile', { profileTab: 'orders' })}
-                      >
-                        <i className="bi bi-box-seam" /> Đơn hàng của tôi
-                      </li>
-                      <li
-                        className="user-dropdown-link-item"
-                        onClick={() => go('profile', { profileTab: 'vouchers' })}
-                      >
-                        <i className="bi bi-ticket-perforated" /> Ví voucher ưu đãi
-                      </li>
-                      <li
-                        className="user-dropdown-link-item"
-                        onClick={() => go('wishlist')}
-                      >
-                        <i className="bi bi-heart" /> Danh sách yêu thích
-                      </li>
-                      <li
-                        className="user-dropdown-link-item"
-                        onClick={() => go('profile', { profileTab: 'account' })}
-                      >
-                        <i className="bi bi-person-gear" /> Thông tin tài khoản
-                      </li>
-                      <div className="user-dropdown-divider" />
-                      <li
-                        className="user-dropdown-link-item user-dropdown-logout"
-                        onClick={handleLogout}
-                      >
-                        <i className="bi bi-box-arrow-right" /> Đăng xuất
-                      </li>
-                    </ul>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <button
-                className="nav-action-btn"
-                onClick={() => go('auth')}
-                title="Đăng nhập / Đăng ký"
-              >
-                <i className="bi bi-person" />
-              </button>
-            )}
-          </div>
-
-          {/* Mobile Hamburger Toggle */}
+        <div className="navbar-actions">
           <button
-            className="hamburger"
-            onClick={() => setDrawerOpen(v => !v)}
-            aria-label="Menu"
+            ref={searchBtnRef}
+            type="button"
+            className="nav-action-btn"
+            onClick={() => setSearchOpen(true)}
+            aria-label="Tìm kiếm sản phẩm (Ctrl + K)"
           >
-            <span style={drawerOpen ? { transform: 'rotate(45deg) translate(4px, 4px)' } : {}} />
-            <span style={drawerOpen ? { opacity: 0 } : {}} />
-            <span style={drawerOpen ? { transform: 'rotate(-45deg) translate(4px, -4px)' } : {}} />
+            <i className="bi bi-search" aria-hidden="true" />
           </button>
-        </nav>
-      </div>
 
-      {/* Mobile Navigation Drawer */}
-      <div className={`mobile-drawer${drawerOpen ? ' open' : ''}`}>
+          <a
+            className="nav-action-btn"
+            href={buildUrl('wishlist')}
+            onClick={(e) => go(e, 'wishlist')}
+            aria-label={`Sản phẩm yêu thích, ${wishlist.length} sản phẩm`}
+          >
+            <i className="bi bi-heart" aria-hidden="true" />
+            {wishlist.length > 0 && (
+              <span className="cart-badge-dot wish-dot" aria-hidden="true">
+                {wishlist.length}
+              </span>
+            )}
+          </a>
+
+          {/* Nút giỏ hàng MỞ DRAWER, không điều hướng */}
+          <button
+            type="button"
+            className="nav-action-btn"
+            onClick={() => { setDrawerOpen(false); openCart?.(); }}
+            aria-label={`Giỏ hàng, ${cartCount} sản phẩm`}
+          >
+            <i className="bi bi-bag" aria-hidden="true" />
+            {cartCount > 0 && (
+              <span className={`cart-badge-dot${badgeBounce ? ' bounce' : ''}`} aria-hidden="true">
+                {cartCount}
+              </span>
+            )}
+          </button>
+
+          <a
+            className="nav-action-btn"
+            href={buildUrl(isLoggedIn ? 'profile' : 'auth')}
+            onClick={(e) => go(e, isLoggedIn ? 'profile' : 'auth')}
+            aria-label={isLoggedIn ? `Tài khoản của ${user?.name || 'bạn'}` : 'Đăng nhập'}
+          >
+            <i className={`bi ${isLoggedIn ? 'bi-person-check' : 'bi-person'}`} aria-hidden="true" />
+          </a>
+        </div>
+
         <button
-          onClick={() => { setSearchOpen(true); setDrawerOpen(false); }}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            background: '#FFFFFF',
-            border: '1px solid var(--border)',
-            padding: '12px 16px',
-            marginBottom: 24,
-            cursor: 'pointer',
-            width: '100%',
-            fontFamily: 'var(--font-sans)',
-            fontSize: 14,
-            color: 'var(--muted)',
-          }}
+          type="button"
+          className={`hamburger${drawerOpen ? ' open' : ''}`}
+          onClick={() => setDrawerOpen((v) => !v)}
+          aria-label={drawerOpen ? 'Đóng menu' : 'Mở menu'}
+          aria-expanded={drawerOpen}
+          /* Chỉ khai báo aria-controls khi phần tử đích thực sự tồn tại. */
+          aria-controls={drawerOpen ? 'mobile-drawer' : undefined}
         >
-          <i className="bi bi-search text-secondary" /> Tìm kiếm sản phẩm... (Ctrl+K)
+          <span />
+          <span />
+          <span />
         </button>
+      </nav>
 
-        <a className="mobile-nav-link" onClick={() => go('home')}>Trang Chủ</a>
-        <a className="mobile-nav-link" onClick={() => go('shop')}>Cửa Hàng (Tất Cả Sản Phẩm)</a>
-        <a className="mobile-nav-link" onClick={() => go('sale')}>Ưu Đãi Đặc Biệt</a>
-        <a className="mobile-nav-link" onClick={() => go('new')}>Sản Phẩm Mới Về</a>
-        <a className="mobile-nav-link" onClick={() => go('brands')}>Thương Hiệu & Xưởng May</a>
-        
-        <div style={{ margin: '20px 0', borderTop: '1px solid var(--border)' }} />
+      {/* ── Drawer mobile: chỉ render khi mở → không còn nút "ma" trong tab order ── */}
+      {drawerOpen && (
+        <>
+          <div className="mobile-drawer-scrim" onClick={closeDrawer} aria-hidden="true" />
+          <div
+            id="mobile-drawer"
+            ref={drawerRef}
+            className="mobile-drawer open"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu điều hướng"
+            tabIndex={-1}
+          >
+            <button
+              type="button"
+              className="mobile-search-btn"
+              onClick={() => { setDrawerOpen(false); setSearchOpen(true); }}
+            >
+              <i className="bi bi-search" aria-hidden="true" /> Tìm kiếm sản phẩm...
+            </button>
 
-        <a className="mobile-nav-link" onClick={() => go('wishlist')} style={{ fontSize: 16 }}>
-          <i className="bi bi-heart me-2 text-danger" /> Danh Sách Yêu Thích ({wishlist.length})
-        </a>
-        <a
-          className="mobile-nav-link"
-          onClick={() => go(isLoggedIn ? 'profile' : 'auth')}
-          style={{ fontSize: 16, color: 'var(--warm)', fontWeight: 500 }}
-        >
-          <i className="bi bi-person me-2" />
-          {isLoggedIn ? `Tài khoản: ${user?.name}` : 'Đăng nhập / Đăng ký'}
-        </a>
-      </div>
+            {links.map(({ label, page }) => (
+              <a
+                key={page}
+                className={`mobile-nav-link${currentPage === page ? ' active' : ''}`}
+                href={buildUrl(page)}
+                aria-current={currentPage === page ? 'page' : undefined}
+                onClick={(e) => go(e, page)}
+              >
+                {label}
+              </a>
+            ))}
 
-      {/* Spotlight Search Modal */}
-      <SearchModal open={searchOpen} onClose={() => setSearchOpen(false)} />
+            <a
+              className="mobile-nav-link mobile-nav-link--sub"
+              href={buildUrl(isLoggedIn ? 'profile' : 'auth')}
+              onClick={(e) => go(e, isLoggedIn ? 'profile' : 'auth')}
+            >
+              {isLoggedIn ? 'Tài khoản của tôi' : 'Đăng nhập / Đăng ký'}
+            </a>
+            <a
+              className="mobile-nav-link mobile-nav-link--sub"
+              href={buildUrl('wishlist')}
+              onClick={(e) => go(e, 'wishlist')}
+            >
+              Yêu thích ({wishlist.length})
+            </a>
+          </div>
+        </>
+      )}
+
+      <SearchModal open={searchOpen} onClose={closeSearch} />
     </>
   );
 }

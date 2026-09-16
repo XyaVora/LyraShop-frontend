@@ -1,164 +1,95 @@
-// src/pages/ShopPage.jsx
-import { useState, useEffect, useRef } from 'react';
-import { productApi, categoryApi } from '../services/api';
-import { normalizeProduct, normalizeCategory, fmt } from '../data/products';
-import { ProductCard, Footer } from '../components/index.jsx';
+// src/pages/ShopPage.jsx — Cửa hàng LYRA.
+// Toàn bộ trạng thái lọc/sắp xếp/phân trang nằm trong URL (?cat=&sort=&color=…)
+// nên khi mở một sản phẩm rồi quay lại, bộ lọc và trang vẫn còn nguyên.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { fmt } from '../data/products';
+import { useCatalog } from '../context/CatalogContext';
+import {
+  CatalogEmpty,
+  EmptyState,
+  Footer,
+  ProductCard,
+  Reveal,
+  useBodyScrollLock,
+  useDialogA11y,
+} from '../components/index.jsx';
 import { useApp } from '../context/AppContext';
-import { useCart } from '../context/CartContext';
 import '../styles/shop.css';
 
-const SORT_OPTIONS = [
-  { value: 'createdAt,desc', label: 'Mới nhất (BST 2026)' },
-  { value: 'price,asc',      label: 'Giá: Thấp → Cao' },
-  { value: 'price,desc',     label: 'Giá: Cao → Thấp' },
-  { value: 'name,asc',       label: 'Tên: A → Z' },
+/* ══════════════════════════════════════════════════════════════
+   Hằng số dẫn xuất TỪ DỮ LIỆU THẬT (không có con số bịa)
+   ══════════════════════════════════════════════════════════════ */
+
+const ITEMS_PER_PAGE = 9;
+
+const SORTS = [
+  { id: 'newest', label: 'Mới nhất' },
+  { id: 'popular', label: 'Bán chạy nhất' },
+  { id: 'price-asc', label: 'Giá: thấp đến cao' },
+  { id: 'price-desc', label: 'Giá: cao đến thấp' },
+  { id: 'rating', label: 'Đánh giá cao nhất' },
+];
+const SORT_IDS = SORTS.map((s) => s.id);
+
+const PRICE_RANGES = [
+  { id: 'p1', label: 'Dưới 500K', min: '', max: '500000' },
+  { id: 'p2', label: '500K – 1 triệu', min: '500000', max: '1000000' },
+  { id: 'p3', label: '1 – 2 triệu', min: '1000000', max: '2000000' },
+  { id: 'p4', label: 'Trên 2 triệu', min: '2000000', max: '' },
 ];
 
-const PRICE_PRESETS = [
-  { id: 'all',         label: 'Tất cả mức giá', min: '',        max: '' },
-  { id: 'under-500',   label: 'Dưới 500.000₫',  min: '',        max: '500000' },
-  { id: '500-1000',    label: '500k - 1.000.000₫', min: '500000', max: '1000000' },
-  { id: '1000-2000',   label: '1tr - 2.000.000₫', min: '1000000', max: '2000000' },
-  { id: 'above-2000',  label: 'Trên 2.000.000₫', min: '2000000', max: '' },
-];
+const RATING_STEPS = [4.5, 4, 3];
 
-const FILTER_COLORS = [
-  { name: 'Trắng Kem', hex: '#FAF7F0' },
-  { name: 'Đen Than',  hex: '#1A1815' },
-  { name: 'Be Khaki',  hex: '#D9CEBF' },
-  { name: 'Xanh Rêu',  hex: '#485743' },
-  { name: 'Xanh Than', hex: '#1B232E' },
-  { name: 'Nâu Sáp',   hex: '#6E472A' },
-  { name: 'Ánh Bạc',   hex: '#D4D6D9' },
-];
+const COLORS_COLLAPSED = 12;
 
-const FILTER_SIZES = ['S', 'M', 'L', 'XL', 'Free Size'];
+/* ══════════════════════════════════════════════════════════════
+   Tiện ích thuần
+   ══════════════════════════════════════════════════════════════ */
 
-const PAGE_SIZE = 12;
+const onlyDigits = (v) => String(v ?? '').replace(/\D/g, '');
+/** 1000000 → "1.000.000" */
+const groupThousands = (digits) => digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
-export default function ShopPage() {
-  const { navigate } = useApp();
-  const { addToCart, showToast } = useCart();
+const catBySlug = (categories, slug) => (categories || []).find((c) => c.slug === slug) || null;
 
-  // Filters state
-  const [selectedCatSlug, setSelectedCatSlug]         = useState(() => new URLSearchParams(window.location.search).get('cat') || '');
-  const [selectedPricePreset, setSelectedPricePreset] = useState('all');
-  const [minPrice, setMinPrice]                       = useState('');
-  const [maxPrice, setMaxPrice]                       = useState('');
-  const [selectedColor, setSelectedColor]             = useState('');
-  const [selectedSize, setSelectedSize]               = useState('');
-  const [sortBy, setSortBy]                           = useState('createdAt,desc');
-  const [gridView, setGridView]                       = useState('grid-4'); // 'grid-4' | 'grid-3' | 'list'
-  const [page, setPage]                               = useState(0);
+function prefersReducedMotion() {
+  try {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
 
-  // Data state
-  const [products, setProducts]           = useState([]);
-  const [categories, setCategories]       = useState([]);
-  const [totalPages, setTotalPages]       = useState(0);
-  const [totalElements, setTotalElements] = useState(0);
-  const [loading, setLoading]             = useState(true);
-  const [catLoading, setCatLoading]       = useState(true);
-  const [error, setError]                 = useState(null);
+/** Dãy số trang có rút gọn khi nhiều trang. */
+function pageList(total, current) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const out = [1];
+  const from = Math.max(2, current - 1);
+  const to = Math.min(total - 1, current + 1);
+  if (from > 2) out.push('…');
+  for (let i = from; i <= to; i += 1) out.push(i);
+  if (to < total - 1) out.push('…');
+  out.push(total);
+  return out;
+}
 
-  // Mobile Drawer & Quick View
-  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
-  const [quickViewProduct, setQuickViewProduct] = useState(null);
-  const [qvSize, setQvSize]                     = useState('');
-  const [qvQty, setQvQty]                       = useState(1);
+/* ══════════════════════════════════════════════════════════════
+   Bộ lọc — dùng chung cho sidebar desktop và drawer mobile
+   ══════════════════════════════════════════════════════════════ */
 
-  const priceTimer = useRef(null);
+function Filters({ id, state, actions }) {
+  const {
+    catSlug, minPrice, maxPrice, color, minRating, onlySale, inStock,
+    catalog = [], categories = [], colorFacets = [],
+    saleCount = 0, stockCount = 0, maxDiscount = 0,
+  } = state;
+  const { setParams } = actions;
+  const [showAllColors, setShowAllColors] = useState(false);
 
-  // Load categories
-  useEffect(() => {
-    categoryApi.list()
-      .then(res => setCategories((res.data || []).map(normalizeCategory)))
-      .catch(() => {})
-      .finally(() => setCatLoading(false));
-  }, []);
+  const colors = showAllColors ? colorFacets : colorFacets.slice(0, COLORS_COLLAPSED);
+  const hiddenColors = colorFacets.length - COLORS_COLLAPSED;
 
-  // Sync category from URL parameter
-  useEffect(() => {
-    const handleLocationChange = () => {
-      const catParam = new URLSearchParams(window.location.search).get('cat') || '';
-      setSelectedCatSlug(catParam);
-      setPage(0);
-    };
-    window.addEventListener('popstate', handleLocationChange);
-    return () => window.removeEventListener('popstate', handleLocationChange);
-  }, []);
-
-  // Fetch products
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    const params = {
-      sort: sortBy,
-      page,
-      size: PAGE_SIZE,
-    };
-    if (selectedCatSlug) params.category = selectedCatSlug;
-    if (minPrice) params.minPrice = minPrice.replace(/\D/g, '');
-    if (maxPrice) params.maxPrice = maxPrice.replace(/\D/g, '');
-
-    productApi.list(params)
-      .then(res => {
-        if (cancelled) return;
-        const data = res.data;
-        let items = (data.content || []).map((p, i) => normalizeProduct(p, i + page * PAGE_SIZE));
-
-        // Client-side filtering on color & size if selected
-        if (selectedColor) {
-          items = items.filter(p =>
-            (p.variants || []).some(v => v.color && v.color.toLowerCase().includes(selectedColor.toLowerCase()))
-          );
-        }
-        if (selectedSize) {
-          items = items.filter(p =>
-            (p.variants || []).some(v => v.size && v.size.toLowerCase() === selectedSize.toLowerCase())
-          );
-        }
-
-        setProducts(items);
-        setTotalPages(data.totalPages || 0);
-        setTotalElements(data.totalElements || 0);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Không thể tải sản phẩm. Vui lòng thử lại.');
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-
-    return () => { cancelled = true; };
-  }, [selectedCatSlug, minPrice, maxPrice, selectedColor, selectedSize, sortBy, page]);
-
-  // Handle Preset Price Change
-  const handlePresetPrice = (preset) => {
-    setSelectedPricePreset(preset.id);
-    setMinPrice(preset.min);
-    setMaxPrice(preset.max);
-    setPage(0);
-  };
-
-  // Handle Custom Price Change
-  const handlePriceInput = (setter) => (e) => {
-    setSelectedPricePreset('custom');
-    setter(e.target.value);
-    clearTimeout(priceTimer.current);
-    priceTimer.current = setTimeout(() => setPage(0), 600);
-  };
-
-  // Reset all filters
-  const resetFilters = () => {
-    setSelectedCatSlug('');
-    setSelectedPricePreset('all');
-    setMinPrice('');
-    setMaxPrice('');
-    setSelectedColor('');
-    setSelectedSize('');
-    setSortBy('createdAt,desc');
-    setPage(0);
-  };
+  const activeRange = PRICE_RANGES.find((r) => r.min === minPrice && r.max === maxPrice);
 
   // Open Quick View
   const handleOpenQuickView = (product) => {
@@ -180,475 +111,592 @@ export default function ShopPage() {
   const hasActiveFilters = Boolean(selectedCatSlug || minPrice || maxPrice || selectedColor || selectedSize);
 
   return (
-    <div className="shop-root">
-      {/* ── 1. EDITORIAL HEADER ── */}
-      <section className="shop-editorial-header">
-        <div className="container-fluid px-4 px-lg-5">
-          <div className="shop-header-inner">
-            <div>
-              <div className="shop-eyebrow">ATELIER READY-TO-WEAR • BỘ SƯU TẬP 2026</div>
-              <h1 className="shop-main-title">
-                Cửa hàng<br /><em>tuyển chọn</em>
-              </h1>
-              <p className="shop-header-desc">
-                Khám phá các thiết kế may đo đương đại từ lụa tơ tằm Bảo Lộc, linen hữu cơ Ý và da thuộc thủ công.
-                Từng sản phẩm mang đậm tinh thần tối giản, thanh lịch và bền vững với thời gian.
-              </p>
-            </div>
-            <div className="shop-count-badge">
-              Hiển thị {products.length} / {totalElements} thiết kế
-            </div>
-          </div>
+    <div className="shop-filters">
+      {/* ── Danh mục ─────────────────────────────────────────── */}
+      <fieldset className="filter-group shop-fieldset">
+        <legend className="filter-group-title">Danh mục</legend>
+        <div className="filter-check-item">
+          <input
+            type="radio"
+            id={`${id}-cat-all`}
+            name={`${id}-category`}
+            checked={catSlug === ''}
+            onChange={() => setParams({ cat: undefined, page: undefined })}
+          />
+          <label htmlFor={`${id}-cat-all`}>Tất cả</label>
+          <span className="filter-count">{catalog.length}</span>
         </div>
-      </section>
-
-      <div className="container-fluid px-4 px-lg-5">
-        {/* ── 2. ACTIVE FILTER CHIPS BAR ── */}
-        {hasActiveFilters && (
-          <div className="shop-active-chips-bar">
-            <span className="active-chip-label">Đang lọc theo:</span>
-
-            {activeCategoryObj && (
-              <span className="active-chip-tag" onClick={() => setSelectedCatSlug('')}>
-                Danh mục: {activeCategoryObj.name} <i className="bi bi-x-lg" />
-              </span>
-            )}
-
-            {(minPrice || maxPrice) && (
-              <span className="active-chip-tag" onClick={() => { setMinPrice(''); setMaxPrice(''); setSelectedPricePreset('all'); }}>
-                Giá: {minPrice ? fmt(minPrice) : '0đ'} – {maxPrice ? fmt(maxPrice) : 'Tất cả'} <i className="bi bi-x-lg" />
-              </span>
-            )}
-
-            {selectedColor && (
-              <span className="active-chip-tag" onClick={() => setSelectedColor('')}>
-                Màu: {selectedColor} <i className="bi bi-x-lg" />
-              </span>
-            )}
-
-            {selectedSize && (
-              <span className="active-chip-tag" onClick={() => setSelectedSize('')}>
-                Size: {selectedSize} <i className="bi bi-x-lg" />
-              </span>
-            )}
-
-            <button className="active-chip-clear-all" onClick={resetFilters}>
-              Xóa tất cả bộ lọc ↺
-            </button>
+        {categories.map((c, i) => (
+          <div key={c.slug} className="filter-check-item">
+            <input
+              type="radio"
+              id={`${id}-cat-${i}`}
+              name={`${id}-category`}
+              checked={catSlug === c.slug}
+              onChange={() => setParams({ cat: c.slug, page: undefined })}
+            />
+            <label htmlFor={`${id}-cat-${i}`}>{c.name}</label>
+            <span className="filter-count">{c.count}</span>
           </div>
-        )}
+        ))}
+      </fieldset>
 
-        {/* ── 3. MAIN LAYOUT (SIDEBAR + CONTENT) ── */}
-        <div className="shop-layout">
-          {/* Desktop Filter Sidebar */}
-          <aside className="shop-sidebar">
-            {/* Category Filter */}
-            <div className="shop-filter-group">
-              <div className="shop-filter-title">
-                <span>Danh Mục Thiết Kế</span>
-                <i className="bi bi-grid" style={{ color: 'var(--warm)' }} />
-              </div>
-              <div className="shop-cat-list">
-                <button
-                  className={`shop-cat-btn ${selectedCatSlug === '' ? 'active' : ''}`}
-                  onClick={() => { setSelectedCatSlug(''); setPage(0); }}
-                >
-                  <span>Tất cả danh mục</span>
-                  <span style={{ fontSize: 11, color: 'var(--muted)' }}>({totalElements})</span>
-                </button>
-                {catLoading ? (
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>Đang tải danh mục...</div>
-                ) : (
-                  categories.map(cat => (
-                    <button
-                      key={cat.id}
-                      className={`shop-cat-btn ${selectedCatSlug === cat.slug ? 'active' : ''}`}
-                      onClick={() => { setSelectedCatSlug(cat.slug); setPage(0); }}
-                    >
-                      <span>{cat.name}</span>
-                      <i className="bi bi-chevron-right" style={{ fontSize: 10, opacity: 0.5 }} />
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-
-            {/* Price Presets & Range */}
-            <div className="shop-filter-group">
-              <div className="shop-filter-title">
-                <span>Khoảng Giá</span>
-                <i className="bi bi-cash-stack" style={{ color: 'var(--warm)' }} />
-              </div>
-              <div className="price-presets-list">
-                {PRICE_PRESETS.map(preset => (
-                  <button
-                    key={preset.id}
-                    className={`price-preset-pill ${selectedPricePreset === preset.id ? 'active' : ''}`}
-                    onClick={() => handlePresetPrice(preset)}
-                  >
-                    {preset.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Custom Input */}
-              <div className="custom-price-wrap">
-                <div style={{ fontSize: 11, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '.1em' }}>
-                  Tự nhập khoảng giá:
-                </div>
-                <div className="custom-price-inputs">
-                  <input
-                    className="custom-price-field"
-                    placeholder="Từ (đ)"
-                    value={minPrice}
-                    onChange={handlePriceInput(setMinPrice)}
-                  />
-                  <span style={{ color: 'var(--muted)' }}>—</span>
-                  <input
-                    className="custom-price-field"
-                    placeholder="Đến (đ)"
-                    value={maxPrice}
-                    onChange={handlePriceInput(setMaxPrice)}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Color Swatches */}
-            <div className="shop-filter-group">
-              <div className="shop-filter-title">
-                <span>Màu Sắc Tuyển Chọn</span>
-                <i className="bi bi-palette" style={{ color: 'var(--warm)' }} />
-              </div>
-              <div className="shop-colors-grid">
-                {FILTER_COLORS.map(c => (
-                  <div
-                    key={c.name}
-                    className={`shop-color-swatch ${selectedColor === c.name ? 'active' : ''}`}
-                    onClick={() => setSelectedColor(selectedColor === c.name ? '' : c.name)}
-                    title={c.name}
-                  >
-                    <div className="shop-color-inner" style={{ backgroundColor: c.hex }} />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Size Filter */}
-            <div className="shop-filter-group">
-              <div className="shop-filter-title">
-                <span>Kích Cỡ</span>
-                <i className="bi bi-rulers" style={{ color: 'var(--warm)' }} />
-              </div>
-              <div className="shop-sizes-grid">
-                {FILTER_SIZES.map(s => (
-                  <button
-                    key={s}
-                    className={`shop-size-btn ${selectedSize === s ? 'active' : ''}`}
-                    onClick={() => setSelectedSize(selectedSize === s ? '' : s)}
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Reset Button */}
-            <button className="btn-reset-sidebar" onClick={resetFilters}>
-              <i className="bi bi-arrow-counterclockwise" /> Xóa tất cả bộ lọc
-            </button>
-          </aside>
-
-          {/* Main Area */}
-          <main className="shop-main-area">
-            {/* Toolbar */}
-            <div className="shop-toolbar">
-              <div className="shop-toolbar-left">
-                {/* Mobile Filter Toggle Button */}
-                <button
-                  className="btn-mobile-filter-open"
-                  onClick={() => setMobileDrawerOpen(true)}
-                >
-                  <i className="bi bi-sliders" /> Bộ lọc {hasActiveFilters && '•'}
-                </button>
-                <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-                  {loading ? 'Đang tải...' : `Hiển thị ${products.length} sản phẩm`}
-                </div>
-              </div>
-
-              <div className="shop-toolbar-right">
-                {/* Sort dropdown */}
-                <div className="shop-sort-wrap">
-                  <span className="shop-sort-label">Sắp xếp:</span>
-                  <select
-                    className="shop-sort-dropdown"
-                    value={sortBy}
-                    onChange={e => { setSortBy(e.target.value); setPage(0); }}
-                  >
-                    {SORT_OPTIONS.map(o => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Grid View Switcher */}
-                <div className="shop-view-switcher">
-                  <button
-                    className={`shop-view-btn ${gridView === 'grid-4' ? 'active' : ''}`}
-                    onClick={() => setGridView('grid-4')}
-                    title="Lưới 4 cột tiêu chuẩn"
-                  >
-                    <i className="bi bi-grid-fill" />
-                  </button>
-                  <button
-                    className={`shop-view-btn ${gridView === 'grid-3' ? 'active' : ''}`}
-                    onClick={() => setGridView('grid-3')}
-                    title="Lưới 3 cột lớn (Editorial)"
-                  >
-                    <i className="bi bi-grid-3x2" />
-                  </button>
-                  <button
-                    className={`shop-view-btn ${gridView === 'list' ? 'active' : ''}`}
-                    onClick={() => setGridView('list')}
-                    title="Dạng danh sách chi tiết"
-                  >
-                    <i className="bi bi-list-ul" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Product Grid / List */}
-            {error ? (
-              <div style={{ textAlign: 'center', padding: '60px 20px', background: '#fff', border: '1px solid var(--border)' }}>
-                <i className="bi bi-exclamation-circle" style={{ fontSize: 36, color: 'var(--warm)', marginBottom: 16, display: 'block' }} />
-                <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 24, marginBottom: 8 }}>{error}</h3>
-                <button className="btn-hero-primary mt-3" onClick={resetFilters}>Thử lại</button>
-              </div>
-            ) : loading ? (
-              <div className={`products-grid ${gridView}`}>
-                {[...Array(8)].map((_, i) => (
-                  <div key={i} className="product-card skeleton" style={{ height: 340 }} />
-                ))}
-              </div>
-            ) : products.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '72px 20px', background: '#fff', border: '1px solid var(--border)' }}>
-                <i className="bi bi-search" style={{ fontSize: 40, color: 'var(--muted)', marginBottom: 16, display: 'block' }} />
-                <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, marginBottom: 8 }}>Không tìm thấy thiết kế phù hợp</h3>
-                <p style={{ fontSize: 14, color: 'var(--muted)', maxWidth: 440, margin: '0 auto 24px' }}>
-                  Vui lòng thử điều chỉnh lại mức giá, màu sắc hoặc chọn danh mục khác để xem thêm sản phẩm.
-                </p>
-                <button className="btn-hero-primary" onClick={resetFilters}>Xóa bộ lọc</button>
-              </div>
-            ) : (
-              <div className={`products-grid ${gridView}`}>
-                {products.map((p, i) => (
-                  <ProductCard
-                    key={p.id}
-                    product={p}
-                    delay={i}
-                    onQuickView={() => handleOpenQuickView(p)}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* Luxury Pagination */}
-            {totalPages > 1 && (
-              <div className="shop-pagination-wrap">
-                <button
-                  className="shop-page-btn"
-                  onClick={() => {
-                    setPage(p => Math.max(0, p - 1));
-                    window.scrollTo({ top: 300, behavior: 'smooth' });
-                  }}
-                  disabled={page === 0}
-                  aria-label="Trang trước"
-                >
-                  <i className="bi bi-chevron-left" />
-                </button>
-
-                {Array.from({ length: totalPages }, (_, i) => i).map(n => (
-                  <button
-                    key={n}
-                    className={`shop-page-btn ${page === n ? 'active' : ''}`}
-                    onClick={() => {
-                      setPage(n);
-                      window.scrollTo({ top: 300, behavior: 'smooth' });
-                    }}
-                  >
-                    {n + 1}
-                  </button>
-                ))}
-
-                <button
-                  className="shop-page-btn"
-                  onClick={() => {
-                    setPage(p => Math.min(totalPages - 1, p + 1));
-                    window.scrollTo({ top: 300, behavior: 'smooth' });
-                  }}
-                  disabled={page === totalPages - 1}
-                  aria-label="Trang sau"
-                >
-                  <i className="bi bi-chevron-right" />
-                </button>
-              </div>
-            )}
-          </main>
+      {/* ── Khoảng giá ───────────────────────────────────────── */}
+      <div className="filter-group">
+        <div className="filter-group-title">Khoảng giá</div>
+        <div className="chip-row shop-price-chips">
+          {PRICE_RANGES.map((r) => {
+            const active = activeRange?.id === r.id;
+            return (
+              <button
+                key={r.id}
+                type="button"
+                className={`chip${active ? ' active' : ''}`}
+                aria-pressed={active}
+                onClick={() =>
+                  setParams(
+                    active
+                      ? { min: undefined, max: undefined, page: undefined }
+                      : { min: r.min || undefined, max: r.max || undefined, page: undefined },
+                  )
+                }
+              >
+                {r.label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="price-inputs shop-price-inputs">
+          <label className="sr-only" htmlFor={`${id}-min`}>Giá thấp nhất</label>
+          <input
+            id={`${id}-min`}
+            className="price-input-field"
+            inputMode="numeric"
+            placeholder="Từ"
+            value={minPrice ? groupThousands(minPrice) : ''}
+            onChange={(e) =>
+              setParams({ min: onlyDigits(e.target.value) || undefined, page: undefined })
+            }
+          />
+          <span className="shop-price-dash" aria-hidden="true">–</span>
+          <label className="sr-only" htmlFor={`${id}-max`}>Giá cao nhất</label>
+          <input
+            id={`${id}-max`}
+            className="price-input-field"
+            inputMode="numeric"
+            placeholder="Đến"
+            value={maxPrice ? groupThousands(maxPrice) : ''}
+            onChange={(e) =>
+              setParams({ max: onlyDigits(e.target.value) || undefined, page: undefined })
+            }
+          />
         </div>
       </div>
 
-      {/* ── 4. QUICK VIEW MODAL ── */}
-      {quickViewProduct && (
-        <div className="quickview-backdrop" onClick={() => setQuickViewProduct(null)}>
-          <div className="quickview-card" onClick={e => e.stopPropagation()}>
-            <button className="quickview-close" onClick={() => setQuickViewProduct(null)}>
-              <i className="bi bi-x-lg" />
-            </button>
-
-            <div className="quickview-img-box">
-              <img
-                src={quickViewProduct.image || (quickViewProduct.images && quickViewProduct.images[0]) || 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=600&auto=format&fit=crop'}
-                alt={quickViewProduct.name}
-                className="quickview-img"
+      {/* ── Màu sắc ──────────────────────────────────────────── */}
+      <div className="filter-group">
+        <div className="filter-group-title" id={`${id}-color-title`}>Màu sắc</div>
+        <div className="color-swatches" role="group" aria-labelledby={`${id}-color-title`}>
+          {colors.map((c) => {
+            const active = color === c.name;
+            return (
+              <button
+                key={c.name}
+                type="button"
+                className={`color-swatch${active ? ' active' : ''}`}
+                style={{ background: c.hex }}
+                aria-pressed={active}
+                aria-label={`${c.name} — ${c.count} sản phẩm`}
+                title={`${c.name} (${c.count})`}
+                onClick={() =>
+                  setParams({ color: active ? undefined : c.name, page: undefined })
+                }
               />
-            </div>
-
-            <div className="quickview-info-box">
-              <div className="quickview-cat">{quickViewProduct.cat || 'BỘ SƯU TẬP 2026'}</div>
-              <h3 className="quickview-title">{quickViewProduct.name}</h3>
-              <div className="quickview-price">{fmt(quickViewProduct.price)}</div>
-              <p className="quickview-desc">
-                {quickViewProduct.description || 'Thiết kế thời trang may đo cao cấp với chất liệu tự nhiên, phom dáng thanh lịch tôn vinh khí chất của bạn.'}
-              </p>
-
-              {/* Sizes in Quick View */}
-              {quickViewProduct.variants && quickViewProduct.variants.length > 0 && (
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 11, letterSpacing: '.14em', textTransform: 'uppercase', marginBottom: 8, fontWeight: 600 }}>
-                    Kích cỡ:
-                  </div>
-                  <div style={{ display: 'flex', gap: 8 }}>
-                    {[...new Set(quickViewProduct.variants.map(v => v.size).filter(Boolean))].map(s => (
-                      <button
-                        key={s}
-                        className={`shop-size-btn ${qvSize === s ? 'active' : ''}`}
-                        onClick={() => setQvSize(s)}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: 12, marginTop: 8 }}>
-                <button
-                  className="btn-hero-primary"
-                  style={{ flexGrow: 1 }}
-                  onClick={handleQuickAddToCart}
-                >
-                  <i className="bi bi-bag-plus" /> Thêm vào giỏ
-                </button>
-                <button
-                  className="btn-hero-secondary"
-                  onClick={() => {
-                    navigate('detail', { product: quickViewProduct.slug || quickViewProduct.id });
-                    setQuickViewProduct(null);
-                  }}
-                >
-                  Xem chi tiết ➔
-                </button>
-              </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
-      )}
+        {hiddenColors > 0 && (
+          <button
+            type="button"
+            className="shop-more-btn"
+            onClick={() => setShowAllColors((v) => !v)}
+          >
+            {showAllColors ? 'Thu gọn bảng màu' : `Xem thêm ${hiddenColors} màu`}
+          </button>
+        )}
+        {color && (
+          <p className="shop-color-current">
+            Đang lọc màu <strong>{color}</strong>
+          </p>
+        )}
+      </div>
 
-      {/* ── 5. MOBILE FILTER DRAWER ── */}
-      {mobileDrawerOpen && (
-        <div className="mobile-filter-drawer-backdrop" onClick={() => setMobileDrawerOpen(false)}>
-          <div className="mobile-filter-drawer" onClick={e => e.stopPropagation()}>
-            <div className="mobile-drawer-header">
-              <h3 className="mobile-drawer-title">Bộ Lọc Thiết Kế</h3>
-              <button
-                style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer' }}
-                onClick={() => setMobileDrawerOpen(false)}
-              >
-                <i className="bi bi-x-lg" />
-              </button>
-            </div>
-
-            <div className="mobile-drawer-body">
-              {/* Category */}
-              <div>
-                <div className="shop-filter-title" style={{ marginBottom: 12 }}>Danh Mục</div>
-                <div className="shop-cat-list">
-                  <button
-                    className={`shop-cat-btn ${selectedCatSlug === '' ? 'active' : ''}`}
-                    onClick={() => { setSelectedCatSlug(''); setPage(0); }}
-                  >
-                    <span>Tất cả</span>
-                  </button>
-                  {categories.map(cat => (
-                    <button
-                      key={cat.id}
-                      className={`shop-cat-btn ${selectedCatSlug === cat.slug ? 'active' : ''}`}
-                      onClick={() => { setSelectedCatSlug(cat.slug); setPage(0); }}
-                    >
-                      <span>{cat.name}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Price */}
-              <div>
-                <div className="shop-filter-title" style={{ marginBottom: 12 }}>Khoảng Giá</div>
-                <div className="price-presets-list">
-                  {PRICE_PRESETS.map(preset => (
-                    <button
-                      key={preset.id}
-                      className={`price-preset-pill ${selectedPricePreset === preset.id ? 'active' : ''}`}
-                      onClick={() => handlePresetPrice(preset)}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Size */}
-              <div>
-                <div className="shop-filter-title" style={{ marginBottom: 12 }}>Kích Cỡ</div>
-                <div className="shop-sizes-grid">
-                  {FILTER_SIZES.map(s => (
-                    <button
+      {/* ── Đánh giá ─────────────────────────────────────────── */}
+      <fieldset className="filter-group shop-fieldset">
+        <legend className="filter-group-title">Đánh giá tối thiểu</legend>
+        {RATING_STEPS.map((r, i) => {
+          const text = `Từ ${String(r).replace('.', ',')} sao trở lên`;
+          return (
+            <div key={r} className="filter-check-item">
+              <input
+                type="radio"
+                id={`${id}-rating-${i}`}
+                name={`${id}-rating`}
+                checked={minRating === r}
+                onChange={() => setParams({ rating: String(r), page: undefined })}
+                aria-label={text}
+              />
+              <label htmlFor={`${id}-rating-${i}`}>
+                <span className="shop-rating-stars" aria-hidden="true">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <i
                       key={s}
-                      className={`shop-size-btn ${selectedSize === s ? 'active' : ''}`}
-                      onClick={() => setSelectedSize(selectedSize === s ? '' : s)}
-                    >
-                      {s}
-                    </button>
+                      className={`bi ${s <= Math.floor(r) ? 'bi-star-fill' : s - 0.5 <= r ? 'bi-star-half' : 'bi-star'}`}
+                    />
                   ))}
-                </div>
-              </div>
+                </span>
+                <span className="sr-only">{text}</span>
+                <span className="shop-rating-text" aria-hidden="true">trở lên</span>
+              </label>
+            </div>
+          );
+        })}
+        <div className="filter-check-item">
+          <input
+            type="radio"
+            id={`${id}-rating-all`}
+            name={`${id}-rating`}
+            checked={minRating === 0}
+            onChange={() => setParams({ rating: undefined, page: undefined })}
+            aria-label="Tất cả mức đánh giá"
+          />
+          <label htmlFor={`${id}-rating-all`}>Tất cả</label>
+        </div>
+      </fieldset>
+
+      {/* ── Khác ─────────────────────────────────────────────── */}
+      <div className="filter-group">
+        <div className="filter-group-title">Lọc nhanh</div>
+        <div className="filter-check-item">
+          <input
+            type="checkbox"
+            id={`${id}-sale`}
+            checked={onlySale}
+            onChange={(e) => setParams({ sale: e.target.checked ? '1' : undefined, page: undefined })}
+          />
+          <label htmlFor={`${id}-sale`}>Chỉ hàng đang giảm giá</label>
+          <span className="filter-count">{saleCount}</span>
+        </div>
+        <div className="filter-check-item">
+          <input
+            type="checkbox"
+            id={`${id}-stock`}
+            checked={inStock}
+            onChange={(e) => setParams({ stock: e.target.checked ? '1' : undefined, page: undefined })}
+          />
+          <label htmlFor={`${id}-stock`}>Còn hàng</label>
+          <span className="filter-count">{stockCount}</span>
+        </div>
+      </div>
+
+      <p className="shop-filter-note">
+        Mức giảm cao nhất tại LYRA mùa này là {maxDiscount}%.
+      </p>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Trang Shop
+   ══════════════════════════════════════════════════════════════ */
+
+export default function ShopPage() {
+  const { params, navigate } = useApp();
+  const { products: catalog, categories, colorFacets, ready, empty: catalogEmpty } = useCatalog();
+  const saleCount = catalog.filter((p) => p.discount > 0).length;
+  const stockCount = catalog.filter((p) => p.stock > 0).length;
+  const maxDiscount = catalog.reduce((m, p) => Math.max(m, p.discount || 0), 0);
+
+  /* ── Trạng thái đọc từ URL (nguồn duy nhất) ─────────────────── */
+  const catSlug = catBySlug(categories, params.cat) ? params.cat : '';
+  const sort = SORT_IDS.includes(params.sort) ? params.sort : 'newest';
+  const color = colorFacets.some((c) => c.name === params.color) ? params.color : '';
+  const minPrice = onlyDigits(params.min);
+  const maxPrice = onlyDigits(params.max);
+  const ratingParam = Number(params.rating);
+  const minRating = RATING_STEPS.includes(ratingParam) ? ratingParam : 0;
+  const onlySale = params.sale === '1';
+  const inStock = params.stock === '1';
+  const listView = params.view === 'list';
+  const pageParam = Math.max(1, Math.floor(Number(params.page)) || 1);
+
+  /** Ghi trạng thái ngược lại URL — replace + keepScroll để không nhảy trang. */
+  const setParams = useCallback(
+    (patch) => {
+      const next = { ...params, ...patch };
+      Object.keys(next).forEach((k) => {
+        if (next[k] === undefined || next[k] === null || next[k] === '') delete next[k];
+      });
+      navigate('shop', { ...next, replace: true, keepScroll: true });
+    },
+    [params, navigate],
+  );
+
+  const resetFilters = useCallback(() => {
+    navigate('shop', { sort: sort === 'newest' ? undefined : sort, view: listView ? 'list' : undefined, replace: true, keepScroll: true });
+  }, [navigate, sort, listView]);
+
+  /* ── Lọc + sắp xếp ─────────────────────────────────────────── */
+  const filtered = useMemo(() => {
+    const min = minPrice ? Number(minPrice) : null;
+    const max = maxPrice ? Number(maxPrice) : null;
+
+    let list = catalog.filter((p) => {
+      if (catSlug && catBySlug(categories, catSlug)?.name !== p.cat) return false;
+      if (color && !(p.colors || []).some((c) => c.name === color)) return false;
+      if (min !== null && p.price < min) return false;
+      if (max !== null && p.price > max) return false;
+      if (minRating > 0 && p.rating < minRating) return false;
+      if (onlySale && !(p.discount > 0)) return false;
+      if (inStock && !(p.stock > 0)) return false;
+      return true;
+    });
+
+    list = [...list];
+    switch (sort) {
+      case 'popular':
+        list.sort((a, b) => (b.sold || 0) - (a.sold || 0));
+        break;
+      case 'price-asc':
+        list.sort((a, b) => a.price - b.price);
+        break;
+      case 'price-desc':
+        list.sort((a, b) => b.price - a.price);
+        break;
+      case 'rating':
+        list.sort((a, b) => b.rating - a.rating || b.reviews - a.reviews);
+        break;
+      default:
+        list.sort(
+          (a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
+            || String(b.id).localeCompare(String(a.id)),
+        );
+    }
+    return list;
+  }, [catalog, categories, catSlug, color, minPrice, maxPrice, minRating, onlySale, inStock, sort]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+  const page = Math.min(pageParam, totalPages);
+  const paged = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE);
+
+  /* ── Chip "đang lọc" ───────────────────────────────────────── */
+  const activeChips = useMemo(() => {
+    const chips = [];
+    const cat = catBySlug(categories, catSlug);
+    if (cat) chips.push({ key: 'cat', label: cat.name, clear: { cat: undefined } });
+    if (color) chips.push({ key: 'color', label: `Màu ${color}`, clear: { color: undefined } });
+    if (minPrice || maxPrice) {
+      const label = minPrice && maxPrice
+        ? `${fmt(Number(minPrice))} – ${fmt(Number(maxPrice))}`
+        : minPrice
+          ? `Từ ${fmt(Number(minPrice))}`
+          : `Đến ${fmt(Number(maxPrice))}`;
+      chips.push({ key: 'price', label, clear: { min: undefined, max: undefined } });
+    }
+    if (minRating) {
+      chips.push({
+        key: 'rating',
+        label: `Từ ${String(minRating).replace('.', ',')} sao`,
+        clear: { rating: undefined },
+      });
+    }
+    if (onlySale) chips.push({ key: 'sale', label: 'Đang giảm giá', clear: { sale: undefined } });
+    if (inStock) chips.push({ key: 'stock', label: 'Còn hàng', clear: { stock: undefined } });
+    return chips;
+  }, [categories, catSlug, color, minPrice, maxPrice, minRating, onlySale, inStock]);
+
+  const filterCount = activeChips.length;
+
+  /* ── Drawer lọc trên mobile ────────────────────────────────── */
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerMounted, setDrawerMounted] = useState(false);
+  const [drawerShown, setDrawerShown] = useState(false);
+  const drawerRef = useRef(null);
+
+  useEffect(() => {
+    if (drawerOpen) {
+      setDrawerMounted(true);
+      const raf = requestAnimationFrame(() => setDrawerShown(true));
+      return () => cancelAnimationFrame(raf);
+    }
+    setDrawerShown(false);
+    const t = setTimeout(() => setDrawerMounted(false), 380);
+    return () => clearTimeout(t);
+  }, [drawerOpen]);
+
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+  useBodyScrollLock(drawerOpen);
+  useDialogA11y(drawerOpen, drawerRef, closeDrawer);
+
+  // Về desktop thì đóng drawer để không khoá cuộn oan.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
+    const mq = window.matchMedia('(min-width: 1025px)');
+    const onChange = (e) => { if (e.matches) setDrawerOpen(false); };
+    mq.addEventListener?.('change', onChange);
+    return () => mq.removeEventListener?.('change', onChange);
+  }, []);
+
+  /* ── Đổi trang → cuộn lên đầu lưới ─────────────────────────── */
+  const gridTopRef = useRef(null);
+  const goToPage = useCallback(
+    (n) => {
+      const next = Math.min(Math.max(1, n), totalPages);
+      setParams({ page: next > 1 ? String(next) : undefined });
+      const el = gridTopRef.current;
+      if (!el || typeof window === 'undefined') return;
+      const top = el.getBoundingClientRect().top + window.scrollY - 96;
+      window.scrollTo({
+        top: Math.max(0, top),
+        behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+      });
+    },
+    [setParams, totalPages],
+  );
+
+  /* ── Tiêu đề trang ─────────────────────────────────────────── */
+  const cat = catBySlug(categories, catSlug);
+  const heading = cat ? cat.name : 'Tất cả sản phẩm';
+  const blurb = cat
+    ? cat.blurb
+    : 'Toàn bộ thiết kế Thu – Đông 2026 của LYRA: lụa, len pha, denim và đồ da thuộc thảo mộc — làm thủ công tại Hà Nội.';
+
+  // Tiêu đề kiểu editorial: từ cuối in nghiêng màu camel.
+  const headWords = heading.split(' ');
+  const headLead = cat ? headWords.slice(0, -1).join(' ') : 'Tất cả';
+  const headEm = cat ? headWords[headWords.length - 1] : 'sản phẩm';
+
+  const filtersState = {
+    catSlug, minPrice, maxPrice, color, minRating, onlySale, inStock,
+    catalog, categories, colorFacets, saleCount, stockCount, maxDiscount,
+  };
+  const filtersActions = { setParams };
+
+  return (
+    <div className="shop-page">
+      {/* ══ Tiêu đề ══════════════════════════════════════════ */}
+      <header className="shop-header-bar shop-hero">
+        <div className="wrap">
+          <Reveal className="shop-hero-inner">
+            <div className="eyebrow">Bộ sưu tập Thu – Đông 2026</div>
+            <h1 className="t-h1 shop-title">
+              {headLead ? `${headLead} ` : ''}
+              <em>{headEm}</em>
+            </h1>
+            <p className="shop-blurb">{blurb}</p>
+          </Reveal>
+        </div>
+      </header>
+
+      <div className="shop-layout">
+        {/* ══ Sidebar desktop ═══════════════════════════════ */}
+        <aside className="shop-sidebar" aria-label="Bộ lọc sản phẩm">
+          <div className="shop-sidebar-head">
+            <span className="eyebrow bare">Bộ lọc</span>
+            {filterCount > 0 && (
+              <button type="button" className="shop-clear-link" onClick={resetFilters}>
+                Xoá tất cả
+              </button>
+            )}
+          </div>
+          <Filters id="sb" state={filtersState} actions={filtersActions} />
+        </aside>
+
+        {/* ══ Khu vực chính ═════════════════════════════════ */}
+        <section className="shop-main-area" ref={gridTopRef}>
+          <div className="shop-toolbar">
+            <div className="shop-toolbar-left">
+              <button
+                type="button"
+                className="filter-toggle-btn"
+                onClick={() => setDrawerOpen(true)}
+                aria-expanded={drawerOpen}
+              >
+                <i className="bi bi-sliders" aria-hidden="true" />
+                Bộ lọc{filterCount > 0 ? ` (${filterCount})` : ''}
+              </button>
+              <p className="shop-meta-text" role="status" aria-live="polite">
+                Hiển thị {paged.length} / {filtered.length} sản phẩm
+                {totalPages > 1 ? ` · trang ${page}/${totalPages}` : ''}
+              </p>
             </div>
 
-            <div className="mobile-drawer-footer">
-              <button
-                className="btn-hero-primary w-100 justify-content-center"
-                onClick={() => setMobileDrawerOpen(false)}
+            <div className="shop-toolbar-right">
+              <label className="sr-only" htmlFor="shop-sort">Sắp xếp sản phẩm</label>
+              <select
+                id="shop-sort"
+                className="sort-select"
+                aria-label="Sắp xếp sản phẩm"
+                value={sort}
+                onChange={(e) =>
+                  setParams({
+                    sort: e.target.value === 'newest' ? undefined : e.target.value,
+                    page: undefined,
+                  })
+                }
               >
-                Xem {products.length} kết quả
+                {SORTS.map((s) => (
+                  <option key={s.id} value={s.id}>{s.label}</option>
+                ))}
+              </select>
+
+              <div className="view-toggle" role="group" aria-label="Kiểu hiển thị">
+                <button
+                  type="button"
+                  className={`view-btn${!listView ? ' active' : ''}`}
+                  aria-label="Dạng lưới"
+                  aria-pressed={!listView}
+                  onClick={() => setParams({ view: undefined })}
+                >
+                  <i className="bi bi-grid-3x3-gap" aria-hidden="true" />
+                </button>
+                <button
+                  type="button"
+                  className={`view-btn${listView ? ' active' : ''}`}
+                  aria-label="Dạng danh sách"
+                  aria-pressed={listView}
+                  onClick={() => setParams({ view: 'list' })}
+                >
+                  <i className="bi bi-list-ul" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {activeChips.length > 0 && (
+            <div className="chip-row shop-active-chips">
+              {activeChips.map((c) => (
+                <span key={c.key} className="chip active shop-active-chip">
+                  {c.label}
+                  <button
+                    type="button"
+                    className="chip-remove"
+                    aria-label={`Bỏ lọc ${c.label}`}
+                    onClick={() => setParams({ ...c.clear, page: undefined })}
+                  >
+                    <i className="bi bi-x-lg" aria-hidden="true" />
+                  </button>
+                </span>
+              ))}
+              <button type="button" className="shop-clear-link" onClick={resetFilters}>
+                Xoá tất cả
+              </button>
+            </div>
+          )}
+
+          {!ready && catalog.length === 0 ? (
+            <p className="shop-filter-note">Đang tải bộ sưu tập…</p>
+          ) : catalogEmpty ? (
+            <CatalogEmpty />
+          ) : paged.length === 0 ? (
+            <EmptyState
+              icon="bi-search"
+              title="Không có thiết kế nào khớp bộ lọc"
+              sub="Thử nới khoảng giá hoặc bỏ bớt một vài tiêu chí để xem thêm sản phẩm."
+              action={{ label: 'Xoá bộ lọc', onClick: resetFilters }}
+            />
+          ) : (
+            <div className={`products-grid${listView ? ' list-view' : ''}`}>
+              {paged.map((p, i) => (
+                <ProductCard key={p.id} product={p} index={i} />
+              ))}
+            </div>
+          )}
+
+          {totalPages > 1 && (
+            <nav className="lyra-pagination" aria-label="Phân trang">
+              <button
+                type="button"
+                className="page-num-btn"
+                aria-label="Trang trước"
+                onClick={() => goToPage(page - 1)}
+                disabled={page === 1}
+              >
+                <i className="bi bi-chevron-left" aria-hidden="true" />
+              </button>
+              {pageList(totalPages, page).map((n, i) =>
+                n === '…' ? (
+                  <span key={`gap-${i}`} className="pagination-ellipsis" aria-hidden="true">…</span>
+                ) : (
+                  <button
+                    key={n}
+                    type="button"
+                    className={`page-num-btn${page === n ? ' active' : ''}`}
+                    aria-label={`Trang ${n}`}
+                    aria-current={page === n ? 'page' : undefined}
+                    onClick={() => goToPage(n)}
+                  >
+                    {n}
+                  </button>
+                ),
+              )}
+              <button
+                type="button"
+                className="page-num-btn"
+                aria-label="Trang sau"
+                onClick={() => goToPage(page + 1)}
+                disabled={page === totalPages}
+              >
+                <i className="bi bi-chevron-right" aria-hidden="true" />
+              </button>
+            </nav>
+          )}
+        </section>
+      </div>
+
+      {/* ══ Drawer lọc trên mobile (≤1024px) ═══════════════════ */}
+      {drawerMounted && (
+        <>
+          <div
+            className={`shop-filter-backdrop${drawerShown ? ' open' : ''}`}
+            onClick={closeDrawer}
+            aria-hidden="true"
+          />
+          <div
+            ref={drawerRef}
+            className={`shop-filter-drawer${drawerShown ? ' open' : ''}`}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Bộ lọc sản phẩm"
+            tabIndex={-1}
+          >
+            <div className="filters-sheet-head">
+              <h2 className="filters-sheet-title">Bộ lọc</h2>
+              <button
+                type="button"
+                className="btn-icon"
+                aria-label="Đóng bộ lọc"
+                onClick={closeDrawer}
+              >
+                <i className="bi bi-x-lg" aria-hidden="true" />
+              </button>
+            </div>
+
+            <Filters id="dw" state={filtersState} actions={filtersActions} />
+
+            <div className="filters-sheet-foot">
+              <button type="button" className="btn-outline-lyra" onClick={resetFilters}>
+                Xoá tất cả
+              </button>
+              <button type="button" className="btn-lyra" onClick={closeDrawer}>
+                Xem {filtered.length} sản phẩm
               </button>
             </div>
           </div>
-        </div>
+        </>
       )}
 
-      {/* ── 6. FOOTER ── */}
-      <Footer navigate={navigate} />
+      <Footer />
     </div>
   );
 }

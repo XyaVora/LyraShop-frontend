@@ -20,6 +20,10 @@
   color: var(--warm-deep);
 }
 
+.search-hero-chips {
+  margin-top: 22px;
+}
+
 /* ---------- Ô tìm kiếm trên trang ---------- */
 
 .search-form {

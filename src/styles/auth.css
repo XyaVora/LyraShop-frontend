@@ -2,6 +2,22 @@
    Khung .auth-layout / .auth-visual / .auth-form-* đã có trong index.css §24;
    file này chỉ thêm phần trang tự dùng, không định nghĩa lại. */
 
+/* Cột ảnh bám viewport: không giãn theo chiều cao form khi đổi Đăng nhập/Đăng ký. */
+@media (min-width: 1025px) {
+  .auth-visual {
+    position: sticky;
+    top: var(--nav-h);
+    align-self: start;
+    height: calc(100vh - var(--nav-h));
+    min-height: calc(100vh - var(--nav-h));
+    max-height: calc(100vh - var(--nav-h));
+  }
+
+  .auth-form-col {
+    min-height: calc(100vh - var(--nav-h));
+  }
+}
+
 /* ── Cột hình ─────────────────────────────────────────────────────── */
 .auth-visual .pic {
   aspect-ratio: auto;
@@ -47,8 +63,85 @@
   color: var(--ink-2);
 }
 
+.auth-title {
+  overflow: hidden;
+}
+
+.auth-subtitle {
+  overflow: hidden;
+}
+
+.auth-copy-swap {
+  display: block;
+  animation: auth-copy-in .38s var(--ease-out) both;
+}
+
+@keyframes auth-copy-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 .auth-toggle {
+  position: relative;
   margin-bottom: 22px;
+  overflow: hidden;
+}
+
+.auth-toggle-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 50%;
+  height: 100%;
+  background: var(--ink);
+  transform: translate3d(0, 0, 0);
+  transition: transform .38s var(--ease-out);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.auth-toggle-thumb[data-mode="register"] {
+  transform: translate3d(100%, 0, 0);
+}
+
+.auth-toggle .auth-toggle-btn {
+  position: relative;
+  z-index: 1;
+  background: transparent;
+  transition: color .38s var(--ease-out);
+}
+
+.auth-toggle .auth-toggle-btn.active {
+  background: transparent;
+  color: var(--cream);
+}
+
+.auth-reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows .4s var(--ease-out),
+    opacity .24s var(--ease-out);
+}
+
+.auth-reveal.is-open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+  transition:
+    grid-template-rows .4s var(--ease-out),
+    opacity .28s var(--ease-out) .06s;
+}
+
+.auth-reveal-inner {
+  overflow: hidden;
+  min-height: 0;
 }
 
 /* ── Trường nhập ──────────────────────────────────────────────────── */
@@ -185,7 +278,15 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .auth-spin {
+  .auth-spin,
+  .auth-copy-swap {
     animation: none;
+  }
+
+  .auth-toggle-thumb,
+  .auth-toggle-btn,
+  .auth-reveal,
+  .auth-reveal.is-open {
+    transition: none;
   }
 }

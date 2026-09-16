@@ -1,197 +1,364 @@
-// src/pages/ProductDetailPage.jsx
-import { useState, useEffect, useRef } from 'react';
+// src/pages/ProductDetailPage.jsx — trang chi tiết sản phẩm LYRA.
+// Mọi tuỳ chọn (màu / size) lấy TỪ DỮ LIỆU sản phẩm, không còn hằng số dùng chung.
+// A11y: radiogroup cho màu & size, tablist cho tab, lightbox và bảng size dùng Modal.
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { extractErrorMessage, productApi, reviewApi } from '../services/api';
-import { normalizeProduct, fmt } from '../data/products';
-import { Stars, ProductCard, Footer } from '../components/index.jsx';
-import '../styles/product-detail.css';
+import { isUuid } from '../services/shopContract.mjs';
+import { loadProductDetail } from '../services/catalog';
+import { extractErrorMessage, reviewApi, tokenStore } from '../services/api';
+import { useCatalog } from '../context/CatalogContext';
+import {
+  REVIEWS_MOCK,
+  fmt,
+  slugify,
+} from '../data/products';
+import { BRAND } from '../data/brand';
+import {
+  EmptyState,
+  Footer,
+  Pic,
+  ProductCard,
+  RecentMarquee,
+  SectionHeader,
+  Stars,
+  isModifiedClick,
+} from '../components/index.jsx';
+import Modal from '../components/Modal.jsx';
+import ImageLoupe from '../components/ImageLoupe.jsx';
+import { buildUrl } from '../router.js';
+import '../styles/detail.css';
 
-// Map color names to visual hex codes for swatches
-const COLOR_SWATCH_MAP = {
-  'trắng': '#FFFFFF',
-  'trắng kem': '#FAF7F0',
-  'đen': '#1A1815',
-  'be': '#E6DDD0',
-  'be khaki': '#D9CEBF',
-  'xanh rêu': '#485743',
-  'xanh than': '#1B232E',
-  'xanh navy': '#1E293B',
-  'xám tiêu': '#8C8C8C',
-  'kem': '#F5EFE6',
-  'nâu sáp': '#6E472A',
-  'nâu': '#593D28',
-  'ánh bạc': '#D4D6D9',
-  'hồng pastel': '#F2D7D9',
-  'xanh chàm': '#2C3E50',
+/* ══════════════════════════════════════════════════════════════════
+   Hằng số cấp module (không phụ thuộc render)
+   ══════════════════════════════════════════════════════════════════ */
+
+const TABS = [
+  { id: 'desc', label: 'Mô tả' },
+  { id: 'spec', label: 'Thông số' },
+  { id: 'review', label: 'Đánh giá' },
+];
+
+/** Bảng size theo nhóm danh mục — khớp SIZE_SETS trong data/products.js. */
+const SIZE_GUIDES = {
+  clothing: {
+    title: 'Bảng size quần áo',
+    cols: ['Size', 'Ngực (cm)', 'Eo (cm)', 'Mông (cm)', 'Gợi ý'],
+    rows: [
+      ['XS', '78 – 82', '60 – 64', '84 – 88', '1m50 – 1m55 · 40 – 45kg'],
+      ['S', '82 – 86', '64 – 68', '88 – 92', '1m55 – 1m60 · 45 – 50kg'],
+      ['M', '86 – 90', '68 – 72', '92 – 96', '1m58 – 1m65 · 50 – 56kg'],
+      ['L', '90 – 95', '72 – 77', '96 – 101', '1m62 – 1m70 · 56 – 63kg'],
+      ['XL', '95 – 100', '77 – 83', '101 – 107', '1m66 – 1m75 · 63 – 70kg'],
+    ],
+    note: 'Số đo lấy trên cơ thể, chưa cộng độ rộng thoải mái. Nếu số đo của bạn nằm giữa hai size, LYRA khuyên chọn size lớn hơn với dáng suông và size nhỏ hơn với dáng ôm.',
+  },
+  shoes: {
+    title: 'Bảng size giày',
+    cols: ['Size', 'Dài bàn chân (cm)', 'Tương đương EU'],
+    rows: [
+      ['36', '22,5 – 23,0', 'EU 36'],
+      ['37', '23,0 – 23,5', 'EU 37'],
+      ['38', '23,5 – 24,3', 'EU 38'],
+      ['39', '24,3 – 25,0', 'EU 39'],
+      ['40', '25,0 – 25,7', 'EU 40'],
+      ['41', '25,7 – 26,4', 'EU 41'],
+    ],
+    note: 'Đo chiều dài bàn chân vào buổi chiều, khi chân nở nhất. Bàn chân bè hoặc mu cao nên chọn tăng nửa size.',
+  },
+  accessories: {
+    title: 'Kích thước phụ kiện',
+    cols: ['Size', 'Áp dụng cho', 'Ghi chú'],
+    rows: [
+      ['Free size', 'Túi, ví, thắt lưng', 'Kích thước cụ thể xem ở tab Thông số'],
+    ],
+    note: 'Phụ kiện của LYRA làm theo một kích thước duy nhất. Thắt lưng có 5 lỗ chỉnh, cách nhau 2,5cm.',
+  },
 };
 
-function getColorHex(colorName) {
-  if (!colorName) return '#C8A97E';
-  const clean = colorName.toLowerCase().trim();
-  for (const [key, hex] of Object.entries(COLOR_SWATCH_MAP)) {
-    if (clean.includes(key)) return hex;
-  }
-  return '#D8CEC0';
+/** Danh mục → nhóm bảng size. */
+function sizeGroupOf(cat) {
+  if (cat === 'Giày dép') return 'shoes';
+  if (cat === 'Phụ kiện') return 'accessories';
+  return 'clothing';
 }
 
+/** ISO 'YYYY-MM-DD' (hoặc ISO đầy đủ) → 'DD/MM/YYYY'. */
+function formatDate(iso) {
+  const s = String(iso || '');
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return '';
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+}
+
+/** Điều hướng con trỏ trong một nhóm radio (mũi tên + Home/End). */
+function radioKeyIndex(key, current, count) {
+  if (key === 'ArrowRight' || key === 'ArrowDown') return (current + 1) % count;
+  if (key === 'ArrowLeft' || key === 'ArrowUp') return (current - 1 + count) % count;
+  if (key === 'Home') return 0;
+  if (key === 'End') return count - 1;
+  return -1;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   TRANG
+   ══════════════════════════════════════════════════════════════════ */
+
 export default function ProductDetailPage() {
-  const { navigate, selectedProduct, isLoggedIn, user } = useApp();
-  const { addToCart, toggleWishlist, isWishlisted, showToast } = useCart();
+  const { navigate, selectedProduct, user, params } = useApp();
+  const {
+    addToCart,
+    toggleWishlist,
+    isWishlisted,
+    showToast,
+    addRecentlyViewed,
+    recentlyViewed,
+  } = useCart();
 
-  const [product, setProduct]                 = useState(null);
-  const [related, setRelated]                 = useState([]);
-  const [loading, setLoading]                 = useState(true);
-  const [error, setError]                     = useState(null);
+  const [liveProduct, setLiveProduct] = useState(null);
+  const [liveLoading, setLiveLoading] = useState(() => isUuid(params?.product) && !selectedProduct);
+  const product = liveProduct || selectedProduct;
 
-  const [selectedVariant, setSelectedVariant] = useState(null);
-  const [qty, setQty]                         = useState(1);
-  const [activeTab, setActiveTab]             = useState('desc');
-  const [activeThumb, setActiveThumb]         = useState(0);
-  const [showSizeGuide, setShowSizeGuide]     = useState(false);
-  const [lightboxImage, setLightboxImage]     = useState(null);
-  const [isStickyVisible, setIsStickyVisible] = useState(false);
-
-  // Reviews state
-  const [reviews, setReviews]                 = useState([]);
-  const [reviewsLoading, setReviewsLoading]   = useState(false);
-  const [reviewsError, setReviewsError]       = useState('');
-  const [reviewRating, setReviewRating]       = useState(5);
-  const [reviewComment, setReviewComment]     = useState('');
-  const [reviewSubmitting, setReviewSubmitting] = useState(false);
-
-  const ctaRef = useRef(null);
-
-  // Sticky bottom bar trigger on scroll
   useEffect(() => {
-    const handleScroll = () => {
-      if (!ctaRef.current) return;
-      const rect = ctaRef.current.getBoundingClientRect();
-      // Show sticky bar when the main CTA button has scrolled out of the top of viewport
-      setIsStickyVisible(rect.bottom < 0);
-    };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
-
-  // Load product detail
-  useEffect(() => {
-    if (!selectedProduct?.id && !selectedProduct?.slug) {
-      setError('Không tìm thấy sản phẩm.');
-      setLoading(false);
-      return;
+    const id = params?.product;
+    if (!isUuid(id)) {
+      setLiveProduct(null);
+      setLiveLoading(false);
+      return undefined;
     }
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-
-    const request = selectedProduct.id
-      ? productApi.get(selectedProduct.id)
-      : productApi.list({ size: 100 }).then(response => {
-          const match = (response.data?.content || []).find(item => item.slug === selectedProduct.slug);
-          if (!match) throw new Error('Product not found');
-          return { data: match };
-        });
-
-    request
-      .then(res => {
+    setLiveLoading(true);
+    loadProductDetail(id)
+      .then((mapped) => {
         if (cancelled) return;
-        const p = normalizeProduct(res.data, 0);
-        setProduct(p);
-        // Default to first variant in stock
-        const firstAvail = (p.variants || []).find(v => v.stock > 0) || p.variants?.[0] || null;
-        setSelectedVariant(firstAvail);
+        setLiveProduct(mapped || null);
+        setLiveLoading(false);
       })
       .catch(() => {
-        if (!cancelled) setError('Không thể tải thông tin sản phẩm.');
-      })
-      .finally(() => { if (!cancelled) setLoading(false); });
-
+        if (cancelled) return;
+        setLiveProduct(null);
+        setLiveLoading(false);
+      });
     return () => { cancelled = true; };
-  }, [selectedProduct?.id, selectedProduct?.slug]);
+  }, [params?.product]);
 
-  // Load related products
-  useEffect(() => {
-    if (!product?.categoryId) return;
-    productApi.related(product.id, 4)
-      .then(res => {
-        const all = (res.data || []).map((p, i) => normalizeProduct(p, i));
-        setRelated(all.filter(p => p.id !== product.id).slice(0, 4));
-      })
-      .catch(() => {});
-  }, [product?.categoryId, product?.id]);
+  /* ── State (App remount theo key={slug} nên state luôn khớp sản phẩm) ── */
+  const sizes = useMemo(
+    () => (Array.isArray(product?.sizes) && product.sizes.length ? product.sizes : ['Free size']),
+    [product],
+  );
+  const colors = useMemo(
+    () => (Array.isArray(product?.colors) && product.colors.length
+      ? product.colors
+      : [{ name: 'Mặc định', hex: product?.color || '#E9E2D6' }]),
+    [product],
+  );
+  const images = useMemo(
+    () => (Array.isArray(product?.images) ? product.images.filter(Boolean) : []),
+    [product],
+  );
 
-  // Load reviews
+  // Size mặc định lấy giữa bộ size — đúng như CartContext để giỏ hàng nhất quán.
+  const [sizeIdx, setSizeIdx] = useState(() => Math.floor(sizes.length / 2));
+  const [colorIdx, setColorIdx] = useState(0);
+  const [qty, setQty] = useState(1);
+  const [activeTab, setActiveTab] = useState('desc');
+  const [activeImg, setActiveImg] = useState(0);
+  const [lightbox, setLightbox] = useState(-1);       // -1 = đóng
+  const [sizeGuideOpen, setSizeGuideOpen] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [myReviews, setMyReviews] = useState([]);
+  const [apiReviews, setApiReviews] = useState([]);
+
+  const uid = useId();
+  const tabsRef = useRef(null);
+
+  const stock = Math.max(0, Number(product?.stock) || 0);
+  const outOfStock = stock === 0;
+  const lowStock = stock > 0 && stock <= 5;
+
+  const selectedSize = sizes[Math.min(sizeIdx, sizes.length - 1)];
+  const selectedColor = colors[Math.min(colorIdx, colors.length - 1)];
+
+  /* ── Ghi nhận "đã xem gần đây" ─────────────────────────────────── */
   useEffect(() => {
-    if (!product?.id) return;
+    if (product?.id !== undefined) addRecentlyViewed(product.id);
+  }, [product?.id, addRecentlyViewed]);
+
+  /* ── Lightbox: phím ← / → chuyển ảnh ───────────────────────────── */
+  useEffect(() => {
+    if (lightbox < 0 || images.length < 2) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setLightbox((i) => (i + 1) % images.length);
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setLightbox((i) => (i - 1 + images.length) % images.length);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [lightbox, images.length]);
+
+  /* ── Đánh giá ──────────────────────────────────────────────────── */
+  useEffect(() => {
+    if (!isUuid(product?.id)) {
+      setApiReviews([]);
+      return undefined;
+    }
     let cancelled = false;
-    setReviewsLoading(true);
-    setReviewsError('');
     reviewApi.list(product.id)
-      .then(({ data }) => { if (!cancelled) setReviews(data || []); })
-      .catch(error => {
-        if (!cancelled) setReviewsError(extractErrorMessage(error, 'Không thể tải đánh giá'));
+      .then(({ data }) => {
+        if (cancelled) return;
+        const list = Array.isArray(data) ? data : [];
+        setApiReviews(list.map((row) => ({
+          id: row.id,
+          name: 'Khách LYRA',
+          rating: row.rating,
+          text: row.comment || '',
+          date: row.createdAt,
+          mine: Boolean(user?.id && String(row.userId) === String(user.id)),
+        })));
       })
-      .finally(() => { if (!cancelled) setReviewsLoading(false); });
+      .catch(() => {
+        if (!cancelled) setApiReviews([]);
+      });
     return () => { cancelled = true; };
-  }, [product?.id]);
+  }, [product?.id, user?.id]);
 
-  if (loading) return (
-    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 480 }}>
-      <div style={{ textAlign: 'center' }}>
-        <i className="bi bi-hourglass-split" style={{ fontSize: 36, color: 'var(--warm)' }} />
-        <div style={{ marginTop: 14, color: 'var(--muted)', fontSize: 13, letterSpacing: '.1em', textTransform: 'uppercase' }}>
-          Đang tải thiết kế...
-        </div>
+  const baseReviews = useMemo(() => {
+    if (isUuid(product?.id)) return apiReviews;
+    const list = product ? REVIEWS_MOCK[product.id] : null;
+    return Array.isArray(list) ? list : [];
+  }, [product, apiReviews]);
+
+  const reviews = useMemo(() => [...myReviews, ...baseReviews], [myReviews, baseReviews]);
+
+  // Phân bố sao tính THẬT từ các đánh giá đang hiển thị (không bịa tỉ lệ).
+  const distribution = useMemo(() => {
+    const counts = [0, 0, 0, 0, 0];
+    reviews.forEach((r) => {
+      const i = Math.round(Number(r.rating) || 0);
+      if (i >= 1 && i <= 5) counts[i - 1] += 1;
+    });
+    return counts;
+  }, [reviews]);
+
+  const { wearWith, related: relatedFromCatalog } = useCatalog();
+  const related = useMemo(
+    () => (product ? relatedFromCatalog(product, 4) : []),
+    [product, relatedFromCatalog],
+  );
+  const withLooks = useMemo(
+    () => (product ? wearWith(product, 3) : []),
+    [product, wearWith],
+  );
+  const recent = useMemo(
+    () => (recentlyViewed || []).filter((p) => p.id !== product?.id).slice(0, 8),
+    [recentlyViewed, product],
+  );
+
+  /* ── Hành động ─────────────────────────────────────────────────── */
+  const handleAdd = useCallback(() => {
+    if (!product || outOfStock) return;
+    addToCart(product, qty, selectedSize, selectedColor.name);
+  }, [product, outOfStock, addToCart, qty, selectedSize, selectedColor]);
+
+  const handleBuyNow = useCallback(() => {
+    if (!product || outOfStock) return;
+    addToCart(product, qty, selectedSize, selectedColor.name, { openDrawer: false });
+    navigate('checkout');
+  }, [product, outOfStock, addToCart, qty, selectedSize, selectedColor, navigate]);
+
+  const handleShare = useCallback(async () => {
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    try {
+      await navigator.clipboard.writeText(url);
+      showToast('Đã sao chép liên kết sản phẩm', 'bi-link-45deg');
+    } catch {
+      showToast('Không sao chép được liên kết. Bạn có thể sao chép từ thanh địa chỉ.', 'bi-exclamation-circle');
+    }
+  }, [showToast]);
+
+  const goto = useCallback((page, params = {}) => (e) => {
+    if (isModifiedClick(e)) return;
+    e.preventDefault();
+    navigate(page, params);
+  }, [navigate]);
+
+  const onTabKey = (e) => {
+    const next = radioKeyIndex(e.key, TABS.findIndex((t) => t.id === activeTab), TABS.length);
+    if (next < 0) return;
+    e.preventDefault();
+    setActiveTab(TABS[next].id);
+    const nodes = tabsRef.current?.querySelectorAll('[role="tab"]');
+    nodes?.[next]?.focus();
+  };
+
+  const onOptionKey = (e, count, current, choose) => {
+    const next = radioKeyIndex(e.key, current, count);
+    if (next < 0) return;
+    e.preventDefault();
+    choose(next);
+    const group = e.currentTarget.closest('[role="radiogroup"]');
+    const nodes = group?.querySelectorAll('[role="radio"]');
+    nodes?.[next]?.focus();
+  };
+
+  /* ── Không tìm thấy sản phẩm ───────────────────────────────────── */
+  if (!product && liveLoading) {
+    return (
+      <div className="detail-page">
+        <section className="section">
+          <div className="wrap">
+            <EmptyState icon="bi-hourglass-split" title="Đang tải sản phẩm" sub="Đang lấy chi tiết và biến thể từ máy chủ LYRA." />
+          </div>
+        </section>
+        <Footer />
       </div>
-    </div>
-  );
+    );
+  }
 
-  if (error || !product) return (
-    <div className="not-found" style={{ padding: '80px 20px', textAlign: 'center' }}>
-      <div style={{ fontFamily: 'var(--font-serif)', fontSize: 72, color: 'var(--warm)', fontWeight: 300 }}>404</div>
-      <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, margin: '16px 0 24px' }}>{error || 'Sản phẩm không tồn tại'}</h2>
-      <button className="btn-hero-primary" onClick={() => navigate('shop')}>
-        <i className="bi bi-arrow-left" /> Quay lại Cửa hàng
-      </button>
-    </div>
-  );
+  if (!product) {
+    return (
+      <div className="detail-page">
+        <section className="section">
+          <div className="wrap">
+            <EmptyState
+              icon="bi-bag-x"
+              title="Không tìm thấy sản phẩm"
+              sub="Sản phẩm bạn tìm có thể đã ngừng kinh doanh hoặc đường dẫn không còn đúng."
+              action={{ label: 'Về cửa hàng', onClick: () => navigate('shop') }}
+            >
+              <button type="button" className="btn-outline-lyra" onClick={() => navigate('home')}>
+                Về trang chủ
+              </button>
+            </EmptyState>
+          </div>
+        </section>
+        <Footer />
+      </div>
+    );
+  }
 
   const wished = isWishlisted(product.id);
-  const variants = product.variants || [];
-  const sizes = [...new Set(variants.map(v => v.size).filter(Boolean))];
-  const colors = [...new Set(variants.map(v => v.color).filter(Boolean))];
-  const galleryImages = product.images && product.images.length > 0
-    ? product.images
-    : product.image ? [product.image] : [];
+  const catSlug = slugify(product.cat);
+  const guide = SIZE_GUIDES[sizeGroupOf(product.cat)];
+  const sku = `LY-${String(product.id).padStart(3, '0')}-2026`;
+  const hasSale = product.oldPrice > product.price;
 
-  const currentPrice  = selectedVariant?.price ? parseFloat(selectedVariant.price) : product.price;
-  const currentStock  = selectedVariant?.stock ?? product.stock;
-  const selectedSize  = selectedVariant?.size  || '';
-  const selectedColor = selectedVariant?.color || '';
-
-  const selectVariant = (size, color) => {
-    const v = variants.find(v =>
-      (size  ? v.size  === size  : true) &&
-      (color ? v.color === color : true) &&
-      v.stock > 0
-    ) || variants.find(v =>
-      (size  ? v.size  === size  : true) &&
-      (color ? v.color === color : true)
-    );
-    if (v) setSelectedVariant(v);
-  };
-
-  const handleAddToCart = () => {
-    addToCart(
-      { ...product, price: currentPrice, stock: currentStock, variantPrice: currentPrice },
-      qty,
-      selectedSize || null,
-      selectedColor || null,
-      selectedVariant?.id || null,
-    );
-    showToast(`Đã thêm ${product.name} vào giỏ hàng!`, 'success');
-  };
+  const specRows = [
+    ['Chất liệu', product.material],
+    ['Xuất xứ', product.origin],
+    ['Kiểu dáng', product.fit],
+    ['Bảo quản', product.care],
+    ['Danh mục', product.cat],
+    ['Thương hiệu', product.brand],
+    ['Mã sản phẩm', sku],
+  ].filter(([, v]) => Boolean(v));
 
   const handleBuyNow = () => {
     handleAddToCart();
@@ -239,78 +406,268 @@ export default function ProductDetailPage() {
   });
 
   return (
-    <div className="pdp-root">
-      {/* ── 1. BREADCRUMB ── */}
-      <div className="container-fluid px-4 px-lg-5">
-        <div className="pdp-breadcrumb-wrap">
-          <nav className="pdp-breadcrumb">
-            <a onClick={() => navigate('home')}>Trang chủ</a>
-            <span className="sep">/</span>
-            <a onClick={() => navigate('shop')}>Cửa hàng</a>
-            {product.cat && (
+    <div className="detail-page has-buy-bar">
+      <div className="detail-layout">
+        {/* ── Gallery ──────────────────────────────────────────── */}
+        <div className="detail-gallery-col">
+          <div className="gallery-main-view">
+            <ImageLoupe
+              src={images[activeImg]}
+              alt={`${product.name} — ảnh ${activeImg + 1}`}
+              tint={product.color}
+              icon={product.icon}
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              onFallbackClick={() => setLightbox(activeImg)}
+            />
+            <span className="gallery-zoom-hint" aria-hidden="true">
+              <i className="bi bi-search" /> Di chuột để phóng to
+            </span>
+          </div>
+
+          {images.length > 1 && (
+            <p className="look-strip-label">Form trên người — {images.length} góc chụp</p>
+          )}
+          {images.length > 1 && (
+            <div className="gallery-thumbnails" role="group" aria-label="Chọn ảnh sản phẩm">
+              {images.map((src, i) => (
+                <button
+                  key={src}
+                  type="button"
+                  className={`gallery-thumb${activeImg === i ? ' active' : ''}`}
+                  aria-label={`Xem ảnh ${i + 1} của ${product.name}`}
+                  aria-pressed={activeImg === i}
+                  onClick={() => setActiveImg(i)}
+                >
+                  <Pic as="span" src={src} alt="" tint={product.color} icon={product.icon} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── Thông tin ────────────────────────────────────────── */}
+        <div className="detail-info-col">
+          <nav className="detail-breadcrumb" aria-label="Đường dẫn">
+            <ol className="detail-crumbs">
+              <li>
+                <a href={buildUrl('home', {})} onClick={goto('home')}>Trang chủ</a>
+              </li>
+              <li>
+                <a href={buildUrl('shop', {})} onClick={goto('shop')}>Cửa hàng</a>
+              </li>
+              <li>
+                <a href={buildUrl('shop', { cat: catSlug })} onClick={goto('shop', { cat: catSlug })}>
+                  {product.cat}
+                </a>
+              </li>
+              <li aria-current="page">{product.name}</li>
+            </ol>
+          </nav>
+
+          <div className="eyebrow">{BRAND.name} · {BRAND.season}</div>
+          <h1 className="detail-product-name">{product.name}</h1>
+
+          <div className="detail-rating-row">
+            <Stars rating={product.rating} size={12} />
+            <span className="rating-count-text">
+              {product.rating.toFixed(1).replace('.', ',')} · {product.reviews} đánh giá · đã bán {product.sold}
+            </span>
+          </div>
+
+          <div className="detail-price-block">
+            <span className="detail-main-price">{fmt(product.price)}</span>
+            {hasSale && (
               <>
-                <span className="sep">/</span>
-                <a onClick={() => navigate('shop', { cat: product.cat })}>{product.cat}</a>
+                <span className="detail-old-price">{fmt(product.oldPrice)}</span>
+                <span className="detail-discount-tag">−{product.discount}%</span>
               </>
             )}
-            <span className="sep">/</span>
-            <span className="current">{product.name}</span>
-          </nav>
-        </div>
-      </div>
+          </div>
 
-      {/* ── 2. MAIN PRODUCT GRID ── */}
-      <div className="container-fluid px-4 px-lg-5">
-        <div className="pdp-main-grid">
-          {/* Gallery (Left) */}
-          <div className="pdp-gallery-wrap">
-            {/* Thumbnail Rail */}
-            {galleryImages.length > 1 && (
-              <div className="pdp-thumbnails-rail">
-                {galleryImages.map((imgUrl, idx) => (
-                  <button
-                    key={idx}
-                    className={`pdp-thumb-btn ${activeThumb === idx ? 'active' : ''}`}
-                    onClick={() => setActiveThumb(idx)}
-                  >
-                    <img src={imgUrl} alt={`${product.name} - ${idx}`} className="pdp-thumb-img" />
-                  </button>
+          {/* Màu sắc */}
+          <div className="option-row-label" id={`${uid}-color`}>
+            Màu sắc — <span className="selected-val">{selectedColor.name}</span>
+          </div>
+          <div className="color-options" role="radiogroup" aria-labelledby={`${uid}-color`}>
+            {colors.map((c, i) => (
+              <button
+                key={c.name}
+                type="button"
+                role="radio"
+                aria-checked={colorIdx === i}
+                aria-label={c.name}
+                tabIndex={colorIdx === i ? 0 : -1}
+                className={`color-option-btn${colorIdx === i ? ' active' : ''}`}
+                style={{ background: c.hex }}
+                onClick={() => setColorIdx(i)}
+                onKeyDown={(e) => onOptionKey(e, colors.length, colorIdx, setColorIdx)}
+              />
+            ))}
+          </div>
+
+          {/* Kích thước */}
+          <div className="option-row-label" id={`${uid}-size`}>
+            Kích thước — <span className="selected-val">{selectedSize}</span>
+            <button type="button" className="size-guide-link" onClick={() => setSizeGuideOpen(true)}>
+              Hướng dẫn chọn size
+            </button>
+          </div>
+          <div className="size-grid" role="radiogroup" aria-labelledby={`${uid}-size`}>
+            {sizes.map((s, i) => (
+              <button
+                key={s}
+                type="button"
+                role="radio"
+                aria-checked={sizeIdx === i}
+                tabIndex={sizeIdx === i ? 0 : -1}
+                className={`size-option-btn${sizeIdx === i ? ' active' : ''}`}
+                onClick={() => setSizeIdx(i)}
+                onKeyDown={(e) => onOptionKey(e, sizes.length, sizeIdx, setSizeIdx)}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+          {guide?.rows?.length > 0 && (
+            <div className="size-visual" aria-label="Gợi ý số đo theo size">
+              {guide.rows.map((row) => (
+                <div
+                  key={row[0]}
+                  className={`size-visual-row${row[0] === selectedSize ? ' is-active' : ''}`}
+                >
+                  <span className="size-visual-size">{row[0]}</span>
+                  <span className="size-visual-hint">{row[row.length - 1]}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Số lượng */}
+          <div className="option-row-label" id={`${uid}-qty`}>Số lượng</div>
+          <div className="detail-qty-row">
+            <div className="qty-controller" role="group" aria-labelledby={`${uid}-qty`}>
+              <button
+                type="button"
+                className="qty-step"
+                onClick={() => setQty((q) => Math.max(1, q - 1))}
+                disabled={qty <= 1 || outOfStock}
+                aria-label="Giảm số lượng"
+              >
+                −
+              </button>
+              <output className="qty-display" aria-live="polite">{qty}</output>
+              <button
+                type="button"
+                className="qty-step"
+                onClick={() => setQty((q) => Math.min(Math.max(1, stock), q + 1))}
+                disabled={qty >= stock || outOfStock}
+                aria-label="Tăng số lượng"
+              >
+                +
+              </button>
+            </div>
+            <span className={`stock-note${lowStock || outOfStock ? ' low' : ''}`}>
+              {outOfStock
+                ? 'Tạm hết hàng'
+                : lowStock
+                  ? `Chỉ còn ${stock} sản phẩm`
+                  : `Còn ${stock} sản phẩm`}
+            </span>
+          </div>
+
+          {/* CTA */}
+          <div className="detail-cta-row">
+            <button type="button" className="btn-add-to-cart" onClick={handleAdd} disabled={outOfStock}>
+              <i className="bi bi-bag-plus" aria-hidden="true" />{' '}
+              {outOfStock ? 'Tạm hết hàng' : 'Thêm vào giỏ hàng'}
+            </button>
+            <button
+              type="button"
+              className={`btn-icon${wished ? ' active' : ''}`}
+              onClick={() => toggleWishlist(product)}
+              aria-pressed={wished}
+              aria-label={wished ? `Bỏ yêu thích ${product.name}` : `Thêm ${product.name} vào yêu thích`}
+            >
+              <i className={`bi bi-heart${wished ? '-fill' : ''}`} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className="btn-icon"
+              onClick={handleShare}
+              aria-label="Sao chép liên kết sản phẩm"
+            >
+              <i className="bi bi-share" aria-hidden="true" />
+            </button>
+          </div>
+
+          <button type="button" className="btn-warm detail-buynow" onClick={handleBuyNow} disabled={outOfStock}>
+            Mua ngay <i className="bi bi-arrow-right" aria-hidden="true" />
+          </button>
+
+          {/* Cam kết */}
+          <div className="detail-perks">
+            {BRAND.promises.map((p) => (
+              <div key={p.title} className="perk-item">
+                <i className={`bi ${p.icon} perk-icon`} aria-hidden="true" />
+                <span><strong className="perk-title">{p.title}</strong> — {p.sub}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Tabs */}
+          <div className="detail-tabs" role="tablist" aria-label="Thông tin sản phẩm" ref={tabsRef}>
+            {TABS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                id={`${uid}-tab-${t.id}`}
+                aria-selected={activeTab === t.id}
+                aria-controls={`${uid}-panel-${t.id}`}
+                tabIndex={activeTab === t.id ? 0 : -1}
+                className={`detail-tab-btn${activeTab === t.id ? ' active' : ''}`}
+                onClick={() => setActiveTab(t.id)}
+                onKeyDown={onTabKey}
+              >
+                {t.id === 'review' ? `${t.label} (${product.reviews})` : t.label}
+              </button>
+
+          {/* Tab: Mô tả */}
+          <div
+            role="tabpanel"
+            id={`${uid}-panel-desc`}
+            aria-labelledby={`${uid}-tab-desc`}
+            tabIndex={0}
+            className={`tab-pane detail-description${activeTab === 'desc' ? ' active' : ''}`}
+          >
+            <p>{product.desc}</p>
+            <ul className="detail-bullets">
+              {product.material && <li><strong>Chất liệu:</strong> {product.material}</li>}
+              {product.fit && <li><strong>Kiểu dáng:</strong> {product.fit}</li>}
+              {product.care && <li><strong>Bảo quản:</strong> {product.care}</li>}
+            </ul>
+            {Array.isArray(product.tags) && product.tags.length > 0 && (
+              <div className="detail-tags" aria-label="Từ khoá sản phẩm">
+                {product.tags.map((t) => (
+                  <span key={t} className="detail-tag">{t}</span>
                 ))}
               </div>
             )}
+          </div>
 
-            {/* Main Showcase */}
-            <div
-              className="pdp-main-image-box"
-              onClick={() => {
-                if (galleryImages[activeThumb]) setLightboxImage(galleryImages[activeThumb]);
-              }}
-            >
-              <div className="pdp-tag-badge">ATELIER 2026 • HANDCRAFTED</div>
-              <button
-                className={`pdp-wishlist-float ${wished ? 'wished' : ''}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleWishlist(product.id);
-                  showToast(wished ? 'Đã xóa khỏi danh sách yêu thích' : 'Đã thêm vào danh sách yêu thích', 'success');
-                }}
-                title={wished ? 'Bỏ yêu thích' : 'Thêm vào yêu thích'}
-              >
-                <i className={`bi ${wished ? 'bi-heart-fill' : 'bi-heart'}`} />
-              </button>
-
-              {galleryImages[activeThumb] ? (
-                <img
-                  src={galleryImages[activeThumb]}
-                  alt={product.name}
-                  className="pdp-main-image"
-                />
-              ) : (
-                <div className="pdp-main-placeholder">
-                  <i className={`bi ${product.icon || 'bi-bag-heart'}`} />
-                  <span style={{ fontSize: 11, letterSpacing: '.2em', textTransform: 'uppercase' }}>
-                    {product.name}
-                  </span>
+          {/* Tab: Thông số */}
+          <div
+            role="tabpanel"
+            id={`${uid}-panel-spec`}
+            aria-labelledby={`${uid}-tab-spec`}
+            tabIndex={0}
+            className={`tab-pane${activeTab === 'spec' ? ' active' : ''}`}
+          >
+            <div className="spec-list">
+              {specRows.map(([k, v]) => (
+                <div key={k} className="spec-row">
+                  <span className="spec-key">{k}</span>
+                  <span className="spec-val">{v}</span>
                 </div>
               )}
 
@@ -512,341 +869,354 @@ export default function ProductDetailPage() {
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* ── 3. EXPANDED CONTENT TABS ── */}
-      <div className="container-fluid px-4 px-lg-5" id="pdp-tabs-anchor">
-        <section className="pdp-tabs-section">
-          <div className="pdp-tabs-header">
-            <button
-              className={`pdp-tab-trigger ${activeTab === 'desc' ? 'active' : ''}`}
-              onClick={() => setActiveTab('desc')}
-            >
-              Mô tả & Thiết kế
-            </button>
-            <button
-              className={`pdp-tab-trigger ${activeTab === 'care' ? 'active' : ''}`}
-              onClick={() => setActiveTab('care')}
-            >
-              Chất liệu & Bảo quản
-            </button>
-            <button
-              className={`pdp-tab-trigger ${activeTab === 'packaging' ? 'active' : ''}`}
-              onClick={() => setActiveTab('packaging')}
-            >
-              Đóng gói Signature
-            </button>
-            <button
-              className={`pdp-tab-trigger ${activeTab === 'reviews' ? 'active' : ''}`}
-              onClick={() => setActiveTab('reviews')}
-            >
-              Đánh giá ({reviews.length})
-            </button>
-          </div>
-
-          <div className="pdp-tab-content-wrap">
-            {/* Tab 1: Description */}
-            {activeTab === 'desc' && (
-              <div>
-                <p className="pdp-desc-text">
-                  {product.description || (
-                    'Thiết kế kết tinh từ chuẩn mực may đo đương đại và chất liệu tự nhiên thượng hạng. Phom dáng thanh lịch, đường cắt sắc sảo tôn vinh vóc dáng tự nhiên của người mặc. Từng chiếc khuy xà cừ, nẹp viền giấu chỉ và ve áo đều được chăm chút tỉ mỉ bởi các nghệ nhân may đo lành nghề của Lyra.'
-                  )}
-                </p>
-                <div style={{ marginTop: 24, padding: '20px 24px', background: '#FFFFFF', border: '1px solid var(--border)' }}>
-                  <h4 style={{ fontFamily: 'var(--font-serif)', fontSize: 18, marginBottom: 12 }}>Đặc tính nổi bật:</h4>
-                  <ul style={{ margin: 0, paddingLeft: 20, color: 'var(--muted)', fontSize: 14, lineHeight: 1.8 }}>
-                    <li>Phom dáng Regular Fit chuẩn quý phái, tạo cảm giác cử động nhẹ nhàng và thoải mái.</li>
-                    <li>Chất vải đã qua xử lý sinh học chống co rút, thoáng mát và thấm hút mồ hôi tối ưu.</li>
-                    <li>Dễ dàng phối cùng quần tây ống rộng, chân váy xếp ly hoặc khoác ngoài blazer.</li>
-                  </ul>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 2: Care & Fabric */}
-            {activeTab === 'care' && (
-              <div>
-                <p className="pdp-desc-text">
-                  Để giữ cho sản phẩm may đo luôn giữ được phom dáng hoàn hảo và độ óng tự nhiên của sợi vải, Lyra khuyến nghị khách hàng tuân thủ quy chuẩn chăm sóc chuyên biệt dưới đây:
-                </p>
-                <div className="pdp-care-grid">
-                  <div className="pdp-care-item">
-                    <i className="bi bi-hand-index-thumb pdp-care-icon" />
-                    <div className="pdp-care-name">Giặt tay nhẹ nhàng</div>
-                    <div className="pdp-care-hint">Giặt bằng nước mát dưới 30°C với dầu gội hoặc nước giặt lụa.</div>
-                  </div>
-                  <div className="pdp-care-item">
-                    <i className="bi bi-shield-slash pdp-care-icon" />
-                    <div className="pdp-care-name">Không dùng chất tẩy</div>
-                    <div className="pdp-care-hint">Tránh xa clo và chất tẩy rửa mạnh để bảo vệ sợi vải tự nhiên.</div>
-                  </div>
-                  <div className="pdp-care-item">
-                    <i className="bi bi-thermometer-low pdp-care-icon" />
-                    <div className="pdp-care-name">Ủi nhiệt độ thấp</div>
-                    <div className="pdp-care-hint">Ủi ở mặt trái khi vải còn ẩm nhẹ, hoặc dùng bàn ủi hơi nước.</div>
-                  </div>
-                  <div className="pdp-care-item">
-                    <i className="bi bi-recycle pdp-care-icon" />
-                    <div className="pdp-care-name">Giặt hấp khô</div>
-                    <div className="pdp-care-hint">Khuyến khích giặt hấp khô định kỳ tại các tiệm giặt uy tín.</div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 3: Packaging & Shipping */}
-            {activeTab === 'packaging' && (
-              <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                <i className="bi bi-gift" style={{ fontSize: 44, color: 'var(--warm)', marginBottom: 16, display: 'block' }} />
-                <h3 style={{ fontFamily: 'var(--font-serif)', fontSize: 28, marginBottom: 12 }}>Chuẩn Mực Đóng Gói Signature Box</h3>
-                <p style={{ maxWidth: 640, margin: '0 auto 24px', fontSize: 14.5, color: 'var(--muted)', lineHeight: 1.8 }}>
-                  Mỗi món đồ từ Lyra khi gửi đến tay bạn đều được đặt trong hộp cứng cao cấp chống va đập, bọc giấy nến lụa thơm và thắt ruy băng trang trọng. Kèm theo thiệp cảm ơn viết tay và túi đựng quần áo chống bụi.
-                </p>
-                <div style={{ display: 'inline-flex', gap: 20, fontSize: 13, color: 'var(--ink)' }}>
-                  <span>✦ Hộp quà độc quyền</span>
-                  <span>✦ Túi vải canvas bảo quản</span>
-                  <span>✦ Thiệp thông điệp viết tay</span>
-                </div>
-              </div>
-            )}
-
-            {/* Tab 4: Reviews */}
-            {activeTab === 'reviews' && (
-              <div className="pdp-reviews-layout">
-                {/* Overview Card */}
-                <div className="pdp-rating-overview-card">
-                  <div className="pdp-big-score">
-                    {product.rating ? product.rating.toFixed(1) : '5.0'}
-                  </div>
-                  <div className="pdp-stars-lg">
-                    <Stars score={product.rating || 5} />
-                  </div>
-                  <div className="pdp-rating-count-text">
-                    Dựa trên {totalReviews > 0 ? totalReviews : 12} đánh giá của khách hàng
-                  </div>
-
-                  <div className="pdp-rating-bars-list">
-                    {ratingDistribution.map(({ star, count, percent }) => (
-                      <div key={star} className="pdp-rating-bar-row">
-                        <span>{star}★</span>
-                        <div className="pdp-bar-track">
-                          <div className="pdp-bar-fill" style={{ width: `${percent}%` }} />
-                        </div>
-                        <span>{count}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Reviews List & Write Form */}
-                <div>
-                  {/* Form */}
-                  <div className="pdp-review-form-card">
-                    <h4 className="pdp-form-title">Để lại cảm nhận của bạn</h4>
-                    <div className="pdp-rating-select-stars">
-                      {[1, 2, 3, 4, 5].map(star => (
-                        <i
-                          key={star}
-                          className={`bi ${star <= reviewRating ? 'bi-star-fill' : 'bi-star'}`}
-                          onClick={() => setReviewRating(star)}
-                        />
-                      ))}
-                    </div>
-                    <textarea
-                      className="pdp-review-input"
-                      placeholder="Chia sẻ về chất vải, độ vừa vặn và trải nghiệm của bạn..."
-                      value={reviewComment}
-                      onChange={e => setReviewComment(e.target.value)}
-                    />
-                    <button
-                      className="btn-hero-primary"
-                      onClick={handleReviewSubmit}
-                      disabled={reviewSubmitting}
-                    >
-                      {reviewSubmitting ? 'Đang gửi...' : 'Gửi đánh giá'}
-                    </button>
-                    {reviewsError && (
-                      <div style={{ color: '#d9534f', fontSize: 13, marginTop: 10 }}>{reviewsError}</div>
-                    )}
-                  </div>
-
-                  {/* List */}
-                  {reviewsLoading ? (
-                    <div style={{ padding: 20, color: 'var(--muted)', textAlign: 'center' }}>Đang tải đánh giá...</div>
-                  ) : reviews.length === 0 ? (
-                    <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)', background: '#FFFFFF', border: '1px solid var(--border)' }}>
-                      Chưa có đánh giá nào. Hãy là người đầu tiên để lại cảm nhận về thiết kế này!
-                    </div>
-                  ) : (
-                    <div>
-                      {reviews.map((r, i) => (
-                        <div key={r.id || i} className="pdp-review-item">
-                          <div className="pdp-review-header">
-                            <div>
-                              <span className="pdp-reviewer-name">{r.userName || r.userFullName || 'Khách hàng ẩn danh'}</span>
-                              <div style={{ color: 'var(--warm)', fontSize: 12, marginTop: 2 }}>
-                                <Stars score={r.rating || 5} />
-                              </div>
-                            </div>
-                            <span className="pdp-review-date">
-                              {r.createdAt ? new Date(r.createdAt).toLocaleDateString('vi-VN') : 'Vừa xong'}
-                            </span>
-                          </div>
-                          <p className="pdp-review-text">{r.comment || 'Sản phẩm rất đẹp, chất vải mềm mát và đường may cực kỳ sắc sảo!'}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
-
-      {/* ── 4. RELATED PRODUCTS / COMPLETE THE LOOK ── */}
-      {related.length > 0 && (
-        <section className="section" style={{ paddingTop: 0, paddingBottom: 80 }}>
-          <div className="container-fluid px-4 px-lg-5">
-            <div className="editorial-header">
-              <div className="editorial-header-left">
-                <div className="editorial-subtitle">
-                  <i className="bi bi-gem" /> HOÀN THIỆN PHONG CÁCH
-                </div>
-                <h2 className="editorial-title">
-                  Các thiết kế<br /><em>cùng bộ sưu tập</em>
-                </h2>
-              </div>
-              <a className="editorial-view-all" onClick={() => navigate('shop')}>
-                Xem tất cả <i className="bi bi-arrow-right" />
-              </a>
-            </div>
-
-            <div className="products-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
-              {related.map((p, i) => (
-                <ProductCard key={p.id} product={p} delay={i} />
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ── 5. STICKY BOTTOM ACTION BAR ── */}
-      <div className={`pdp-sticky-bar ${isStickyVisible ? 'visible' : ''}`}>
-        <div className="pdp-sticky-left">
-          <img
-            src={galleryImages[0] || 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=200&auto=format&fit=crop'}
-            alt={product.name}
-            className="pdp-sticky-thumb"
-          />
-          <div>
-            <h4 className="pdp-sticky-title">{product.name}</h4>
-            <div className="pdp-sticky-price">{fmt(currentPrice)}</div>
-          </div>
-        </div>
-
-        <div className="pdp-sticky-right">
-          {sizes.length > 0 && (
-            <select
-              className="pdp-sticky-size-select"
-              value={selectedSize}
-              onChange={e => selectVariant(e.target.value, selectedColor)}
-            >
-              {sizes.map(s => (
-                <option key={s} value={s}>Kích cỡ: {s}</option>
-              ))}
-            </select>
-          )}
-
-          <button
-            className="btn-hero-primary"
-            style={{ height: 42, padding: '0 24px', fontSize: 11.5 }}
-            onClick={handleAddToCart}
-            disabled={currentStock <= 0}
+          {/* Tab: Đánh giá */}
+          <div
+            role="tabpanel"
+            id={`${uid}-panel-review`}
+            aria-labelledby={`${uid}-tab-review`}
+            tabIndex={0}
+            className={`tab-pane${activeTab === 'review' ? ' active' : ''}`}
           >
-            <i className="bi bi-bag-plus" />
-            {currentStock <= 0 ? 'Hết hàng' : 'Thêm vào giỏ'}
-          </button>
+            <div className="review-summary">
+              <div className="review-score">
+                <div className="review-score-num">{product.rating.toFixed(1).replace('.', ',')}</div>
+                <Stars rating={product.rating} size={11} />
+                <div className="review-score-sub">{product.reviews} đánh giá</div>
+              </div>
+              <div className="rating-bars">
+                <div className="rating-bars-cap">
+                  Phân bố {reviews.length} đánh giá đang hiển thị
+                </div>
+                {[5, 4, 3, 2, 1].map((r) => {
+                  const count = distribution[r - 1];
+                  const pct = reviews.length ? Math.round((count / reviews.length) * 100) : 0;
+                  return (
+                    <div key={r} className="rating-bar-row">
+                      <span className="rating-bar-label">{r} <i className="bi bi-star-fill" aria-hidden="true" /></span>
+                      <div className="rating-bar-track">
+                        <div className="rating-bar-fill" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="rating-bar-count">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="review-actions">
+              <button type="button" className="btn-outline-lyra btn-sm" onClick={() => setReviewOpen(true)}>
+                <i className="bi bi-pencil" aria-hidden="true" /> Viết đánh giá
+              </button>
+            </div>
+
+            {reviews.length === 0 ? (
+              <EmptyState
+                icon="bi-chat-quote"
+                title="Chưa có đánh giá"
+                sub="Hãy là người đầu tiên chia sẻ cảm nhận về sản phẩm này."
+              />
+            ) : (
+              <ul className="review-list">
+                {reviews.map((r, i) => (
+                  <li key={`${r.name}-${r.date}-${i}`} className="review-item">
+                    <div className="review-item-head">
+                      <span className="review-author">
+                        {r.name}
+                        {r.mine && <span className="review-mine">Đánh giá của bạn</span>}
+                      </span>
+                      <span className="review-date">{formatDate(r.date)}</span>
+                    </div>
+                    <Stars rating={r.rating} size={11} />
+                    <p className="review-text">{r.text}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* ── 6. INTERACTIVE SIZE GUIDE MODAL ── */}
-      {showSizeGuide && (
-        <div className="pdp-modal-backdrop" onClick={() => setShowSizeGuide(false)}>
-          <div className="pdp-modal-card" onClick={e => e.stopPropagation()}>
-            <button className="pdp-modal-close" onClick={() => setShowSizeGuide(false)}>
-              <i className="bi bi-x-lg" />
-            </button>
-            <h3 className="pdp-modal-title">Bảng Quy Đổi Kích Cỡ Chuẩn</h3>
-            <p className="pdp-modal-subtitle">
-              Bảng kích thước tiêu chuẩn theo nhân trắc học phụ nữ và nam giới Việt Nam (Đơn vị tính: cm)
-            </p>
-
-            <table className="pdp-size-table">
-              <thead>
-                <tr>
-                  <th>Kích cỡ</th>
-                  <th>Rộng vai</th>
-                  <th>Vòng ngực</th>
-                  <th>Vòng eo</th>
-                  <th>Vòng mông</th>
-                  <th>Gợi ý Cân nặng</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><strong>Size S</strong></td>
-                  <td>36 - 37</td>
-                  <td>82 - 86</td>
-                  <td>64 - 68</td>
-                  <td>88 - 92</td>
-                  <td>45 - 52 kg</td>
-                </tr>
-                <tr>
-                  <td><strong>Size M</strong></td>
-                  <td>37 - 38</td>
-                  <td>86 - 90</td>
-                  <td>68 - 72</td>
-                  <td>92 - 96</td>
-                  <td>52 - 58 kg</td>
-                </tr>
-                <tr>
-                  <td><strong>Size L</strong></td>
-                  <td>38 - 39</td>
-                  <td>90 - 94</td>
-                  <td>72 - 76</td>
-                  <td>96 - 100</td>
-                  <td>58 - 64 kg</td>
-                </tr>
-                <tr>
-                  <td><strong>Size XL</strong></td>
-                  <td>39 - 40</td>
-                  <td>94 - 98</td>
-                  <td>76 - 80</td>
-                  <td>100 - 104</td>
-                  <td>64 - 70 kg</td>
-                </tr>
-              </tbody>
-            </table>
-
-            <div style={{ background: '#FAF8F5', padding: '16px 20px', borderLeft: '3px solid var(--warm)', fontSize: 13, color: 'var(--ink)', lineHeight: 1.6 }}>
-              <strong>Lời khuyên từ Stylist Lyra:</strong> Nếu số đo của bạn nằm giữa 2 size, hãy ưu tiên chọn size lớn hơn để có độ rũ bay bổng thoải mái, hoặc liên hệ CSKH để được may đo điều chỉnh theo yêu cầu.
+      {withLooks.length > 0 && (
+        <section className="section detail-wear">
+          <div className="wrap">
+            <SectionHeader
+              eyebrow="Mặc với"
+              title={<>Ghép cùng<br /><em>tủ đồ này</em></>}
+              sub="Những món khác danh mục — cùng chất liệu hoặc cùng dịp mặc."
+            />
+            <div className="products-grid">
+              {withLooks.map((p, i) => (
+                <ProductCard key={p.id} product={p} index={i} />
+              ))}
             </div>
           </div>
-        </div>
+        </section>
       )}
 
-      {/* ── 7. LIGHTBOX MODAL ── */}
-      {lightboxImage && (
-        <div className="pdp-lightbox-backdrop" onClick={() => setLightboxImage(null)}>
-          <img src={lightboxImage} alt="Phóng to chi tiết" className="pdp-lightbox-img" />
-        </div>
+      {/* ── Gợi ý ──────────────────────────────────────────────── */}
+      {related.length > 0 && (
+        <section className="section detail-suggest">
+          <div className="wrap">
+            <SectionHeader
+              eyebrow="Gợi ý cho bạn"
+              title={<>Có thể<br /><em>bạn thích</em></>}
+              link={{ label: `Xem ${product.cat}`, page: 'shop', params: { cat: catSlug } }}
+            />
+            <div className="products-grid">
+              {related.map((p, i) => (
+                <ProductCard key={p.id} product={p} index={i} />
+              ))}
+            </div>
+          </div>
+        </section>
       )}
 
-      {/* ── 8. FOOTER ── */}
-      <Footer navigate={navigate} />
+      {/* ── Đã xem gần đây ─────────────────────────────────────── */}
+      {recent.length > 0 && (
+        <section className="section-sm detail-recent">
+          <div className="wrap">
+            <SectionHeader eyebrow="Lịch sử" title={<>Đã xem <em>gần đây</em></>} />
+            <RecentMarquee products={recent} />
+          </div>
+        </section>
+      )}
+
+      {/* ── Thanh mua dính đáy (≤768px) ────────────────────────── */}
+      <div className="buy-bar">
+        <div className="buy-bar-info">
+          <div className="buy-bar-price">{fmt(product.price)}</div>
+          <div className="buy-bar-meta">{selectedSize} · {selectedColor.name}</div>
+        </div>
+        <button type="button" className="btn-lyra" onClick={handleAdd} disabled={outOfStock}>
+          {outOfStock ? 'Hết hàng' : 'Thêm vào giỏ'}
+        </button>
+      </div>
+
+      <Footer />
+
+      {/* ── Lightbox ───────────────────────────────────────────── */}
+      <Modal
+        open={lightbox >= 0}
+        onClose={() => setLightbox(-1)}
+        size="lightbox"
+        className="detail-lightbox"
+        label={`Ảnh sản phẩm ${product.name}`}
+      >
+        <div className="lightbox-stage">
+          {images.length > 1 && (
+            <button
+              type="button"
+              className="lightbox-nav prev"
+              onClick={() => setLightbox((i) => (i - 1 + images.length) % images.length)}
+              aria-label="Ảnh trước"
+            >
+              <i className="bi bi-chevron-left" aria-hidden="true" />
+            </button>
+          )}
+          <Pic
+            src={images[Math.max(0, lightbox)]}
+            alt={`${product.name} — ảnh ${Math.max(0, lightbox) + 1}`}
+            ratio="3/4"
+            tint={product.color}
+            icon={product.icon}
+            eager
+            className="lightbox-pic"
+          />
+          {images.length > 1 && (
+            <button
+              type="button"
+              className="lightbox-nav next"
+              onClick={() => setLightbox((i) => (i + 1) % images.length)}
+              aria-label="Ảnh tiếp theo"
+            >
+              <i className="bi bi-chevron-right" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+        <p className="lightbox-caption">
+          {product.name} — ảnh {Math.max(0, lightbox) + 1}/{images.length || 1}
+          {images.length > 1 && <span className="lightbox-hint"> · dùng phím ← → để chuyển ảnh</span>}
+        </p>
+      </Modal>
+
+      {/* ── Bảng size ──────────────────────────────────────────── */}
+      <Modal
+        open={sizeGuideOpen}
+        onClose={() => setSizeGuideOpen(false)}
+        title={guide.title}
+        size="lg"
+        footer={
+          <button type="button" className="btn-lyra" onClick={() => setSizeGuideOpen(false)}>
+            Đã hiểu
+          </button>
+        }
+      >
+        <div className="table-scroll">
+          <table className="size-table">
+            <thead>
+              <tr>{guide.cols.map((c) => <th key={c} scope="col">{c}</th>)}</tr>
+            </thead>
+            <tbody>
+              {guide.rows.map((row) => (
+                <tr key={row[0]} className={row[0] === selectedSize ? 'is-current' : undefined}>
+                  {row.map((cell, i) => (
+                    i === 0
+                      ? <th key={cell} scope="row">{cell}</th>
+                      : <td key={`${row[0]}-${i}`}>{cell}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="size-guide-note">{guide.note}</p>
+      </Modal>
+
+      {/* ── Viết đánh giá ──────────────────────────────────────── */}
+      <ReviewFormModal
+        open={reviewOpen}
+        onClose={() => setReviewOpen(false)}
+        defaultName={user?.name || ''}
+        productName={product.name}
+        onSubmit={async (review) => {
+          if (isUuid(product?.id) && tokenStore.get()) {
+            try {
+              const { data } = await reviewApi.create(product.id, {
+                rating: review.rating,
+                comment: review.text,
+              });
+              setApiReviews((prev) => [{
+                id: data.id,
+                name: user?.name || 'Bạn',
+                rating: data.rating,
+                text: data.comment || review.text,
+                date: data.createdAt,
+                mine: true,
+              }, ...prev]);
+            } catch (error) {
+              showToast(extractErrorMessage(error, 'Chỉ đánh giá được sau khi đơn đã giao.'), 'bi-exclamation-circle');
+              return;
+            }
+          } else {
+            setMyReviews((prev) => [review, ...prev]);
+          }
+          setReviewOpen(false);
+          setActiveTab('review');
+          showToast('Cảm ơn bạn đã gửi đánh giá!', 'bi-chat-heart');
+        }}
+      />
     </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Form viết đánh giá — state cục bộ, không đụng tới context
+   ══════════════════════════════════════════════════════════════════ */
+function ReviewFormModal({ open, onClose, onSubmit, defaultName, productName }) {
+  const [name, setName] = useState(defaultName);
+  const [rating, setRating] = useState(5);
+  const [text, setText] = useState('');
+  const [errors, setErrors] = useState({});
+  const uid = useId();
+
+  // Mở lại form → dọn sạch nội dung cũ.
+  useEffect(() => {
+    if (open) {
+      setName(defaultName);
+      setRating(5);
+      setText('');
+      setErrors({});
+    }
+  }, [open, defaultName]);
+
+  const submit = (e) => {
+    e.preventDefault();
+    const next = {};
+    if (!name.trim()) next.name = 'Vui lòng nhập tên hiển thị.';
+    if (text.trim().length < 10) next.text = 'Nội dung đánh giá cần ít nhất 10 ký tự.';
+    setErrors(next);
+    if (Object.keys(next).length) return;
+
+    const now = new Date();
+    const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    onSubmit({ name: name.trim(), date, rating, text: text.trim(), mine: true });
+  };
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="Viết đánh giá"
+      footer={
+        <>
+          <button type="button" className="btn-outline-lyra" onClick={onClose}>Huỷ</button>
+          <button type="submit" form={`${uid}-form`} className="btn-lyra">Gửi đánh giá</button>
+        </>
+      }
+    >
+      <form id={`${uid}-form`} onSubmit={submit} noValidate className="review-form">
+        <p className="review-form-lead">
+          Chia sẻ cảm nhận của bạn về <strong>{productName}</strong> để giúp khách hàng khác chọn đúng hơn.
+        </p>
+
+        <div className="review-field">
+          <span className="review-label" id={`${uid}-rate`}>Số sao</span>
+          <div className="review-stars-input" role="radiogroup" aria-labelledby={`${uid}-rate`}>
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                role="radio"
+                aria-checked={rating === n}
+                aria-label={`${n} sao`}
+                tabIndex={rating === n ? 0 : -1}
+                className={`review-star-btn${n <= rating ? ' on' : ''}`}
+                onClick={() => setRating(n)}
+                onKeyDown={(e) => {
+                  const next = radioKeyIndex(e.key, rating - 1, 5);
+                  if (next < 0) return;
+                  e.preventDefault();
+                  setRating(next + 1);
+                  const nodes = e.currentTarget.closest('[role="radiogroup"]')?.querySelectorAll('[role="radio"]');
+                  nodes?.[next]?.focus();
+                }}
+              >
+                <i className={`bi bi-star${n <= rating ? '-fill' : ''}`} aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="review-field">
+          <label className="review-label" htmlFor={`${uid}-name`}>Tên hiển thị</label>
+          <input
+            id={`${uid}-name`}
+            className="review-input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ví dụ: Nguyễn Thu Hà"
+            aria-invalid={errors.name ? 'true' : undefined}
+            aria-describedby={errors.name ? `${uid}-name-err` : undefined}
+          />
+          {errors.name && <p className="field-error" id={`${uid}-name-err`}>{errors.name}</p>}
+        </div>
+
+        <div className="review-field">
+          <label className="review-label" htmlFor={`${uid}-text`}>Nội dung</label>
+          <textarea
+            id={`${uid}-text`}
+            className="review-input review-textarea"
+            rows={4}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Chất liệu, form dáng, size có đúng không…"
+            aria-invalid={errors.text ? 'true' : undefined}
+            aria-describedby={errors.text ? `${uid}-text-err` : undefined}
+          />
+          {errors.text && <p className="field-error" id={`${uid}-text-err`}>{errors.text}</p>}
+        </div>
+      </form>
+    </Modal>
   );
 }

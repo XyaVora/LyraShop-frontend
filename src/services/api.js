@@ -37,6 +37,14 @@ export const tokenStore = {
   clear: ()      => localStorage.removeItem(TOKEN_KEY),
 };
 
+/** Lỗi mạng / timeout — không có HTTP status từ backend. */
+export const isOffline = (error) =>
+  !error?.response && (
+    error?.code === 'ERR_NETWORK'
+    || error?.code === 'ECONNABORTED'
+    || error?.message === 'Network Error'
+  );
+
 export const csrfStore = {
   get: ()        => sessionStorage.getItem(CSRF_KEY),
   set: (token)   => {
@@ -126,6 +134,7 @@ api.interceptors.response.use(
         window.dispatchEvent(new Event('lyra:auth-expired'));
         refreshQueue.forEach(({ reject }) => reject(refreshError));
         refreshQueue = [];
+        try { window.dispatchEvent(new CustomEvent('lyra:auth-expired')); } catch { /* ignore */ }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
@@ -298,13 +307,43 @@ export const productApi = {
   related: async (id, size = 4) => hydrateProductArray(await api.get(`/products/${id}/related`, { params: { size } })),
 };
 
-async function hydrateProductArray(response) {
-  const summaries = Array.isArray(response.data) ? response.data : [];
-  const details = await Promise.allSettled(summaries.map(product => getProductDetail(product.id)));
-  return { ...response, data: summaries.map((product, index) =>
-    details[index]?.status === 'fulfilled' ? details[index].value.data : product
-  ) };
-}
+/* ── Cart API — requires CUSTOMER or ADMIN ───── */
+export const cartApi = {
+  get: () => api.get('/cart'),
+  add: (payload) => api.post('/cart/items', payload),
+  update: (itemId, payload) => api.put(`/cart/items/${itemId}`, payload),
+  remove: (itemId) => api.delete(`/cart/items/${itemId}`),
+  clear: () => api.delete('/cart'),
+};
+
+/* ── Orders API — requires CUSTOMER or ADMIN ─── */
+export const orderApi = {
+  list: () => api.get('/orders'),
+  create: (payload) => api.post('/orders', payload),
+  get: (id) => api.get(`/orders/${id}`),
+  cancel: (id) => api.put(`/orders/${id}/cancel`),
+};
+
+/* ── Profile API — requires CUSTOMER or ADMIN ── */
+export const profileApi = {
+  get: () => api.get('/me'),
+  update: (payload) => api.put('/me', payload),
+};
+
+/* ── Shipping addresses — requires CUSTOMER or ADMIN ── */
+export const addressApi = {
+  list: () => api.get('/addresses'),
+  create: (payload) => api.post('/addresses', payload),
+  update: (id, payload) => api.put(`/addresses/${id}`, payload),
+  remove: (id) => api.delete(`/addresses/${id}`),
+  setDefault: (id) => api.patch(`/addresses/${id}/default`),
+};
+
+/* ── Reviews ─────────────────────────────────── */
+export const reviewApi = {
+  list: (productId) => api.get(`/products/${productId}/reviews`),
+  create: (productId, payload) => api.post(`/products/${productId}/reviews`, payload),
+};
 
 /* ── Categories API ──────────────────────────── */
 export const categoryApi = {

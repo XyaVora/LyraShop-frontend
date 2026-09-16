@@ -1,446 +1,722 @@
-// src/pages/OrderDetailPage.jsx
-import { useEffect, useState } from 'react';
+// src/pages/OrderDetailPage.jsx — Chi tiết một đơn hàng LYRA.
+// Nguồn dữ liệu duy nhất: getOrder(selectedOrder) từ CartContext (đơn đã đặt + đơn mock
+// đều cùng shape). Trang KHÔNG tự tính lại tổng tiền — mọi con số lấy từ đơn.
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { fmt } from '../data/products';
-import { normalizeOrder } from '../data/orders';
-import { extractErrorMessage, orderApi } from '../services/api';
-import { Footer } from '../components/index.jsx';
-import '../styles/order-detail.css';
+import { BRAND } from '../data/brand';
+import { findProduct, fmt } from '../data/products';
+import { buildUrl } from '../router.js';
+import { EmptyState, Footer, Pic, Reveal, isModifiedClick } from '../components/index.jsx';
+import Modal from '../components/Modal.jsx';
+import '../styles/order.css';
+
+/* ── Nhãn trạng thái ─────────────────────────────────────────────────── */
+const STATUS = {
+  processing: { label: 'Đang xử lý', icon: 'bi-hourglass-split', cls: 'processing' },
+  confirmed: { label: 'Đã xác nhận', icon: 'bi-bag-check', cls: 'processing' },
+  packing: { label: 'Đang đóng gói', icon: 'bi-box-seam', cls: 'processing' },
+  shipping: { label: 'Đang giao hàng', icon: 'bi-truck', cls: 'shipping' },
+  delivered: { label: 'Đã giao hàng', icon: 'bi-house-check', cls: 'delivered' },
+  cancelled: { label: 'Đã huỷ', icon: 'bi-x-circle', cls: 'cancelled' },
+};
+const statusOf = (s) => STATUS[s] || STATUS.processing;
+
+/* ── Nhãn phương thức thanh toán ─────────────────────────────────────── */
+const PAYMENTS = {
+  cod: 'Thanh toán khi nhận hàng (COD)',
+  banking: 'Chuyển khoản ngân hàng',
+  momo: 'Ví MoMo',
+  vnpay: 'VNPay QR',
+  card: 'Thẻ tín dụng / ghi nợ',
+};
+const payLabel = (p) => PAYMENTS[String(p || '').toLowerCase()] || p || 'Chưa xác định';
+
+const STEP_ICONS = ['bi-receipt', 'bi-bag-check', 'bi-box-seam', 'bi-truck', 'bi-house-check'];
+
+const TABS = [
+  { id: 'detail', label: 'Chi tiết đơn', icon: 'bi-list-ul' },
+  { id: 'track', label: 'Theo dõi vận chuyển', icon: 'bi-truck' },
+  { id: 'invoice', label: 'Hoá đơn', icon: 'bi-receipt-cutoff' },
+];
+
+/* ── Định dạng ngày (dữ liệu chỉ có createdAt dạng ISO) ──────────────── */
+const pad2 = (n) => String(n).padStart(2, '0');
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  if (!iso || Number.isNaN(d.getTime())) return '—';
+  return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+function fmtDateTime(iso) {
+  const d = new Date(iso);
+  if (!iso || Number.isNaN(d.getTime())) return '—';
+  return `${fmtDate(iso)} · ${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+}
+
+/** Địa chỉ đầy đủ: { fullName, phone, email, street, district, city }. */
+const addressLine = (a) => [a?.street, a?.district, a?.city].filter(Boolean).join(', ');
 
 export default function OrderDetailPage() {
-  const { navigate, selectedOrder, user } = useApp();
-  const { showToast, addToCart } = useCart();
-  const [order, setOrder] = useState(selectedOrder || null);
-  const [loading, setLoading] = useState(Boolean(selectedOrder?.id));
-  const [error, setError] = useState('');
-  const [cancelling, setCancelling] = useState(false);
-  const [repurchasing, setRepurchasing] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const { navigate, selectedOrder } = useApp();
+  const { getOrder, loadOrder, cancelOrder, addToCart, openCart, showToast } = useCart();
+
+  const [tab, setTab] = useState('detail');
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [reviewFor, setReviewFor] = useState(null);   // { productId, name }
+  const [reviewed, setReviewed] = useState([]);       // productId đã đánh giá (state cục bộ)
+  const [rating, setRating] = useState(5);
+  const [reviewText, setReviewText] = useState('');
+  const tabRefs = useRef({});
+
+  const [remoteOrder, setRemoteOrder] = useState(null);
+  const order = getOrder(selectedOrder) || remoteOrder;
 
   useEffect(() => {
-    if (!selectedOrder?.id) {
-      setError('Không tìm thấy mã đơn hàng.');
-      setLoading(false);
+    if (getOrder(selectedOrder) || !selectedOrder || !loadOrder) return undefined;
+    let cancelled = false;
+    loadOrder(selectedOrder).then((mapped) => {
+      if (!cancelled) setRemoteOrder(mapped);
+    });
+    return () => { cancelled = true; };
+  }, [selectedOrder, getOrder, loadOrder]);
+
+  /* Gộp item của đơn với catalog để lấy ảnh/màu/slug (đơn chỉ lưu productId). */
+  const lines = useMemo(() => {
+    if (!order) return [];
+    return order.items.map((it, i) => {
+      const p = findProduct(it.productId);
+      return {
+        key: `${it.productId}-${it.size}-${it.variantColor}-${i}`,
+        productId: it.productId,
+        variantId: it.variantId,
+        name: it.name || p?.name || 'Sản phẩm LYRA',
+        price: Number(it.price) || Number(p?.price) || 0,
+        qty: Math.max(1, Number(it.qty) || 1),
+        size: it.size,
+        variantColor: it.variantColor,
+        image: Array.isArray(p?.images) ? p.images[0] : undefined,
+        tint: p?.color,
+        icon: p?.icon,
+        slug: p?.slug,
+        brand: p?.brand || 'LYRA',
+        product: p || null,
+      };
+    });
+  }, [order]);
+
+  const itemCount = useMemo(() => lines.reduce((a, l) => a + l.qty, 0), [lines]);
+
+  /* Mã vận đơn ổn định, năm khớp ngày đặt (chỉ có khi đơn đã rời kho). */
+  const tracking = useMemo(() => {
+    if (!order) return '';
+    const d = new Date(order.createdAt);
+    const yy = Number.isNaN(d.getTime()) ? '26' : String(d.getFullYear()).slice(-2);
+    return `VN${yy}${String(order.id).replace(/\D/g, '')}`;
+  }, [order]);
+
+  /* ── Điều hướng bằng phím ←/→ trong dải tab ───────────────────────── */
+  const onTabKeyDown = useCallback((e) => {
+    const idx = TABS.findIndex((t) => t.id === tab);
+    let next = null;
+    if (e.key === 'ArrowRight') next = TABS[(idx + 1) % TABS.length];
+    else if (e.key === 'ArrowLeft') next = TABS[(idx - 1 + TABS.length) % TABS.length];
+    else if (e.key === 'Home') next = TABS[0];
+    else if (e.key === 'End') next = TABS[TABS.length - 1];
+    if (!next) return;
+    e.preventDefault();
+    setTab(next.id);
+    tabRefs.current[next.id]?.focus();
+  }, [tab]);
+
+  /* ── Hành động ────────────────────────────────────────────────────── */
+  const goDetail = (e, slug) => {
+    if (isModifiedClick(e)) return;
+    e.preventDefault();
+    navigate('detail', { product: slug });
+  };
+
+  const reorder = () => {
+    let added = 0;
+    lines.forEach((l) => {
+      const product = l.product || (l.variantId
+        ? {
+          id: l.productId || l.variantId,
+          name: l.name,
+          variants: [{ id: l.variantId, size: l.size, color: l.variantColor }],
+        }
+        : null);
+      if (!product) return;
+      addToCart(product, l.qty, l.size, l.variantColor, { openDrawer: false });
+      added += 1;
+    });
+    if (!added) {
+      showToast('Các sản phẩm trong đơn này hiện không còn kinh doanh.', 'bi-exclamation-circle');
       return;
     }
-    let cancelled = false;
-    orderApi.get(selectedOrder.id)
-      .then(({ data }) => {
-        if (!cancelled) setOrder(normalizeOrder(data, user));
-      })
-      .catch(() => {
-        if (!cancelled) setError('Không thể tải chi tiết đơn hàng.');
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [selectedOrder?.id, user]);
-
-  const statusLabel = {
-    pending: 'Chờ xác nhận',
-    confirmed: 'Đã xác nhận',
-    processing: 'Đang chuẩn bị hàng',
-    shipping: 'Đang vận chuyển',
-    delivered: 'Đã giao thành công',
-    cancelled: 'Đã hủy',
+    openCart();
+    showToast(`Đã thêm ${added} sản phẩm vào giỏ hàng`, 'bi-bag-check');
   };
 
-  const statusSteps = [
-    { key: 'pending', title: 'Đặt hàng thành công', icon: 'bi-bag-check' },
-    { key: 'confirmed', title: 'Đã xác nhận', icon: 'bi-check2-circle' },
-    { key: 'processing', title: 'Chuẩn bị hàng', icon: 'bi-box-seam' },
-    { key: 'shipping', title: 'Đang vận chuyển', icon: 'bi-truck' },
-    { key: 'delivered', title: 'Giao thành công', icon: 'bi-house-check' },
+  const confirmCancel = async () => {
+    const ok = await cancelOrder(order.id);
+    setCancelOpen(false);
+    showToast(
+      ok ? `Đã huỷ đơn hàng ${order.id}` : 'Không thể huỷ đơn hàng này',
+      ok ? 'bi-x-circle' : 'bi-exclamation-circle',
+    );
+  };
+
+  const openReview = (line) => {
+    setReviewFor({ productId: line.productId, name: line.name });
+    setRating(5);
+    setReviewText('');
+  };
+
+  const submitReview = (e) => {
+    e.preventDefault();
+    if (!reviewFor) return;
+    setReviewed((prev) => (prev.includes(reviewFor.productId) ? prev : [...prev, reviewFor.productId]));
+    showToast(`Cảm ơn bạn đã đánh giá "${reviewFor.name}"`, 'bi-star-fill');
+    setReviewFor(null);
+  };
+
+  /* ── Không tìm thấy đơn ───────────────────────────────────────────── */
+  if (!order) {
+    return (
+      <div className="order-page">
+        <div className="wrap section">
+          <EmptyState
+            icon="bi-receipt"
+            title="Không tìm thấy đơn hàng"
+            sub={
+              selectedOrder
+                ? `Đơn hàng ${selectedOrder} không tồn tại hoặc đã được xoá khỏi lịch sử mua hàng.`
+                : 'Vui lòng chọn một đơn hàng từ mục Đơn hàng của tôi.'
+            }
+            action={{ label: 'Đơn hàng của tôi', onClick: () => navigate('profile', { tab: 'orders' }) }}
+          >
+            <button type="button" className="btn-outline-lyra" onClick={() => navigate('shop')}>
+              Tiếp tục mua sắm
+            </button>
+          </EmptyState>
+        </div>
+        <Footer navigate={navigate} />
+      </div>
+    );
+  }
+
+  const st = statusOf(order.status);
+  const cancelled = order.status === 'cancelled';
+  const canCancel = order.status === 'processing';
+  const paid = order.status === 'delivered'
+    || (String(order.payment).toLowerCase() !== 'cod' && !cancelled && order.status !== 'processing');
+
+  const steps = Array.isArray(order.timeline) ? order.timeline : [];
+  const doneCount = steps.filter((s) => s.done).length;
+  const progress = steps.length > 1
+    ? Math.min(100, Math.max(0, ((doneCount - 1) / (steps.length - 1)) * 100))
+    : 0;
+
+  const facts = [
+    { label: 'Ngày đặt', value: fmtDate(order.createdAt) },
+    { label: 'Sản phẩm', value: `${itemCount} món` },
+    { label: 'Thanh toán', value: payLabel(order.payment) },
+    { label: 'Tổng cộng', value: fmt(order.total), strong: true },
   ];
 
-  const getStepIndex = (status) => {
-    switch (status) {
-      case 'pending': return 0;
-      case 'confirmed': return 1;
-      case 'processing': return 2;
-      case 'shipping': return 3;
-      case 'delivered': return 4;
-      case 'cancelled': return -1;
-      default: return 1;
-    }
-  };
-
-  const activeStepIdx = getStepIndex(order?.status);
-
-  const handleCancel = async () => {
-    if (!window.confirm('Quý khách có chắc chắn muốn hủy đơn hàng này?')) return;
-    setCancelling(true);
-    try {
-      const { data } = await orderApi.cancel(order.id);
-      setOrder(normalizeOrder(data, user));
-      showToast('Đã hủy đơn hàng thành công', 'bi-check-circle');
-    } catch (cancelError) {
-      showToast(extractErrorMessage(cancelError, 'Không thể hủy đơn hàng'), 'bi-x-circle');
-    } finally {
-      setCancelling(false);
-    }
-  };
-
-  const handleRepurchase = async () => {
-    if (!order?.items?.length) return;
-    setRepurchasing(true);
-    try {
-      let count = 0;
-      for (const item of order.items) {
-        const ok = await addToCart(
-          { id: item.productId || item.id, name: item.name },
-          item.qty || 1,
-          item.size,
-          item.colorName,
-          item.variantId
-        );
-        if (ok) count++;
-      }
-      if (count > 0) {
-        showToast(`Đã thêm ${count} sản phẩm vào giỏ hàng`, 'bi-bag-check');
-        navigate('cart');
-      } else {
-        showToast('Không thể thêm sản phẩm vào giỏ hàng', 'bi-exclamation-circle');
-      }
-    } catch {
-      showToast('Có lỗi xảy ra khi mua lại sản phẩm', 'bi-x-circle');
-    } finally {
-      setRepurchasing(false);
-    }
-  };
-
-  const handleCopyTracking = (code) => {
-    if (!code) return;
-    navigator.clipboard?.writeText(code);
-    setCopied(true);
-    showToast('Đã sao chép mã vận đơn', 'bi-clipboard-check');
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handlePrint = () => {
-    window.print();
-  };
-
-  if (loading) {
-    return (
-      <div className="not-found" style={{ minHeight: '60vh' }}>
-        <div className="spinner-border text-secondary mb-3" role="status" style={{ width: '2.5rem', height: '2.5rem' }} />
-        <div className="not-found-title">Đang tải thông tin đơn hàng...</div>
-      </div>
-    );
-  }
-
-  if (error || !order) {
-    return (
-      <div className="not-found" style={{ minHeight: '60vh' }}>
-        <h2 className="not-found-title">{error || 'Không tìm thấy đơn hàng'}</h2>
-        <p style={{ color: 'var(--muted)', marginBottom: 24, fontSize: 14 }}>
-          Mã đơn hàng không hợp lệ hoặc đã bị thay đổi.
-        </p>
-        <button className="btn-hero-primary" onClick={() => navigate('profile', { profileTab: 'orders' })}>
-          Quay lại danh sách đơn hàng
-        </button>
-      </div>
-    );
-  }
-
-  const trackingCode = `VN${String(order.id || '982341').padStart(8, '0').slice(-8)}LX`;
-  const isCancelled = order.status === 'cancelled';
-
   return (
-    <div className="order-detail-root">
-      <div style={{ maxWidth: 1120, margin: '0 auto', padding: '0 24px' }}>
-        
-        {/* Top Header Card */}
-        <div className="order-detail-header-card">
-          <div>
-            <div className="order-detail-id-label">Mã Đơn Hàng</div>
-            <h1 className="order-detail-title">
-              {order.displayId || `#LY-${String(order.id).slice(0, 8).toUpperCase()}`}
-              <span className={`order-status-pill ${order.status || 'processing'}`}>
-                {order.status === 'pending' && <i className="bi bi-clock-history" />}
-                {order.status === 'confirmed' && <i className="bi bi-check2" />}
-                {order.status === 'processing' && <i className="bi bi-box" />}
-                {order.status === 'shipping' && <i className="bi bi-truck" />}
-                {order.status === 'delivered' && <i className="bi bi-patch-check" />}
-                {order.status === 'cancelled' && <i className="bi bi-x-circle" />}
-                {statusLabel[order.status] || 'Đang xử lý'}
-              </span>
-            </h1>
-            <div className="order-detail-meta-text">
-              Ngày tạo: <strong>{order.date || 'Gần đây'}</strong> · Phương thức: <strong>{order.payment}</strong>
+    <div className="order-page">
+      {/* ── Đầu trang ───────────────────────────────────────────────── */}
+      <header className="order-head no-print">
+        <div className="wrap">
+          <nav className="order-crumbs" aria-label="Đường dẫn">
+            <a
+              href={buildUrl('home')}
+              onClick={(e) => { if (!isModifiedClick(e)) { e.preventDefault(); navigate('home'); } }}
+            >
+              Trang chủ
+            </a>
+            <i className="bi bi-chevron-right" aria-hidden="true" />
+            <a
+              href={buildUrl('profile', { tab: 'orders' })}
+              onClick={(e) => { if (!isModifiedClick(e)) { e.preventDefault(); navigate('profile', { tab: 'orders' }); } }}
+            >
+              Đơn hàng của tôi
+            </a>
+            <i className="bi bi-chevron-right" aria-hidden="true" />
+            <span aria-current="page">{order.id}</span>
+          </nav>
+
+          <div className="order-head-top">
+            <div className="order-head-main">
+              <div className="eyebrow">Chi tiết đơn hàng</div>
+              <h1 className="t-h1 order-title">
+                Đơn hàng <em>{order.id}</em>
+              </h1>
+              <p className="order-head-meta">Đặt lúc {fmtDateTime(order.createdAt)}</p>
+            </div>
+
+            <div className={`order-status-badge ${st.cls} order-status-lg`}>
+              <i className={`bi ${st.icon}`} aria-hidden="true" />
+              {st.label}
             </div>
           </div>
 
-          {/* Action buttons */}
-          <div className="order-header-actions">
-            <button className="btn-copy-tracking" onClick={handlePrint} title="In phiếu giao nhận & hóa đơn">
-              <i className="bi bi-printer" /> In hóa đơn
+          <dl className="order-facts">
+            {facts.map((f) => (
+              <div key={f.label} className="order-fact">
+                <dt>{f.label}</dt>
+                <dd className={f.strong ? 'is-strong' : undefined}>{f.value}</dd>
+              </div>
+            ))}
+          </dl>
+
+          <div className="order-actions">
+            <button type="button" className="btn-lyra btn-sm" onClick={reorder}>
+              <i className="bi bi-arrow-repeat" aria-hidden="true" /> Mua lại đơn này
             </button>
-            <button
-              className="btn-copy-tracking"
-              onClick={handleRepurchase}
-              disabled={repurchasing}
-              title="Thêm lại tất cả sản phẩm của đơn này vào giỏ"
-            >
-              <i className="bi bi-arrow-repeat" /> {repurchasing ? 'Đang thêm...' : 'Mua lại toàn bộ'}
+            <button type="button" className="btn-outline-lyra btn-sm" onClick={() => navigate('shop')}>
+              <i className="bi bi-bag" aria-hidden="true" /> Tiếp tục mua sắm
             </button>
-            {order.status === 'pending' && (
-              <button
-                className="btn-copy-tracking"
-                style={{ color: '#C53030', borderColor: '#F8B4B4' }}
-                onClick={handleCancel}
-                disabled={cancelling}
-              >
-                <i className="bi bi-x-circle" /> {cancelling ? 'Đang hủy...' : 'Hủy đơn'}
+            {canCancel && (
+              <button type="button" className="btn-outline-lyra btn-sm is-danger" onClick={() => setCancelOpen(true)}>
+                <i className="bi bi-x-circle" aria-hidden="true" /> Huỷ đơn hàng
               </button>
             )}
-            <button
-              className="btn-copy-tracking"
-              style={{ background: 'var(--ink)', color: '#FFFFFF', borderColor: 'var(--ink)' }}
-              onClick={() => navigate('profile', { profileTab: 'orders' })}
-            >
-              <i className="bi bi-arrow-left" /> Danh sách đơn
-            </button>
-          </div>
-        </div>
-
-        {/* Stepper Timeline */}
-        <div className="order-stepper-card">
-          <div className="order-stepper-title">
-            {isCancelled ? 'Đơn hàng đã được hủy' : 'Tiến trình thực hiện & Vận chuyển'}
           </div>
 
-          {!isCancelled ? (
-            <div className="order-stepper-track">
-              {/* Connector line */}
-              <div className="stepper-connector-line">
-                <div
-                  className="stepper-connector-progress"
-                  style={{ width: `${(Math.max(0, activeStepIdx) / (statusSteps.length - 1)) * 100}%` }}
-                />
-              </div>
-
-              {statusSteps.map((st, idx) => {
-                const isDone = idx < activeStepIdx;
-                const isActive = idx === activeStepIdx;
-                return (
-                  <div
-                    key={st.key}
-                    className={`stepper-node ${isDone ? 'done' : ''} ${isActive ? 'active' : ''}`}
-                  >
-                    <div className="stepper-icon-circle">
-                      <i className={`bi ${isDone ? 'bi-check' : st.icon}`} />
-                    </div>
-                    <div className="stepper-node-title">{st.title}</div>
-                    <div className="stepper-node-time">
-                      {isDone ? 'Hoàn thành' : isActive ? 'Hiện tại' : 'Chờ xử lý'}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div style={{ textAlign: 'center', padding: '12px 0', color: '#C53030' }}>
-              <i className="bi bi-info-circle me-2" />
-              Đơn hàng này đã kết thúc ở trạng thái hủy. Nếu cần hỗ trợ hoàn tiền hoặc tư vấn lại, vui lòng liên hệ bộ phận CSKH của LyraShop.
-            </div>
+          {cancelled && (
+            <p className="order-cancel-note" role="status">
+              <i className="bi bi-info-circle" aria-hidden="true" />
+              Đơn hàng đã được huỷ. Nếu bạn đã thanh toán trước, LYRA sẽ hoàn tiền trong 3–5 ngày làm việc.
+            </p>
           )}
         </div>
+      </header>
 
-        {/* Logistics & Tracking Card */}
-        {!isCancelled && (
-          <div className="order-logistics-card">
-            <div className="logistics-partner-box">
-              <div className="logistics-partner-icon">
-                <i className="bi bi-box2-heart" />
-              </div>
-              <div>
-                <div className="logistics-partner-name">
-                  Đơn vị vận chuyển: SPX Express (Chuyển phát tiêu chuẩn LYRA)
-                </div>
-                <div className="logistics-partner-status" style={{ fontSize: 13, color: 'var(--muted)' }}>
-                  Mã vận đơn: <span className="logistics-tracking-code">{trackingCode}</span>
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      {/* ── Dải tab ────────────────────────────────────────────────── */}
+      <div className="order-tabs-bar no-print">
+        <div className="wrap">
+          <div className="order-tabs" role="tablist" aria-label="Nội dung đơn hàng" onKeyDown={onTabKeyDown}>
+            {TABS.map((t) => (
               <button
-                className="btn-copy-tracking"
-                onClick={() => handleCopyTracking(trackingCode)}
+                key={t.id}
+                type="button"
+                role="tab"
+                id={`order-tab-${t.id}`}
+                aria-selected={tab === t.id}
+                aria-controls={`order-panel-${t.id}`}
+                tabIndex={tab === t.id ? 0 : -1}
+                ref={(el) => { tabRefs.current[t.id] = el; }}
+                className={`order-tab${tab === t.id ? ' is-active' : ''}`}
+                onClick={() => setTab(t.id)}
               >
-                <i className={`bi ${copied ? 'bi-check-lg text-success' : 'bi-clipboard'}`} />
-                {copied ? 'Đã sao chép' : 'Sao chép mã'}
+                <i className={`bi ${t.icon}`} aria-hidden="true" />
+                {t.label}
               </button>
-              <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'right' }}>
-                Dự kiến giao: <strong>2-3 ngày làm việc</strong>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Order 2-Column Content Grid */}
-        <div className="order-detail-grid">
-          
-          {/* Left Column: Products + Recipient Info */}
-          <div>
-            {/* Products list card */}
-            <div className="order-items-card">
-              <h2 className="order-card-title">
-                <span>Kiện hàng ({order.items?.length || 0} sản phẩm)</span>
-                <span style={{ fontSize: 12, color: 'var(--muted)', fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
-                  Đóng gói tiêu chuẩn Lyra Luxury Box
-                </span>
-              </h2>
-
-              <div>
-                {order.items?.map((item, idx) => (
-                  <div key={item.key || idx} className="order-product-row">
-                    <div className="order-product-info">
-                      {item.image ? (
-                        <img src={item.image} alt={item.name} className="order-product-thumb" />
-                      ) : (
-                        <div
-                          className="order-product-thumb"
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: '#F0EAE1',
-                            color: 'var(--warm)',
-                            fontSize: 22,
-                          }}
-                        >
-                          <i className={`bi ${item.icon || 'bi-bag'}`} />
-                        </div>
-                      )}
-                      <div>
-                        <h3 className="order-product-name">{item.name}</h3>
-                        <div className="order-product-meta">
-                          Phân loại: <strong>{item.colorName || 'Màu Tiêu Chuẩn'}</strong> · Size: <strong>{item.size || 'Freesize'}</strong>
-                        </div>
-                        <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
-                          Số lượng: × {item.qty}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="order-product-price">
-                      {fmt(item.price * item.qty)}
-                      {item.qty > 1 && (
-                        <div style={{ fontSize: 12, color: 'var(--muted)', fontWeight: 400 }}>
-                          ({fmt(item.price)}/sp)
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Delivery address & buyer note */}
-            <div className="order-address-card">
-              <h2 className="order-card-title">
-                <span>Thông tin giao nhận</span>
-                <i className="bi bi-geo-alt" style={{ fontSize: 16, color: 'var(--warm)' }} />
-              </h2>
-              <div className="address-recipient-name">
-                {order.address?.name || 'Quý khách'}
-              </div>
-              <div className="address-recipient-phone">
-                <i className="bi bi-telephone me-1" /> {order.address?.phone || 'Chưa cung cấp'}
-              </div>
-              <div className="address-recipient-full">
-                <i className="bi bi-pin-map me-1" /> {order.address?.address || 'Địa chỉ tiêu chuẩn'}
-              </div>
-
-              {order.note && (
-                <div style={{ marginTop: 18, paddingTop: 14, borderTop: '1px dashed var(--border)' }}>
-                  <div style={{ fontSize: 11.5, textTransform: 'uppercase', letterSpacing: '0.12em', color: 'var(--warm)', fontWeight: 600, marginBottom: 4 }}>
-                    Ghi chú từ khách hàng
-                  </div>
-                  <div style={{ fontSize: 13, fontStyle: 'italic', color: 'var(--muted)' }}>
-                    "{order.note}"
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right Column: Sticky Payment & Order Summary */}
-          <div>
-            <div className="order-summary-card">
-              <h2 className="order-card-title">
-                <span>Tóm tắt thanh toán</span>
-              </h2>
-
-              <div className="order-summary-row">
-                <span>Tạm tính sản phẩm</span>
-                <span>{fmt(order.subtotal || order.total)}</span>
-              </div>
-
-              <div className="order-summary-row">
-                <span>Phí vận chuyển</span>
-                <span>{order.shipping ? fmt(order.shipping) : 'Miễn phí'}</span>
-              </div>
-
-              {order.discount > 0 && (
-                <div className="order-summary-row" style={{ color: 'var(--warm)' }}>
-                  <span>Ưu đãi voucher</span>
-                  <span>−{fmt(order.discount)}</span>
-                </div>
-              )}
-
-              <div className="order-summary-row">
-                <span>Hình thức thanh toán</span>
-                <span style={{ fontWeight: 500, color: 'var(--ink)' }}>{order.payment}</span>
-              </div>
-
-              <div className="order-summary-row">
-                <span>Trạng thái thanh toán</span>
-                <span style={{
-                  color: order.paymentStatus === 'PAID' ? '#2E7D32' : '#B28900',
-                  fontWeight: 600,
-                  fontSize: 12
-                }}>
-                  {order.paymentStatus === 'PAID' ? '● Đã thanh toán' : '○ Chờ thanh toán / COD'}
-                </span>
-              </div>
-
-              <div className="order-summary-total-row">
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--ink)' }}>Tổng thanh toán</div>
-                  <div style={{ fontSize: 11, color: 'var(--muted)' }}>Đã bao gồm VAT & phụ phí</div>
-                </div>
-                <div className="order-summary-total-val">
-                  {fmt(order.total)}
-                </div>
-              </div>
-
-              {/* Service guarantee perks */}
-              <div style={{ marginTop: 24, paddingTop: 18, borderTop: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12, fontSize: 12.5, color: 'var(--muted)' }}>
-                  <i className="bi bi-shield-check text-success" style={{ fontSize: 16 }} />
-                  <span>Sản phẩm chính hãng thiết kế bởi Lyra Atelier</span>
-                </div>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12, fontSize: 12.5, color: 'var(--muted)' }}>
-                  <i className="bi bi-arrow-repeat text-primary" style={{ fontSize: 16 }} />
-                  <span>Hỗ trợ đổi size tận nhà trong vòng 15 ngày</span>
-                </div>
-                <div style={{ display: 'flex', gap: 12, alignItems: 'center', fontSize: 12.5, color: 'var(--muted)' }}>
-                  <i className="bi bi-telephone text-secondary" style={{ fontSize: 16 }} />
-                  <span>Hotline CSKH VIP: <strong>1900 8899</strong> (8h - 22h)</span>
-                </div>
-              </div>
-            </div>
+            ))}
           </div>
 
         </div>
 
       </div>
+
+      {/* ── Nội dung ───────────────────────────────────────────────── */}
+      <div className="order-body">
+        <div className="wrap">
+
+          {/* TAB 1 — Chi tiết đơn */}
+          {tab === 'detail' && (
+            <section
+              id="order-panel-detail"
+              role="tabpanel"
+              aria-labelledby="order-tab-detail"
+              tabIndex={0}
+              className="order-panel order-layout"
+            >
+              <Reveal className="order-col-main">
+                <div className="eyebrow order-block-label">Sản phẩm đã đặt</div>
+                <ul className="order-lines">
+                  {lines.map((l) => {
+                    const href = l.slug ? buildUrl('detail', { product: l.slug }) : null;
+                    const done = reviewed.includes(l.productId);
+                    return (
+                      <li key={l.key} className="order-line">
+                        {href ? (
+                          <a className="order-line-thumb" href={href} onClick={(e) => goDetail(e, l.slug)} tabIndex={-1} aria-hidden="true">
+                            <Pic as="span" src={l.image} alt="" tint={l.tint} icon={l.icon} ratio="3/4" />
+                          </a>
+                        ) : (
+                          <span className="order-line-thumb" aria-hidden="true">
+                            <Pic as="span" src={l.image} alt="" tint={l.tint} icon={l.icon} ratio="3/4" />
+                          </span>
+                        )}
+
+                        <div className="order-line-info">
+                          {href ? (
+                            <a className="order-line-name" href={href} onClick={(e) => goDetail(e, l.slug)}>
+                              {l.name}
+                            </a>
+                          ) : (
+                            <span className="order-line-name">{l.name}</span>
+                          )}
+                          <p className="order-line-meta">
+                            {l.brand} · Size {l.size} · Màu {l.variantColor}
+                          </p>
+                          <p className="order-line-meta">
+                            {fmt(l.price)} × {l.qty}
+                          </p>
+                        </div>
+
+                        <div className="order-line-side">
+                          <div className="order-line-total">{fmt(l.price * l.qty)}</div>
+                          {order.status === 'delivered' && (
+                            <button
+                              type="button"
+                              className="order-review-btn"
+                              onClick={() => openReview(l)}
+                              disabled={done}
+                            >
+                              <i className={`bi ${done ? 'bi-star-fill' : 'bi-star'}`} aria-hidden="true" />
+                              {done ? 'Đã đánh giá' : 'Đánh giá'}
+                            </button>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                {order.note && (
+                  <div className="order-note-card">
+                    <div className="eyebrow bare">Ghi chú của bạn</div>
+                    <p>{order.note}</p>
+                  </div>
+                )}
+              </Reveal>
+
+              <Reveal className="order-col-side" delay={1}>
+                <div className="order-card-box">
+                  <div className="eyebrow bare">Tóm tắt thanh toán</div>
+                  <div className="order-sum-row">
+                    <span>Tạm tính</span>
+                    <span>{fmt(order.subtotal)}</span>
+                  </div>
+                  <div className="order-sum-row">
+                    <span>Phí vận chuyển</span>
+                    <span>{order.shipping > 0 ? fmt(order.shipping) : 'Miễn phí'}</span>
+                  </div>
+                  {order.discount > 0 && (
+                    <div className="order-sum-row">
+                      <span>Giảm giá{order.couponCode ? ` (${order.couponCode})` : ''}</span>
+                      <span className="is-warm">−{fmt(order.discount)}</span>
+                    </div>
+                  )}
+                  <div className="order-sum-total">
+                    <span>Tổng cộng</span>
+                    <strong>{fmt(order.total)}</strong>
+                  </div>
+                </div>
+
+                <div className="order-card-box">
+                  <div className="eyebrow bare">Địa chỉ giao hàng</div>
+                  {order.address ? (
+                    <address className="order-address">
+                      <span className="order-address-name">{order.address.fullName}</span>
+                      <span>{order.address.phone}</span>
+                      {order.address.email && <span>{order.address.email}</span>}
+                      <span>{addressLine(order.address)}</span>
+                    </address>
+                  ) : (
+                    <p className="order-muted">Chưa có thông tin địa chỉ.</p>
+                  )}
+                </div>
+
+                <div className="order-card-box">
+                  <div className="eyebrow bare">Phương thức thanh toán</div>
+                  <p className="order-pay">
+                    <i className="bi bi-credit-card" aria-hidden="true" />
+                    {payLabel(order.payment)}
+                  </p>
+                  <p className={`order-pay-state${paid ? ' is-paid' : ''}`}>
+                    {paid ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                  </p>
+                </div>
+              </Reveal>
+            </section>
+          )}
+
+          {/* TAB 2 — Theo dõi vận chuyển */}
+          {tab === 'track' && (
+            <section
+              id="order-panel-track"
+              role="tabpanel"
+              aria-labelledby="order-tab-track"
+              tabIndex={0}
+              className="order-panel order-track"
+            >
+              <div className="eyebrow order-block-label">Hành trình đơn hàng</div>
+
+              <div
+                className="order-progress"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={steps.length}
+                aria-valuenow={doneCount}
+                aria-label={`Hoàn thành ${doneCount} trên ${steps.length} bước`}
+              >
+                <span className="order-progress-track" aria-hidden="true" />
+                <span className="order-progress-fill" style={{ '--p': progress / 100 }} aria-hidden="true" />
+                <div className="order-progress-dots" aria-hidden="true">
+                  {steps.map((s, i) => (
+                    <span key={s.label || i} className={`order-progress-dot${s.done ? ' is-done' : ''}`}>
+                      <i className={`bi ${STEP_ICONS[i] || 'bi-circle'}`} />
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <ol className="order-timeline">
+                {steps.map((s, i) => {
+                  const current = s.done && i === doneCount - 1 && !cancelled;
+                  return (
+                    <li key={s.label || i} className={`timeline-step${s.done ? ' done' : ''}`}>
+                      <span className="timeline-dot" aria-hidden="true">
+                        <i className={`bi ${s.done ? 'bi-check-lg' : STEP_ICONS[i] || 'bi-circle'}`} />
+                      </span>
+                      <div>
+                        <div className="timeline-label">
+                          {s.label}
+                          {current && <span className="timeline-now">Hiện tại</span>}
+                        </div>
+                        {s.note && <div className="timeline-note">{s.note}</div>}
+                        <div className="timeline-time">{s.date ? fmtDateTime(s.date) : 'Chưa cập nhật'}</div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+
+              <dl className="order-ship-facts">
+                <div className="order-fact">
+                  <dt>Đơn vị vận chuyển</dt>
+                  <dd>LYRA Express</dd>
+                </div>
+                <div className="order-fact">
+                  <dt>Mã vận đơn</dt>
+                  <dd>{['shipping', 'delivered'].includes(order.status) ? tracking : 'Chưa phát sinh'}</dd>
+                </div>
+                <div className="order-fact">
+                  <dt>Giao tới</dt>
+                  <dd>{order.address ? `${order.address.district}, ${order.address.city}` : '—'}</dd>
+                </div>
+              </dl>
+
+              <p className="order-muted order-track-help">
+                Cần hỗ trợ về đơn hàng? Gọi {BRAND.hotline} hoặc gửi thư tới {BRAND.email}.
+              </p>
+            </section>
+          )}
+
+          {/* TAB 3 — Hoá đơn */}
+          {tab === 'invoice' && (
+            <section
+              id="order-panel-invoice"
+              role="tabpanel"
+              aria-labelledby="order-tab-invoice"
+              tabIndex={0}
+              className="order-panel order-invoice-wrap"
+            >
+              <article className="invoice print-area">
+                <header className="invoice-head">
+                  <div>
+                    <div className="invoice-brand">LYRA</div>
+                    <p className="invoice-brand-sub">
+                      {BRAND.address}
+                      <br />
+                      {BRAND.email} · {BRAND.hotline}
+                    </p>
+                  </div>
+                  <div className="invoice-meta">
+                    <div className="eyebrow bare">Hoá đơn điện tử</div>
+                    <div className="invoice-id">{order.id}</div>
+                    <div className="order-muted">{fmtDateTime(order.createdAt)}</div>
+                  </div>
+                </header>
+
+                <div className="invoice-parties">
+                  <div>
+                    <div className="eyebrow bare">Khách hàng</div>
+                    {order.address ? (
+                      <address className="order-address">
+                        <span className="order-address-name">{order.address.fullName}</span>
+                        <span>{order.address.phone}</span>
+                        <span>{addressLine(order.address)}</span>
+                      </address>
+                    ) : (
+                      <p className="order-muted">—</p>
+                    )}
+                  </div>
+                  <div>
+                    <div className="eyebrow bare">Thanh toán</div>
+                    <p className="order-muted invoice-pay">
+                      {payLabel(order.payment)}
+                      <br />
+                      Ngày đặt: {fmtDate(order.createdAt)}
+                      <br />
+                      Trạng thái:{' '}
+                      <span className={paid ? 'is-paid' : 'is-unpaid'}>
+                        {paid ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="table-scroll">
+                  <table className="invoice-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Sản phẩm</th>
+                        <th scope="col">Size</th>
+                        <th scope="col">Màu</th>
+                        <th scope="col" className="ta-r">SL</th>
+                        <th scope="col" className="ta-r">Đơn giá</th>
+                        <th scope="col" className="ta-r">Thành tiền</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {lines.map((l) => (
+                        <tr key={l.key}>
+                          <td>{l.name}</td>
+                          <td>{l.size}</td>
+                          <td>{l.variantColor}</td>
+                          <td className="ta-r">{l.qty}</td>
+                          <td className="ta-r">{fmt(l.price)}</td>
+                          <td className="ta-r">{fmt(l.price * l.qty)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="invoice-totals">
+                  <div className="order-sum-row">
+                    <span>Tạm tính</span>
+                    <span>{fmt(order.subtotal)}</span>
+                  </div>
+                  <div className="order-sum-row">
+                    <span>Phí vận chuyển</span>
+                    <span>{order.shipping > 0 ? fmt(order.shipping) : 'Miễn phí'}</span>
+                  </div>
+                  {order.discount > 0 && (
+                    <div className="order-sum-row">
+                      <span>Giảm giá{order.couponCode ? ` (${order.couponCode})` : ''}</span>
+                      <span className="is-warm">−{fmt(order.discount)}</span>
+                    </div>
+                  )}
+                  <div className="order-sum-total">
+                    <span>Tổng cộng</span>
+                    <strong>{fmt(order.total)}</strong>
+                  </div>
+                </div>
+
+                <p className="invoice-foot">
+                  Cảm ơn bạn đã mua sắm tại LYRA. Hoá đơn điện tử này có giá trị tương đương hoá đơn giấy.
+                  © 2026 LYRA.
+                </p>
+              </article>
+
+              <div className="order-actions no-print">
+                <button type="button" className="btn-outline-lyra btn-sm" onClick={() => window.print()}>
+                  <i className="bi bi-printer" aria-hidden="true" /> In hoá đơn
+                </button>
+                <button
+                  type="button"
+                  className="btn-outline-lyra btn-sm"
+                  onClick={() => showToast(
+                    'Xuất PDF đang được phát triển — bạn có thể dùng "In hoá đơn" rồi chọn Lưu thành PDF.',
+                    'bi-tools',
+                  )}
+                >
+                  <i className="bi bi-filetype-pdf" aria-hidden="true" /> Tải PDF
+                </button>
+              </div>
+            </section>
+          )}
+        </div>
+      </div>
+
+      {/* ── Modal xác nhận huỷ đơn ─────────────────────────────────── */}
+      <Modal
+        open={cancelOpen}
+        onClose={() => setCancelOpen(false)}
+        title="Huỷ đơn hàng?"
+        size="sm"
+        footer={(
+          <>
+            <button type="button" className="btn-outline-lyra" onClick={() => setCancelOpen(false)}>
+              Giữ đơn hàng
+            </button>
+            <button type="button" className="btn-lyra is-danger" onClick={confirmCancel}>
+              Xác nhận huỷ
+            </button>
+          </>
+        )}
+      >
+        <p>
+          Bạn chắc chắn muốn huỷ đơn <strong>{order.id}</strong> trị giá {fmt(order.total)}? Hành động này
+          không thể hoàn tác — bạn sẽ cần đặt lại nếu đổi ý.
+        </p>
+      </Modal>
+
+      {/* ── Modal viết đánh giá ────────────────────────────────────── */}
+      <Modal
+        open={Boolean(reviewFor)}
+        onClose={() => setReviewFor(null)}
+        title="Viết đánh giá"
+        size="sm"
+      >
+        <form className="order-review-form" onSubmit={submitReview}>
+          <p className="order-review-product">{reviewFor?.name}</p>
+
+          <div className="order-rating" role="radiogroup" aria-label="Chấm điểm sản phẩm">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                role="radio"
+                aria-checked={rating === n}
+                aria-label={`${n} sao`}
+                className={`order-rating-star${n <= rating ? ' is-on' : ''}`}
+                onClick={() => setRating(n)}
+              >
+                <i className={`bi ${n <= rating ? 'bi-star-fill' : 'bi-star'}`} aria-hidden="true" />
+              </button>
+            ))}
+            <span className="order-rating-value">{rating}/5</span>
+          </div>
+
+          <label className="order-review-label" htmlFor="order-review-text">
+            Cảm nhận của bạn
+          </label>
+          <textarea
+            id="order-review-text"
+            className="order-review-text"
+            rows={4}
+            value={reviewText}
+            onChange={(e) => setReviewText(e.target.value)}
+            placeholder="Chất liệu, form dáng, dịch vụ giao hàng…"
+          />
+
+          <div className="order-review-actions">
+            <button type="button" className="btn-outline-lyra" onClick={() => setReviewFor(null)}>
+              Để sau
+            </button>
+            <button type="submit" className="btn-lyra">Gửi đánh giá</button>
+          </div>
+        </form>
+      </Modal>
 
       <Footer navigate={navigate} />
     </div>

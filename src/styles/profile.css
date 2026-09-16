@@ -1810,3 +1810,297 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Nút LYRA trong trang tài khoản: reset `button` ở đầu file thắng .btn-lyra toàn cục. */
+.profile-page .btn-lyra,
+.profile-page .btn-outline-lyra,
+.profile-page .btn-secondary-lyra {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 8px !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.08em !important;
+  text-transform: uppercase !important;
+  border-radius: 0 !important;
+  padding: 12px 22px !important;
+  cursor: pointer !important;
+}
+
+.profile-page .btn-lyra {
+  background: var(--ink, #0E0E0E) !important;
+  color: var(--cream, #F7F4EF) !important;
+  border: 1.5px solid var(--ink, #0E0E0E) !important;
+}
+
+.profile-page .btn-outline-lyra,
+.profile-page .btn-secondary-lyra {
+  background: #FFFFFF !important;
+  color: var(--ink, #0E0E0E) !important;
+  border: 1.5px solid var(--border-dark, #D0CAC4) !important;
+}
+
+/* ── Tab yêu thích: thẻ chi tiết ─────────────────────────────── */
+.profile-wish-empty {
+  text-align: center;
+  padding: 56px 16px;
+  color: var(--muted, #8A8680);
+}
+
+.profile-wish-empty i {
+  font-size: 40px;
+  display: block;
+  margin-bottom: 12px;
+  opacity: 0.35;
+}
+
+.profile-wish-empty p {
+  margin: 0 0 18px;
+}
+
+.profile-wish-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.profile-wish-stat {
+  border: 1px solid var(--border, #E8E2D9);
+  background: #fff;
+  padding: 14px 16px;
+}
+
+.profile-wish-stat-label {
+  display: block;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--warm-text, #8B6840);
+  margin-bottom: 6px;
+}
+
+.profile-wish-stat-value {
+  display: block;
+  font-family: var(--font-serif, 'Cormorant Garamond', serif);
+  font-size: 22px;
+  line-height: 1.15;
+  color: var(--ink, #0E0E0E);
+}
+
+.profile-wish-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.profile-wish-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.profile-wish-card {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: 20px;
+  padding: 16px;
+  border: 1px solid var(--border, #E8E2D9);
+  background: #fff;
+}
+
+.profile-wish-media {
+  position: relative;
+  display: block;
+  overflow: hidden;
+  text-decoration: none;
+  background: var(--sand, #E9E2D6);
+}
+
+.profile-wish-media .pic img {
+  transition: opacity 480ms var(--ease-out), transform 480ms var(--ease-out);
+}
+
+.profile-wish-card:hover .profile-wish-media .pic--hover,
+.profile-wish-card:focus-within .profile-wish-media .pic--hover {
+  opacity: 1;
+}
+
+.profile-wish-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 2;
+  padding: 4px 8px;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: var(--ink, #0E0E0E);
+  color: var(--cream, #F7F4EF);
+}
+
+.profile-wish-badge.is-sale {
+  background: var(--danger, #A03A3A);
+}
+
+.profile-wish-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.profile-wish-kicker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted, #8A8680);
+}
+
+.profile-wish-name {
+  font-family: var(--font-serif, 'Cormorant Garamond', serif);
+  font-size: 22px;
+  font-weight: 400;
+  line-height: 1.25;
+  color: var(--ink, #0E0E0E);
+  text-decoration: none;
+}
+
+.profile-wish-name:hover {
+  color: #8B5E34;
+}
+
+.profile-wish-rating {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--ink-2, #3A3632);
+}
+
+.profile-wish-rating span:last-child {
+  color: var(--muted, #8A8680);
+}
+
+.profile-wish-price-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.profile-wish-price {
+  font-family: var(--font-serif, 'Cormorant Garamond', serif);
+  font-size: 22px;
+  color: var(--ink, #0E0E0E);
+}
+
+.profile-wish-price-old {
+  font-size: 13px;
+  color: var(--muted, #8A8680);
+  text-decoration: line-through;
+}
+
+.profile-wish-off {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--danger, #A03A3A);
+}
+
+.profile-wish-desc {
+  margin: 4px 0 0;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--ink-2, #3A3632);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.profile-wish-colors {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.profile-wish-swatch {
+  width: 14px;
+  height: 14px;
+  border: 1px solid rgba(14, 14, 14, 0.15);
+  display: inline-block;
+}
+
+.profile-wish-stock {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--ink-2, #3A3632);
+}
+
+.profile-wish-stock.is-low {
+  color: #8B5E34;
+}
+
+.profile-wish-stock.is-out {
+  color: var(--danger, #A03A3A);
+}
+
+.profile-wish-meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted, #8A8680);
+}
+
+.profile-wish-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.profile-page .profile-wish-actions .btn-lyra,
+.profile-page .profile-wish-actions .btn-outline-lyra,
+.profile-page .profile-wish-toolbar .btn-lyra,
+.profile-page .profile-wish-toolbar .btn-outline-lyra {
+  padding: 10px 16px !important;
+  font-size: 10.5px !important;
+}
+
+.profile-wish-remove {
+  margin-left: auto;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 8px 4px !important;
+  font-size: 12px !important;
+  color: var(--muted, #8A8680) !important;
+  background: none !important;
+  border: 0 !important;
+  letter-spacing: 0.04em;
+  text-transform: none !important;
+}
+
+.profile-wish-remove:hover {
+  color: var(--danger, #A03A3A) !important;
+}
+
+@media (max-width: 720px) {
+  .profile-wish-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-wish-card {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-wish-remove {
+    margin-left: 0;
+  }
+}

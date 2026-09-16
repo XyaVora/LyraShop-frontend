@@ -20,16 +20,100 @@
   visibility: visible;
 }
 
-.cart-drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 440px;
-  max-width: 90vw;
-  background: #FAF8F5;
-  box-shadow: -10px 0 40px rgba(0, 0, 0, 0.15);
-  z-index: 1510;
+.cart-main-col>.eyebrow {
+  margin-bottom: 14px;
+}
+
+/* Empty state của cột giỏ hàng dùng component EmptyState dùng chung */
+.cart-main-col .empty-state {
+  min-height: 340px;
+}
+
+.cart-empty-suggest {
+  margin-top: clamp(28px, 4vw, 48px);
+}
+
+.checkout-trust {
+  margin: 16px 0 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+/* ══════════════════════════════════════════════
+   BẢNG GIỎ HÀNG (bảng thật — có <th scope="col">)
+   ══════════════════════════════════════════════ */
+.cart-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+
+.cart-table thead th {
+  padding: 0 12px 12px 0;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.cart-table thead th.cart-th-num,
+.cart-table thead th.cart-th-qty {
+  text-align: right;
+}
+
+.cart-table thead th:last-child {
+  width: 44px;
+}
+
+.cart-cell {
+  padding: 22px 12px 22px 0;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+
+.cart-cell-price,
+.cart-cell-qty,
+.cart-cell-total {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.cart-cell-price {
+  width: 130px;
+}
+
+.cart-cell-qty {
+  width: 158px;
+}
+
+.cart-cell-total {
+  width: 140px;
+}
+
+.cart-cell-remove {
+  width: 44px;
+  padding-right: 0;
+  text-align: right;
+}
+
+/* ── Khối "Đã xoá … [Hoàn tác]" ngay tại vị trí dòng vừa xoá ──
+   Nút Hoàn tác là <button> thật trong luồng Tab, không tự tắt như toast. */
+.cart-undo-cell {
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.cart-undo-stack {
+  margin-bottom: 22px;
+}
+
+.cart-undo {
   display: flex;
   flex-direction: column;
   transform: translateX(100%);

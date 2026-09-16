@@ -1,18 +1,22 @@
-// src/components/CartDrawer.jsx
-import { useRef } from 'react';
+// src/components/CartDrawer.jsx — giỏ hàng trượt từ mép phải.
+// Mount MỘT LẦN ở App; mở/đóng qua CartContext (cartOpen / openCart / closeCart).
+import { useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { PRODUCTS, fmt, FREE_SHIPPING_THRESHOLD } from '../data/products';
+import { fmt, FREE_SHIPPING_THRESHOLD } from '../data/products';
+import { useCatalog } from '../context/CatalogContext';
 import { buildUrl } from '../router.js';
 import { useBodyScrollLock, useDialogA11y, isModifiedClick } from './index.jsx';
 import '../styles/cart.css';
 
-// Fallback suggestions for empty cart
-const SUGGESTED = [...PRODUCTS].sort((a, b) => (b.sold || 0) - (a.sold || 0)).slice(0, 3);
-
 export default function CartDrawer() {
   const { navigate } = useApp();
+  const { products } = useCatalog();
+  const suggested = useMemo(
+    () => [...products].sort((a, b) => (b.sold || 0) - (a.sold || 0)).slice(0, 3),
+    [products],
+  );
   const {
     cart = [],
     cartCount = 0,
@@ -114,6 +118,34 @@ export default function CartDrawer() {
               >
                 Khám phá Cửa Hàng
               </button>
+
+              {suggested.length > 0 && (
+              <div className="cart-suggest">
+                <div className="eyebrow">Gợi ý cho bạn</div>
+                {suggested.map((p) => (
+                  <a
+                    key={p.id}
+                    className="cart-suggest-row"
+                    href={buildUrl('detail', { product: p.slug || p.id })}
+                    onClick={openProduct(p.slug || p.id)}
+                  >
+                    <Pic
+                      src={p.images?.[0]}
+                      alt={p.name}
+                      tint={p.color}
+                      icon={p.icon}
+                      ratio="3/4"
+                      as="span"
+                      className="cart-suggest-pic"
+                    />
+                    <span className="cart-suggest-info">
+                      <span className="cart-suggest-name">{p.name}</span>
+                      <span className="cart-suggest-price">{fmt(p.price)}</span>
+                    </span>
+                  </a>
+                ))}
+              </div>
+              )}
             </div>
           ) : (
             <ul className="drawer-items-list">

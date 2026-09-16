@@ -91,9 +91,13 @@ Chữ: **Cormorant Garamond** (tiêu đề, giá) + **DM Sans** (giao diện). B
 
 ## Tài khoản & dữ liệu
 
-Ứng dụng không có chế độ đăng nhập demo. Đăng nhập và đăng ký luôn được xác thực bởi backend; sau khi nhận access token, frontend gọi `GET /me` để lấy đúng hồ sơ của người dùng.
+Backend chưa có thật. Khi gọi API thất bại vì không kết nối được, ứng dụng **tự chuyển sang chế độ demo**:
 
-Quản trị nằm ở repo **LyraShop-admin**, không còn route `/admin` trên storefront.
+| Tài khoản | Mật khẩu |
+|---|---|
+| bất kỳ email hợp lệ nào | từ 6 ký tự |
+
+Quản trị nằm ở repo **LyraShop-admin**, không còn trên storefront này.
 
 Giỏ hàng, hồ sơ, đơn hàng, đánh giá, wishlist và sổ địa chỉ đều đọc/ghi qua API theo người dùng đang đăng nhập. Frontend không dùng dữ liệu demo hoặc `localStorage` để giả lập các nghiệp vụ này. Lịch sử tìm kiếm vẫn là dữ liệu cục bộ của trình duyệt.
 
