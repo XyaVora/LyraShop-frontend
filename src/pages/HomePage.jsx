@@ -3,7 +3,7 @@
 // · mới về · đã xem gần đây · cảm nhận · #LYRAstyle · cam kết + newsletter + footer.
 // Mọi con số quảng cáo đều TÍNH TỪ DỮ LIỆU trong src/data/products.js.
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { useCatalog } from '../context/CatalogContext';
@@ -81,7 +81,8 @@ function toDMY(iso) {
 
 export default function HomePage() {
   const { navigate } = useApp();
-  const { recentlyViewed = [] } = useCart();
+  const { recentlyViewed = [], addToCart } = useCart();
+  const [saleActive, setSaleActive] = useState(0);
   const { products, categories, empty: catalogEmpty } = useCatalog();
 
   const featured = useMemo(
@@ -167,14 +168,37 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="hero-badge">
-          <div className="hero-badge-label">Giảm đến</div>
-          <div className="hero-badge-value">{maxOff}%</div>
-        </div>
+        {salePicks.length > 0 ? (
+          <button
+            type="button"
+            className="hero-badge"
+            onClick={() => setSaleActive((i) => (i + 1) % salePicks.length)}
+            aria-controls="home-topsale"
+            title="Xem món sale tiếp theo"
+          >
+            <div className="hero-badge-label">Giảm đến</div>
+            <div className="hero-badge-value">{maxOff}%</div>
+          </button>
+        ) : (
+          <div className="hero-badge">
+            <div className="hero-badge-label">Giảm đến</div>
+            <div className="hero-badge-value">{maxOff}%</div>
+          </div>
+        )}
 
         <div className="hero-scroll" aria-hidden="true">
           Cuộn xuống
         </div>
+
+        {salePicks.length > 0 && (
+          <HomeTopSale
+            picks={salePicks}
+            active={saleActive % salePicks.length}
+            onActiveChange={setSaleActive}
+            addToCart={addToCart}
+            navigate={navigate}
+          />
+        )}
       </section>
 
       {/* ── 2. MARQUEE ─────────────────────────────────────────── */}
@@ -546,5 +570,101 @@ export default function HomePage() {
       <Newsletter />
       <Footer />
     </div>
+  );
+}
+
+function HomeTopSale({ picks, active, onActiveChange, addToCart, navigate }) {
+  const product = picks[active];
+  if (!product) return null;
+
+  const images = Array.isArray(product.images) ? product.images : [];
+  const href = buildUrl('detail', { product: product.slug || product.id });
+  const total = picks.length;
+  const goTo = (index) => onActiveChange((index + total) % total);
+
+  const open = (e) => {
+    if (isModifiedClick(e)) return;
+    e.preventDefault();
+    navigate('detail', { product });
+  };
+
+  return (
+    <aside
+      id="home-topsale"
+      className="home-topsale"
+      aria-label="Top sale — món giảm sâu nhất"
+      onKeyDown={(e) => {
+        if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(active - 1); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); goTo(active + 1); }
+      }}
+    >
+      <header className="home-topsale-head">
+        <div>
+          <p className="eyebrow">Top sale</p>
+          <p className="home-topsale-kicker">{total} món giảm sâu nhất</p>
+        </div>
+        <div className="home-topsale-ranks" role="tablist" aria-label="Chọn món sale">
+          {picks.map((p, i) => (
+            <button
+              key={p.id}
+              type="button"
+              role="tab"
+              aria-selected={i === active}
+              aria-label={`${p.name}, giảm ${p.discount}%`}
+              className={i === active ? 'is-on' : ''}
+              onClick={() => goTo(i)}
+            >
+              {String(i + 1).padStart(2, '0')}
+            </button>
+          ))}
+        </div>
+      </header>
+
+      <div className="home-topsale-body">
+        <a className="home-topsale-media" href={href} onClick={open} tabIndex={-1} aria-hidden="true">
+          <Pic
+            src={images[0]}
+            alt=""
+            tint={product.color}
+            icon={product.icon}
+            ratio="3/4"
+            sizes="160px"
+          />
+          {images[1] && (
+            <Pic src={images[1]} alt="" tint={product.color} icon={product.icon} ratio="3/4" className="pic--hover" />
+          )}
+          {product.discount > 0 && (
+            <span className="home-topsale-off">−{product.discount}%</span>
+          )}
+        </a>
+
+        <div className="home-topsale-info">
+          <p className="home-topsale-cat">{product.cat}</p>
+          <a className="home-topsale-name" href={href} onClick={open}>{product.name}</a>
+          <div className="home-topsale-price">
+            <span>{fmt(product.price)}</span>
+            {product.oldPrice > product.price && (
+              <span className="home-topsale-old">{fmt(product.oldPrice)}</span>
+            )}
+          </div>
+          <div className="home-topsale-actions">
+            <button type="button" className="btn-lyra" onClick={() => addToCart(product, 1)}>
+              <i className="bi bi-bag-plus" aria-hidden="true" /> Thêm giỏ
+            </button>
+            <a className="link-underline" href={href} onClick={open}>Chi tiết</a>
+          </div>
+        </div>
+      </div>
+
+      <div className="home-topsale-nav">
+        <button type="button" onClick={() => goTo(active - 1)} aria-label="Món sale trước">
+          <i className="bi bi-chevron-left" aria-hidden="true" />
+        </button>
+        <span>{String(active + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}</span>
+        <button type="button" onClick={() => goTo(active + 1)} aria-label="Món sale sau">
+          <i className="bi bi-chevron-right" aria-hidden="true" />
+        </button>
+      </div>
+    </aside>
   );
 }
