@@ -226,20 +226,25 @@ export default function AuthPage() {
         <div className="auth-form-wrap">
           <div className="eyebrow">Tài khoản LYRA</div>
           <h1 className="auth-title">
-            {isRegister ? (
-              <>Tạo tài khoản <em>mới</em></>
-            ) : (
-              <>Chào mừng <em>trở lại</em></>
-            )}
+            <span key={mode} className="auth-copy-swap">
+              {isRegister ? (
+                <>Tạo tài khoản <em>mới</em></>
+              ) : (
+                <>Chào mừng <em>trở lại</em></>
+              )}
+            </span>
           </h1>
           <p className="auth-subtitle">
-            {isRegister
-              ? 'Vài thông tin ngắn gọn để bắt đầu cùng LYRA.'
-              : 'Đăng nhập để tiếp tục hành trình phong cách của bạn.'}
+            <span key={mode} className="auth-copy-swap">
+              {isRegister
+                ? 'Vài thông tin ngắn gọn để bắt đầu cùng LYRA.'
+                : 'Đăng nhập để tiếp tục hành trình phong cách của bạn.'}
+            </span>
           </p>
 
           {/* Chuyển chế độ */}
           <div className="auth-toggle" role="group" aria-label="Chọn đăng nhập hoặc đăng ký">
+            <span className="auth-toggle-thumb" data-mode={mode} aria-hidden="true" />
             <button
               type="button"
               className={`auth-toggle-btn${!isRegister ? ' active' : ''}`}
@@ -259,28 +264,31 @@ export default function AuthPage() {
           </div>
 
           <form onSubmit={handleSubmit} noValidate>
-            {isRegister && (
-              <div className="auth-field">
-                <label className="form-field-label" htmlFor="auth-name">Họ và tên</label>
-                <input
-                  id="auth-name"
-                  ref={nameRef}
-                  className={`form-field-input${errors.name ? ' invalid' : ''}`}
-                  type="text"
-                  name="name"
-                  autoComplete="name"
-                  placeholder="Nguyễn Văn An"
-                  value={values.name}
-                  onChange={setField('name')}
-                  aria-invalid={errors.name ? 'true' : undefined}
-                  aria-describedby={errors.name ? 'auth-name-error' : undefined}
-                  disabled={submitting}
-                />
-                {errors.name && (
-                  <span className="field-error" id="auth-name-error">{errors.name}</span>
-                )}
+            <div className={`auth-reveal${isRegister ? ' is-open' : ''}`} inert={!isRegister || undefined}>
+              <div className="auth-reveal-inner">
+                <div className="auth-field">
+                  <label className="form-field-label" htmlFor="auth-name">Họ và tên</label>
+                  <input
+                    id="auth-name"
+                    ref={nameRef}
+                    className={`form-field-input${errors.name ? ' invalid' : ''}`}
+                    type="text"
+                    name="name"
+                    autoComplete="name"
+                    placeholder="Nguyễn Văn An"
+                    value={values.name}
+                    onChange={setField('name')}
+                    aria-invalid={errors.name ? 'true' : undefined}
+                    aria-describedby={errors.name ? 'auth-name-error' : undefined}
+                    disabled={submitting || !isRegister}
+                    tabIndex={isRegister ? undefined : -1}
+                  />
+                  {errors.name && (
+                    <span className="field-error" id="auth-name-error">{errors.name}</span>
+                  )}
+                </div>
               </div>
-            )}
+            </div>
 
             <div className="auth-field">
               <label className="form-field-label" htmlFor="auth-email">Email</label>
@@ -336,27 +344,31 @@ export default function AuthPage() {
               )}
             </div>
 
-            {!isRegister && (
-              <div className="auth-forgot-row">
-                <button type="button" className="forgot-link" onClick={handleForgot}>
-                  Quên mật khẩu?
-                </button>
+            <div className={`auth-reveal${!isRegister ? ' is-open' : ''}`} inert={isRegister || undefined}>
+              <div className="auth-reveal-inner">
+                <div className="auth-forgot-row">
+                  <button type="button" className="forgot-link" onClick={handleForgot} tabIndex={isRegister ? -1 : undefined}>
+                    Quên mật khẩu?
+                  </button>
+                </div>
               </div>
-            )}
+            </div>
 
-            {isRegister && (
-              <p className="auth-terms">
-                Khi tạo tài khoản, bạn đồng ý với{' '}
-                <button type="button" className="auth-inline-link" onClick={() => soon('Điều khoản dịch vụ')}>
-                  Điều khoản dịch vụ
-                </button>{' '}
-                và{' '}
-                <button type="button" className="auth-inline-link" onClick={() => soon('Chính sách bảo mật')}>
-                  Chính sách bảo mật
-                </button>{' '}
-                của LYRA.
-              </p>
-            )}
+            <div className={`auth-reveal${isRegister ? ' is-open' : ''}`} inert={!isRegister || undefined}>
+              <div className="auth-reveal-inner">
+                <p className="auth-terms">
+                  Khi tạo tài khoản, bạn đồng ý với{' '}
+                  <button type="button" className="auth-inline-link" onClick={() => soon('Điều khoản dịch vụ')} tabIndex={isRegister ? undefined : -1}>
+                    Điều khoản dịch vụ
+                  </button>{' '}
+                  và{' '}
+                  <button type="button" className="auth-inline-link" onClick={() => soon('Chính sách bảo mật')} tabIndex={isRegister ? undefined : -1}>
+                    Chính sách bảo mật
+                  </button>{' '}
+                  của LYRA.
+                </p>
+              </div>
+            </div>
 
             {formError && (
               <p className="auth-alert" role="alert">
