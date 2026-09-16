@@ -15,11 +15,6 @@ const MIN_PASSWORD = 6;
 /* Ảnh cột hình — danh sách ảnh đã kiểm tra (images.md, mục "Auth visual"). */
 const VISUAL_IMG = img('1524504388940-b1c1722653e1', 1600);
 
-/* Tài khoản demo (chế độ offline của AppContext). */
-const DEMO_ACCOUNTS = [
-  { id: 'customer', label: 'Khách hàng', name: 'Khách hàng LYRA', email: 'khachhang@lyra.vn', password: 'lyra2026' },
-];
-
 const PERKS = [
   { icon: 'bi-truck', text: `Miễn phí giao hàng cho đơn từ ${fmt(FREE_SHIPPING_THRESHOLD)}` },
   { icon: 'bi-arrow-repeat', text: 'Đổi trả trong 30 ngày, không cần lý do' },
@@ -137,19 +132,6 @@ export default function AuthPage() {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  /** Điền nhanh tài khoản demo. */
-  const fillDemo = (account) => {
-    setValues({
-      name: isRegister ? account.name : '',
-      email: account.email,
-      password: account.password,
-    });
-    setErrors({});
-    setFormError('');
-    showToast(`Đã điền tài khoản demo ${account.label.toLowerCase()}.`, 'bi-magic');
-    passRef.current?.focus();
   };
 
   const handleForgot = () => {
@@ -274,27 +256,6 @@ export default function AuthPage() {
             >
               Đăng ký
             </button>
-          </div>
-
-          {/* Hộp tài khoản demo */}
-          <div className="demo-hint auth-demo">
-            <strong className="auth-demo-title">Tài khoản demo</strong>
-            <p className="auth-demo-text">
-              Khi chưa kết nối backend, dùng <code>khachhang@lyra.vn</code> / <code>lyra2026</code>
-              hoặc bất kỳ email hợp lệ nào với mật khẩu từ {MIN_PASSWORD} ký tự.
-            </p>
-            <div className="auth-demo-actions">
-              {DEMO_ACCOUNTS.map((acc) => (
-                <button
-                  key={acc.id}
-                  type="button"
-                  className="auth-demo-fill"
-                  onClick={() => fillDemo(acc)}
-                >
-                  <i className="bi bi-magic" aria-hidden="true" /> Điền nhanh · {acc.label}
-                </button>
-              ))}
-            </div>
           </div>
 
           <form onSubmit={handleSubmit} noValidate>
