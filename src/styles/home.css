@@ -35,6 +35,10 @@
   font-size: clamp(40px, 7.2vh, 92px);
 }
 
+.home-screen-hero .home-hero.has-topsale .t-display {
+  font-size: clamp(32px, 5.4vh, 72px);
+}
+
 .home-screen-hero .marquee-bar {
   flex: none;
 }
@@ -95,7 +99,7 @@
 }
 
 /* ══════════════════════════════════════════════
-   1b. TOP SALE trên màn hình đầu (thêm, không thay hero)
+   1b. TOP SALE — cột phải (desktop), hàng vuốt (mobile)
    ══════════════════════════════════════════════ */
 .home-hero .hero-badge {
   cursor: pointer;
@@ -109,26 +113,58 @@
   border-left: 2px solid var(--warm);
 }
 
+@media (min-width: 1025px) {
+  .home-hero.has-topsale {
+    grid-template-columns: minmax(280px, 1fr) minmax(0, 1.2fr) minmax(300px, 340px);
+  }
+
+  .home-hero.has-topsale .hero-panel {
+    grid-column: 1;
+    margin-right: 0;
+    padding-inline-end: clamp(20px, 2.4vw, 36px);
+  }
+
+  .home-hero.has-topsale .hero-media {
+    grid-column: 2;
+  }
+
+  .home-hero.has-topsale .hero-badge {
+    display: none;
+  }
+
+  .home-hero.has-topsale .hero-scroll {
+    left: clamp(16px, 3vw, 40px);
+  }
+}
+
 .home-topsale {
-  position: absolute;
-  z-index: 4;
-  right: clamp(16px, 3vw, 40px);
-  bottom: clamp(88px, 11vh, 132px);
-  width: min(360px, 44%);
-  background: rgba(247, 244, 239, .95);
-  backdrop-filter: blur(10px);
-  border-left: 2px solid var(--warm);
-  padding: 14px 16px 12px;
   display: flex;
   flex-direction: column;
   gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  background: var(--cream);
+  border-left: 1px solid var(--border);
+  padding: 18px 16px 16px;
+}
+
+@media (min-width: 1025px) {
+  .home-hero.has-topsale .home-topsale {
+    grid-column: 3;
+    grid-row: 1;
+    position: relative;
+    z-index: 2;
+    height: 100%;
+    overflow: hidden;
+  }
 }
 
 .home-topsale-head {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
+  flex: none;
 }
 
 .home-topsale-head .eyebrow {
@@ -141,35 +177,34 @@
   color: var(--ink-2);
 }
 
-.home-topsale-ranks {
-  display: flex;
-  gap: 2px;
+.home-topsale-all {
   flex: none;
+  font-size: 12px;
 }
 
-.home-topsale-ranks button {
-  min-width: 28px;
-  padding: 4px 6px;
-  border: 0;
-  background: none;
-  font-family: var(--font-sans);
-  font-size: 11px;
-  letter-spacing: .08em;
-  color: var(--muted);
-  cursor: pointer;
-  transition: color var(--dur-1) var(--ease-out);
+.home-topsale-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
 }
 
-.home-topsale-ranks button.is-on {
-  color: var(--ink);
-  box-shadow: inset 0 -1px 0 var(--ink);
-}
-
-.home-topsale-body {
+.home-topsale-item {
   display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: border-color var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
+}
+
+.home-topsale-item.is-on {
+  border-color: var(--border-dark);
+  background: rgba(14, 14, 14, .03);
 }
 
 .home-topsale-media {
@@ -184,18 +219,18 @@
   transition: opacity 480ms var(--ease-out), transform 480ms var(--ease-out);
 }
 
-.home-topsale:hover .home-topsale-media .pic--hover,
-.home-topsale:focus-within .home-topsale-media .pic--hover {
+.home-topsale-item:hover .home-topsale-media .pic--hover,
+.home-topsale-item:focus-within .home-topsale-media .pic--hover {
   opacity: 1;
 }
 
 .home-topsale-off {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  top: 4px;
+  left: 4px;
   z-index: 1;
-  padding: 3px 6px;
-  font-size: 10px;
+  padding: 2px 5px;
+  font-size: 9px;
   letter-spacing: .08em;
   background: var(--ink);
   color: var(--cream);
@@ -205,12 +240,12 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 
 .home-topsale-cat {
   margin: 0;
-  font-size: 10.5px;
+  font-size: 10px;
   letter-spacing: .12em;
   text-transform: uppercase;
   color: var(--muted);
@@ -218,10 +253,14 @@
 
 .home-topsale-name {
   font-family: var(--font-serif);
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1.25;
   color: var(--ink);
   text-decoration: none;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .home-topsale-name:hover {
@@ -231,77 +270,56 @@
 .home-topsale-price {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 6px;
   font-family: var(--font-serif);
-  font-size: 18px;
+  font-size: 15px;
 }
 
 .home-topsale-old {
-  font-size: 13px;
+  font-size: 12px;
   color: var(--muted);
   text-decoration: line-through;
 }
 
-.home-topsale-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px;
-  margin-top: 6px;
-}
-
-.home-topsale-actions .btn-lyra {
-  padding: 10px 14px;
-  font-size: 10.5px;
-}
-
-.home-topsale-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 11px;
-  letter-spacing: .12em;
-  color: var(--muted);
-}
-
-.home-topsale-nav button {
-  width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--border-dark);
-  background: transparent;
-  color: var(--ink);
-  cursor: pointer;
-  transition: border-color var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
-}
-
-.home-topsale-nav button:hover {
-  border-color: var(--ink);
-  background: rgba(14, 14, 14, .03);
+.home-topsale-item .btn-lyra {
+  margin-top: 4px;
+  padding: 8px 12px;
+  font-size: 10px;
+  align-self: start;
 }
 
 @media (max-width: 1024px) {
   .home-topsale {
-    position: relative;
-    right: auto;
-    bottom: auto;
-    width: auto;
     grid-column: 1;
     grid-row: 3;
-    margin: 0 var(--gutter) 28px;
+    margin: 0 0 8px;
+    padding: 8px 0 20px;
+    border-left: 0;
+    border-top: 1px solid var(--border);
   }
 
-  .home-hero .hero-badge {
-    cursor: pointer;
+  .home-topsale-head {
+    padding: 16px var(--gutter) 0;
+  }
+
+  .home-topsale-list {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 4px var(--gutter) 8px;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .home-topsale-item {
+    flex: 0 0 min(260px, 78vw);
+    scroll-snap-align: start;
+    border-color: var(--border);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .home-topsale-media .pic img,
-  .home-topsale-ranks button {
+  .home-topsale-item {
     transition: none;
   }
 }

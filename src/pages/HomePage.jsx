@@ -132,7 +132,7 @@ export default function HomePage() {
     <div className="home-page">
       {/* ── 1. HERO + MARQUEE: vừa một viewport ────────────────── */}
       <div className="home-screen home-screen-hero">
-      <section className="hero home-hero" aria-labelledby="home-hero-title">
+      <section className={`hero home-hero${salePicks.length ? ' has-topsale' : ''}`} aria-labelledby="home-hero-title">
         <div className="hero-media">
           <Pic
             src={HERO_IMG}
@@ -197,6 +197,7 @@ export default function HomePage() {
             onActiveChange={setSaleActive}
             addToCart={addToCart}
             navigate={navigate}
+            maxOff={maxOff}
           />
         )}
       </section>
@@ -573,16 +574,11 @@ export default function HomePage() {
   );
 }
 
-function HomeTopSale({ picks, active, onActiveChange, addToCart, navigate }) {
-  const product = picks[active];
-  if (!product) return null;
-
-  const images = Array.isArray(product.images) ? product.images : [];
-  const href = buildUrl('detail', { product: product.slug || product.id });
+function HomeTopSale({ picks, active, onActiveChange, addToCart, navigate, maxOff }) {
   const total = picks.length;
   const goTo = (index) => onActiveChange((index + total) % total);
 
-  const open = (e) => {
+  const openProduct = (product) => (e) => {
     if (isModifiedClick(e)) return;
     e.preventDefault();
     navigate('detail', { product });
@@ -594,77 +590,74 @@ function HomeTopSale({ picks, active, onActiveChange, addToCart, navigate }) {
       className="home-topsale"
       aria-label="Top sale — món giảm sâu nhất"
       onKeyDown={(e) => {
-        if (e.key === 'ArrowLeft') { e.preventDefault(); goTo(active - 1); }
-        if (e.key === 'ArrowRight') { e.preventDefault(); goTo(active + 1); }
+        if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); goTo(active - 1); }
+        if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); goTo(active + 1); }
       }}
     >
       <header className="home-topsale-head">
         <div>
           <p className="eyebrow">Top sale</p>
-          <p className="home-topsale-kicker">{total} món giảm sâu nhất</p>
+          <p className="home-topsale-kicker">Giảm đến {maxOff}%</p>
         </div>
-        <div className="home-topsale-ranks" role="tablist" aria-label="Chọn món sale">
-          {picks.map((p, i) => (
-            <button
-              key={p.id}
-              type="button"
-              role="tab"
-              aria-selected={i === active}
-              aria-label={`${p.name}, giảm ${p.discount}%`}
-              className={i === active ? 'is-on' : ''}
-              onClick={() => goTo(i)}
-            >
-              {String(i + 1).padStart(2, '0')}
-            </button>
-          ))}
-        </div>
+        <a className="link-underline home-topsale-all" href={buildUrl('sale')} onClick={openSale}>
+          Tất cả
+        </a>
       </header>
 
-      <div className="home-topsale-body">
-        <a className="home-topsale-media" href={href} onClick={open} tabIndex={-1} aria-hidden="true">
-          <Pic
-            src={images[0]}
-            alt=""
-            tint={product.color}
-            icon={product.icon}
-            ratio="3/4"
-            sizes="160px"
-          />
-          {images[1] && (
-            <Pic src={images[1]} alt="" tint={product.color} icon={product.icon} ratio="3/4" className="pic--hover" />
-          )}
-          {product.discount > 0 && (
-            <span className="home-topsale-off">−{product.discount}%</span>
-          )}
-        </a>
-
-        <div className="home-topsale-info">
-          <p className="home-topsale-cat">{product.cat}</p>
-          <a className="home-topsale-name" href={href} onClick={open}>{product.name}</a>
-          <div className="home-topsale-price">
-            <span>{fmt(product.price)}</span>
-            {product.oldPrice > product.price && (
-              <span className="home-topsale-old">{fmt(product.oldPrice)}</span>
-            )}
-          </div>
-          <div className="home-topsale-actions">
-            <button type="button" className="btn-lyra" onClick={() => addToCart(product, 1)}>
-              <i className="bi bi-bag-plus" aria-hidden="true" /> Thêm giỏ
-            </button>
-            <a className="link-underline" href={href} onClick={open}>Chi tiết</a>
-          </div>
-        </div>
-      </div>
-
-      <div className="home-topsale-nav">
-        <button type="button" onClick={() => goTo(active - 1)} aria-label="Món sale trước">
-          <i className="bi bi-chevron-left" aria-hidden="true" />
-        </button>
-        <span>{String(active + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}</span>
-        <button type="button" onClick={() => goTo(active + 1)} aria-label="Món sale sau">
-          <i className="bi bi-chevron-right" aria-hidden="true" />
-        </button>
+      <div className="home-topsale-list">
+        {picks.map((product, i) => {
+          const images = Array.isArray(product.images) ? product.images : [];
+          const href = buildUrl('detail', { product: product.slug || product.id });
+          const isOn = i === active;
+          return (
+            <article
+              key={product.id}
+              className={`home-topsale-item${isOn ? ' is-on' : ''}`}
+              onClick={() => goTo(i)}
+            >
+              <a className="home-topsale-media" href={href} onClick={openProduct(product)} tabIndex={-1} aria-hidden="true">
+                <Pic
+                  src={images[0]}
+                  alt=""
+                  tint={product.color}
+                  icon={product.icon}
+                  ratio="3/4"
+                  sizes="120px"
+                />
+                {images[1] && (
+                  <Pic src={images[1]} alt="" tint={product.color} icon={product.icon} ratio="3/4" className="pic--hover" />
+                )}
+                {product.discount > 0 && (
+                  <span className="home-topsale-off">−{product.discount}%</span>
+                )}
+              </a>
+              <div className="home-topsale-info">
+                <p className="home-topsale-cat">{product.cat}</p>
+                <a className="home-topsale-name" href={href} onClick={openProduct(product)}>{product.name}</a>
+                <div className="home-topsale-price">
+                  <span>{fmt(product.price)}</span>
+                  {product.oldPrice > product.price && (
+                    <span className="home-topsale-old">{fmt(product.oldPrice)}</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="btn-lyra"
+                  onClick={(e) => { e.stopPropagation(); addToCart(product, 1); }}
+                >
+                  <i className="bi bi-bag-plus" aria-hidden="true" /> Thêm giỏ
+                </button>
+              </div>
+            </article>
+          );
+        })}
       </div>
     </aside>
   );
+
+  function openSale(e) {
+    if (isModifiedClick(e)) return;
+    e.preventDefault();
+    navigate('sale');
+  }
 }
