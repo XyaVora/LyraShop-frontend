@@ -23,16 +23,22 @@ const PRICE_PRESETS = [
 ];
 
 const FILTER_COLORS = [
-  { name: 'Trắng Kem', hex: '#FAF7F0' },
-  { name: 'Đen Than',  hex: '#1A1815' },
-  { name: 'Be Khaki',  hex: '#D9CEBF' },
-  { name: 'Xanh Rêu',  hex: '#485743' },
-  { name: 'Xanh Than', hex: '#1B232E' },
-  { name: 'Nâu Sáp',   hex: '#6E472A' },
-  { name: 'Ánh Bạc',   hex: '#D4D6D9' },
+  { name: 'Trắng Kem', value: 'trắng', hex: '#FAF7F0' },
+  { name: 'Đen Than',  value: 'đen',   hex: '#1A1815' },
+  { name: 'Be Khaki',  value: 'be',    hex: '#D9CEBF' },
+  { name: 'Xanh Rêu',  value: 'rêu',   hex: '#485743' },
+  { name: 'Xanh Than', value: 'xanh',  hex: '#1B232E' },
+  { name: 'Nâu Sáp',   value: 'nâu',   hex: '#6E472A' },
+  { name: 'Ánh Bạc',   value: 'bạc',   hex: '#D4D6D9' },
 ];
 
-const FILTER_SIZES = ['S', 'M', 'L', 'XL', 'Free Size'];
+const FILTER_SIZES = [
+  { label: 'S', value: 'S' },
+  { label: 'M', value: 'M' },
+  { label: 'L', value: 'L' },
+  { label: 'XL', value: 'XL' },
+  { label: 'Free Size', value: 'Freesize' },
+];
 
 const PAGE_SIZE = 12;
 
@@ -101,24 +107,14 @@ export default function ShopPage() {
     if (selectedCatSlug) params.category = selectedCatSlug;
     if (minPrice) params.minPrice = minPrice.replace(/\D/g, '');
     if (maxPrice) params.maxPrice = maxPrice.replace(/\D/g, '');
+    if (selectedColor) params.color = selectedColor;
+    if (selectedSize) params.variantSize = selectedSize;
 
     productApi.list(params)
       .then(res => {
         if (cancelled) return;
         const data = res.data;
-        let items = (data.content || []).map((p, i) => normalizeProduct(p, i + page * PAGE_SIZE));
-
-        // Client-side filtering on color & size if selected
-        if (selectedColor) {
-          items = items.filter(p =>
-            (p.variants || []).some(v => v.color && v.color.toLowerCase().includes(selectedColor.toLowerCase()))
-          );
-        }
-        if (selectedSize) {
-          items = items.filter(p =>
-            (p.variants || []).some(v => v.size && v.size.toLowerCase() === selectedSize.toLowerCase())
-          );
-        }
+        const items = (data.content || []).map((p, i) => normalizeProduct(p, i + page * PAGE_SIZE));
 
         setProducts(items);
         setTotalPages(data.totalPages || 0);
@@ -324,8 +320,8 @@ export default function ShopPage() {
                 {FILTER_COLORS.map(c => (
                   <div
                     key={c.name}
-                    className={`shop-color-swatch ${selectedColor === c.name ? 'active' : ''}`}
-                    onClick={() => setSelectedColor(selectedColor === c.name ? '' : c.name)}
+                    className={`shop-color-swatch ${selectedColor === c.value ? 'active' : ''}`}
+                    onClick={() => { setSelectedColor(selectedColor === c.value ? '' : c.value); setPage(0); }}
                     title={c.name}
                   >
                     <div className="shop-color-inner" style={{ backgroundColor: c.hex }} />
@@ -343,11 +339,11 @@ export default function ShopPage() {
               <div className="shop-sizes-grid">
                 {FILTER_SIZES.map(s => (
                   <button
-                    key={s}
-                    className={`shop-size-btn ${selectedSize === s ? 'active' : ''}`}
-                    onClick={() => setSelectedSize(selectedSize === s ? '' : s)}
+                    key={s.value}
+                    className={`shop-size-btn ${selectedSize === s.value ? 'active' : ''}`}
+                    onClick={() => { setSelectedSize(selectedSize === s.value ? '' : s.value); setPage(0); }}
                   >
-                    {s}
+                    {s.label}
                   </button>
                 ))}
               </div>
@@ -624,11 +620,11 @@ export default function ShopPage() {
                 <div className="shop-sizes-grid">
                   {FILTER_SIZES.map(s => (
                     <button
-                      key={s}
-                      className={`shop-size-btn ${selectedSize === s ? 'active' : ''}`}
-                      onClick={() => setSelectedSize(selectedSize === s ? '' : s)}
+                      key={s.value}
+                      className={`shop-size-btn ${selectedSize === s.value ? 'active' : ''}`}
+                      onClick={() => { setSelectedSize(selectedSize === s.value ? '' : s.value); setPage(0); }}
                     >
-                      {s}
+                      {s.label}
                     </button>
                   ))}
                 </div>

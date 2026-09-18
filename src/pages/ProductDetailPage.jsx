@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { extractErrorMessage, productApi, reviewApi } from '../services/api';
+import { categoryApi, extractErrorMessage, productApi, reviewApi } from '../services/api';
 import { normalizeProduct, fmt } from '../data/products';
 import { Stars, ProductCard, Footer } from '../components/index.jsx';
 import '../styles/product-detail.css';
@@ -40,6 +40,7 @@ export default function ProductDetailPage() {
   const { addToCart, toggleWishlist, isWishlisted, showToast } = useCart();
 
   const [product, setProduct]                 = useState(null);
+  const [category, setCategory]               = useState(null);
   const [related, setRelated]                 = useState([]);
   const [loading, setLoading]                 = useState(true);
   const [error, setError]                     = useState(null);
@@ -109,6 +110,19 @@ export default function ProductDetailPage() {
 
     return () => { cancelled = true; };
   }, [selectedProduct?.id, selectedProduct?.slug]);
+
+  // Resolve category metadata from the dedicated backend endpoint.
+  useEffect(() => {
+    if (!product?.categoryId) {
+      setCategory(null);
+      return;
+    }
+    let cancelled = false;
+    categoryApi.get(product.categoryId)
+      .then(({ data }) => { if (!cancelled) setCategory(data); })
+      .catch(() => { if (!cancelled) setCategory(null); });
+    return () => { cancelled = true; };
+  }, [product?.categoryId]);
 
   // Load related products
   useEffect(() => {
@@ -247,10 +261,10 @@ export default function ProductDetailPage() {
             <a onClick={() => navigate('home')}>Trang chủ</a>
             <span className="sep">/</span>
             <a onClick={() => navigate('shop')}>Cửa hàng</a>
-            {product.cat && (
+            {category?.name && (
               <>
                 <span className="sep">/</span>
-                <a onClick={() => navigate('shop', { cat: product.cat })}>{product.cat}</a>
+                <a onClick={() => navigate('shop', { cat: category.slug })}>{category.name}</a>
               </>
             )}
             <span className="sep">/</span>
@@ -324,7 +338,7 @@ export default function ProductDetailPage() {
           <div className="pdp-info-wrap">
             <div className="pdp-eyebrow-row">
               <div className="pdp-category-tag">
-                {product.cat || 'BỘ SƯU TẬP CAO CẤP'}
+                {category?.name || 'BỘ SƯU TẬP CAO CẤP'}
               </div>
               <div className="pdp-sku-badge">
                 {selectedVariant?.sku || `REF: LY-${product.id}`}

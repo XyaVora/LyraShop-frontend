@@ -97,7 +97,7 @@ export function normalizeProduct(raw, index = 0) {
     badge: null,
 
     // Stock từ tổng các variant
-    stock: variants.reduce((sum, v) => sum + (v.stock || 0), 0) || 99,
+    stock: variants.reduce((sum, v) => sum + (v.stock || 0), 0),
 
     // Variants đầy đủ
     variants,

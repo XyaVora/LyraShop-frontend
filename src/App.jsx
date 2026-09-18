@@ -21,6 +21,7 @@ import SearchPage         from './pages/SearchPage';
 import WishlistPage       from './pages/WishlistPage';
 import OrderDetailPage    from './pages/OrderDetailPage';
 import SharedWishlistPage from './pages/SharedWishlistPage';
+import PaymentResultPage  from './pages/PaymentResultPage';
 
 export default function App() {
   const { currentPage, isLoggedIn, authReady } = useApp();
@@ -54,6 +55,8 @@ export default function App() {
       case 'search':       return <SearchPage />;
       case 'detail':       return <ProductDetailPage />;
       case 'cart':         return <CartPage />;
+      case 'checkout':     return <CartPage initialView="checkout" />;
+      case 'payment-result': return <PaymentResultPage />;
       case 'auth':         return <AuthPage />;
       case 'wishlist':     return <WishlistPage />;
       case 'shared-wishlist': return <SharedWishlistPage />;

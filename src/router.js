@@ -4,7 +4,7 @@
 /** Trang hợp lệ của ứng dụng. */
 export const PAGES = [
   'home', 'shop', 'sale', 'new', 'brands', 'search', 'detail',
-  'cart', 'checkout', 'auth', 'wishlist', 'shared-wishlist', 'profile', 'order-detail', '404',
+  'cart', 'checkout', 'payment-result', 'auth', 'wishlist', 'shared-wishlist', 'profile', 'order-detail', '404',
 ];
 
 /** Bỏ dấu tiếng Việt + tạo slug an toàn cho URL. */
@@ -71,6 +71,10 @@ export function parseLocation(loc = {}) {
       return { page: 'cart', params };
     case 'checkout':
       return { page: 'checkout', params };
+    case 'payment':
+      return segs[1] === 'vnpay' && segs[2] === 'return'
+        ? { page: 'payment-result', params }
+        : { page: '404', params };
     case 'auth':
       return { page: 'auth', params };
     case 'wishlist':
@@ -108,6 +112,7 @@ export function buildUrl(page, params = {}) {
       path = id ? `/orders/${encodeURIComponent(String(id).replace(/^#/, ''))}` : '/profile';
       break;
     }
+    case 'payment-result': path = '/payment/vnpay/return'; break;
     case '404': path = '/404'; break;
     default: path = `/${page}`; break;
   }
@@ -131,6 +136,7 @@ const TITLES = {
   detail: 'Sản phẩm',
   cart: 'Giỏ hàng',
   checkout: 'Thanh toán',
+  'payment-result': 'Kết quả thanh toán',
   auth: 'Đăng nhập',
   wishlist: 'Yêu thích',
   'shared-wishlist': 'Danh sách yêu thích',

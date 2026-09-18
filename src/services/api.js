@@ -197,6 +197,7 @@ export const authApi = {
     csrfStore.clear();
     return res;
   },
+  changePassword: (payload) => api.post('/auth/change-password', payload),
 };
 
 /* ── Current user profile API ────────────────── */
@@ -219,7 +220,22 @@ export const orderApi = {
   list: () => api.get('/orders'),
   create: (payload) => api.post('/orders', payload),
   get: (id) => api.get(`/orders/${id}`),
-  cancel: (id) => api.put(`/orders/${id}/cancel`),
+  cancel: (id, reason) => api.put(`/orders/${id}/cancel`, { reason }),
+  confirmReceived: (id) => api.put(`/orders/${id}/confirm-received`),
+  retryPayment: (id) => api.post(`/orders/${id}/retry-payment`),
+  requestReturn: (id, reason) => api.post(`/orders/${id}/return-request`, { reason }),
+  cancelReturn: (id) => api.put(`/orders/${id}/return-request/cancel`),
+};
+
+export const voucherApi = {
+  list: () => api.get('/vouchers'),
+  quote: (code) => api.get('/vouchers/quote', { params: { code } }),
+};
+
+/* ── Payment callbacks API ───────────────────── */
+export const paymentApi = {
+  vnpayStatus: () => api.get('/payments/vnpay/status'),
+  confirmVnpayReturn: (params) => api.get('/payments/vnpay/return', { params }),
 };
 
 /* ── Product reviews API ─────────────────────── */

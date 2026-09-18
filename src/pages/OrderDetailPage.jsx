@@ -17,6 +17,7 @@ export default function OrderDetailPage() {
   const [cancelling, setCancelling] = useState(false);
   const [repurchasing, setRepurchasing] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [retryingPayment, setRetryingPayment] = useState(false);
 
   useEffect(() => {
     if (!selectedOrder?.id) {
@@ -71,15 +72,40 @@ export default function OrderDetailPage() {
 
   const handleCancel = async () => {
     if (!window.confirm('Quý khách có chắc chắn muốn hủy đơn hàng này?')) return;
+    const reason = window.prompt('Vui lòng nhập lý do hủy đơn:', 'Tôi muốn thay đổi sản phẩm');
+    if (!reason?.trim()) return;
     setCancelling(true);
     try {
-      const { data } = await orderApi.cancel(order.id);
+      const { data } = await orderApi.cancel(order.id, reason.trim());
       setOrder(normalizeOrder(data, user));
       showToast('Đã hủy đơn hàng thành công', 'bi-check-circle');
     } catch (cancelError) {
       showToast(extractErrorMessage(cancelError, 'Không thể hủy đơn hàng'), 'bi-x-circle');
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleRetryPayment = async () => {
+    setRetryingPayment(true);
+    try {
+      const { data } = await orderApi.retryPayment(order.id);
+      if (!data?.paymentUrl) throw new Error('Không nhận được liên kết thanh toán');
+      window.location.assign(data.paymentUrl);
+    } catch (retryError) {
+      showToast(extractErrorMessage(retryError, 'Không thể tạo lại giao dịch VNPay'), 'bi-x-circle');
+      setRetryingPayment(false);
+    }
+  };
+
+  const handleConfirmReceived = async () => {
+    if (!window.confirm('Xác nhận bạn đã nhận đầy đủ đơn hàng?')) return;
+    try {
+      const { data } = await orderApi.confirmReceived(order.id);
+      setOrder(normalizeOrder(data, user));
+      showToast('Đã xác nhận nhận hàng thành công', 'bi-check-circle');
+    } catch (confirmError) {
+      showToast(extractErrorMessage(confirmError, 'Không thể xác nhận nhận hàng'), 'bi-x-circle');
     }
   };
 
@@ -146,7 +172,7 @@ export default function OrderDetailPage() {
     );
   }
 
-  const trackingCode = `VN${String(order.id || '982341').padStart(8, '0').slice(-8)}LX`;
+  const trackingCode = order.trackingCode;
   const isCancelled = order.status === 'cancelled';
 
   return (
@@ -195,6 +221,16 @@ export default function OrderDetailPage() {
                 disabled={cancelling}
               >
                 <i className="bi bi-x-circle" /> {cancelling ? 'Đang hủy...' : 'Hủy đơn'}
+              </button>
+            )}
+            {order.status === 'shipping' && (
+              <button className="btn-copy-tracking" onClick={handleConfirmReceived}>
+                <i className="bi bi-check2-circle" /> Đã nhận hàng
+              </button>
+            )}
+            {order.payment === 'VNPAY' && order.paymentStatus !== 'PAID' && !isCancelled && (
+              <button className="btn-copy-tracking" onClick={handleRetryPayment} disabled={retryingPayment}>
+                <i className="bi bi-credit-card" /> {retryingPayment ? 'Đang tạo...' : 'Thanh toán lại'}
               </button>
             )}
             <button
@@ -251,7 +287,7 @@ export default function OrderDetailPage() {
         </div>
 
         {/* Logistics & Tracking Card */}
-        {!isCancelled && (
+        {!isCancelled && order.shippingCarrier && order.trackingCode && (
           <div className="order-logistics-card">
             <div className="logistics-partner-box">
               <div className="logistics-partner-icon">
@@ -259,7 +295,7 @@ export default function OrderDetailPage() {
               </div>
               <div>
                 <div className="logistics-partner-name">
-                  Đơn vị vận chuyển: SPX Express (Chuyển phát tiêu chuẩn LYRA)
+                  Đơn vị vận chuyển: {order.shippingCarrier}
                 </div>
                 <div className="logistics-partner-status" style={{ fontSize: 13, color: 'var(--muted)' }}>
                   Mã vận đơn: <span className="logistics-tracking-code">{trackingCode}</span>
@@ -276,7 +312,7 @@ export default function OrderDetailPage() {
                 {copied ? 'Đã sao chép' : 'Sao chép mã'}
               </button>
               <div style={{ fontSize: 12, color: 'var(--muted)', textAlign: 'right' }}>
-                Dự kiến giao: <strong>2-3 ngày làm việc</strong>
+                Dự kiến giao: <strong>{order.estimatedDeliveryAt ? new Date(order.estimatedDeliveryAt).toLocaleDateString('vi-VN') : 'Đang cập nhật'}</strong>
               </div>
             </div>
           </div>

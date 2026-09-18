@@ -15,6 +15,7 @@ export default function WishlistPage() {
   const [sortBy, setSortBy] = useState('added');
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected]     = useState(new Set());
+  const [clearing, setClearing]     = useState(false);
 
   const sorted = [...wishlist].sort((a, b) => {
     if (sortBy === 'price-asc')  return a.price - b.price;
@@ -73,6 +74,22 @@ export default function WishlistPage() {
     }
   };
 
+  const clearWishlist = async () => {
+    if (!window.confirm('Bạn có chắc muốn xóa toàn bộ danh sách yêu thích?')) return;
+    setClearing(true);
+    try {
+      await wishlistApi.clear();
+      setSelected(new Set());
+      setSelectMode(false);
+      await refreshWishlist();
+      showToast('Đã xóa toàn bộ danh sách yêu thích', 'bi-trash');
+    } catch (error) {
+      showToast(extractErrorMessage(error, 'Không thể xóa danh sách yêu thích'), 'bi-x-circle');
+    } finally {
+      setClearing(false);
+    }
+  };
+
   return (
     <div>
       {/* ── Header ── */}
@@ -104,6 +121,14 @@ export default function WishlistPage() {
                 >
                   <i className={`bi bi-${selectMode ? 'x' : 'check2-square'}`} />
                   {selectMode ? 'Hủy chọn' : 'Chọn nhiều'}
+                </button>
+                <button
+                  className="btn-outline-lyra"
+                  onClick={clearWishlist}
+                  disabled={clearing}
+                  style={{ padding: '10px 20px', fontSize: 12, color: 'var(--danger)', borderColor: 'var(--danger)' }}
+                >
+                  <i className="bi bi-trash" /> {clearing ? 'Đang xóa...' : 'Xóa tất cả'}
                 </button>
                 <button className="btn-lyra" onClick={addAllToCart} style={{ padding: '10px 22px', fontSize: 12 }}>
                   <i className="bi bi-bag-plus" /> Thêm tất cả vào giỏ

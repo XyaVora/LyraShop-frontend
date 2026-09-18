@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { fmt } from '../data/products';
 import { normalizeOrder } from '../data/orders';
-import { addressApi, extractErrorMessage, orderApi } from '../services/api';
+import { addressApi, authApi, extractErrorMessage, orderApi, reviewApi, tokenStore } from '../services/api';
 import { isPhone, normPhone } from '../utils/validate';
 import { Footer, Stars, ProductCard } from '../components/index.jsx';
 import Modal from '../components/Modal.jsx';
@@ -83,7 +83,7 @@ const SHOPEE_STATUS_TABS = [
     id: 'refund',
     label: 'Trả hàng / Hoàn tiền',
     icon: 'bi-arrow-counterclockwise',
-    match: (o) => o.status === 'refund' || o.paymentStatus === 'REFUNDED',
+    match: (o) => Boolean(o.returnStatus) || o.status === 'refund' || o.paymentStatus === 'REFUNDED',
   },
 ];
 
@@ -285,7 +285,7 @@ export default function ProfilePage() {
           {activeTab === 'profile' && (
             <ProfileInfoTab user={user} updateProfile={updateProfile} showToast={showToast} />
           )}
-          {activeTab === 'password' && <PasswordTab showToast={showToast} />}
+          {activeTab === 'password' && <PasswordTab showToast={showToast} navigate={navigate} />}
         </main>
       </div>
 
@@ -490,7 +490,8 @@ function DashboardTab({
                 Đơn hàng <strong>{activeOrder.displayId || activeOrder.id}</strong> — {activeOrder.items?.length || 1} sản phẩm
               </p>
               <p className="active-order-sub">
-                Đơn vị: <strong>SPX Express</strong> — Kiện hàng đã rời trung tâm khai thác Hà Nội và đang trên đường phát giao.
+                Đơn vị: <strong>{activeOrder.shippingCarrier || 'Đang cập nhật'}</strong>
+                {activeOrder.trackingCode ? ` — Mã vận đơn ${activeOrder.trackingCode}` : ' — Thông tin vận chuyển đang được cập nhật.'}
               </p>
             </div>
           </div>
@@ -601,8 +602,10 @@ function OrdersTab({
   const [confirmDelivered, setConfirmDelivered] = useState(null);
   const [trackingOrder, setTrackingOrder] = useState(null);
   const [reviewingOrder, setReviewingOrder] = useState(null);
+  const [reviewProductId, setReviewProductId] = useState('');
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   useEffect(() => {
     if (initialFilter) {
@@ -640,7 +643,7 @@ function OrdersTab({
     const target = cancelingOrder;
     setCancelingOrder(null);
     try {
-      await orderApi.cancel(target.id);
+      await orderApi.cancel(target.id, selectedReason);
       showToast(`Đã hủy đơn hàng ${target.displayId || target.id} thành công`, 'bi-check-circle');
       if (onRefreshOrders) onRefreshOrders();
     } catch (err) {
@@ -648,37 +651,85 @@ function OrdersTab({
     }
   };
 
-  const handleConfirmReceived = () => {
+  const handleConfirmReceived = async () => {
     if (!confirmDelivered) return;
     const target = confirmDelivered;
     setConfirmDelivered(null);
-    showToast(`Đã xác nhận nhận hàng cho đơn ${target.displayId || target.id}. Cảm ơn bạn!`, 'bi-check2-circle');
-    setReviewingOrder(target);
-    if (onRefreshOrders) onRefreshOrders();
+    try {
+      await orderApi.confirmReceived(target.id);
+      showToast(`Đã xác nhận nhận hàng cho đơn ${target.displayId || target.id}. Cảm ơn bạn!`, 'bi-check2-circle');
+      if (onRefreshOrders) onRefreshOrders();
+    } catch (err) {
+      showToast(extractErrorMessage(err, 'Không thể xác nhận nhận hàng'), 'bi-exclamation-circle');
+    }
   };
 
-  const handleRepurchase = (order) => {
+  const handleRepurchase = async (order) => {
     if (!order?.items?.length) return;
-    order.items.forEach((it) => {
+    let added = 0;
+    for (const it of order.items) {
       const p = {
-        id: it.id || it.variantId,
+        id: it.productId,
         name: it.name,
         price: it.price,
         image: it.image || null,
         color: it.color || '#E4DAD0',
         icon: it.icon || 'bi-bag',
       };
-      if (addToCart) addToCart(p);
-    });
-    showToast(`Đã thêm ${order.items.length} sản phẩm vào giỏ hàng`, 'bi-bag-check');
+      if (addToCart && it.productId && await addToCart(p, it.qty || 1, it.size, it.colorName, it.variantId)) added++;
+    }
+    if (added > 0) showToast(`Đã thêm ${added} sản phẩm vào giỏ hàng`, 'bi-bag-check');
   };
 
-  const handleSubmitReview = () => {
-    showToast('Cảm ơn bạn đã gửi đánh giá cho sản phẩm!', 'bi-star-fill');
-    setReviewingOrder(null);
+  const openReview = (order) => {
+    setReviewingOrder(order);
+    setReviewProductId(order?.items?.find(item => item.productId)?.productId || '');
     setReviewComment('');
     setReviewRating(5);
   };
+
+  const handleReturnRequest = async (order) => {
+    const reason = window.prompt('Vui lòng mô tả lý do đổi/trả sản phẩm:');
+    if (!reason?.trim()) return;
+    try {
+      await orderApi.requestReturn(order.id, reason.trim());
+      showToast('Đã gửi yêu cầu đổi trả. Bộ phận CSKH sẽ liên hệ với bạn.', 'bi-check-circle');
+      if (onRefreshOrders) onRefreshOrders();
+    } catch (error) {
+      showToast(extractErrorMessage(error, 'Không thể gửi yêu cầu đổi trả'), 'bi-exclamation-circle');
+    }
+  };
+
+  const handleSubmitReview = async () => {
+    if (!reviewProductId) {
+      showToast('Không xác định được sản phẩm cần đánh giá', 'bi-exclamation-circle');
+      return;
+    }
+    setReviewSubmitting(true);
+    try {
+      await reviewApi.create(reviewProductId, {
+        rating: reviewRating,
+        comment: reviewComment.trim() || null,
+      });
+      showToast('Cảm ơn bạn đã gửi đánh giá cho sản phẩm!', 'bi-star-fill');
+      setReviewingOrder(null);
+      setReviewProductId('');
+      setReviewComment('');
+      setReviewRating(5);
+    } catch (error) {
+      showToast(extractErrorMessage(error, 'Không thể gửi đánh giá sản phẩm'), 'bi-exclamation-circle');
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
+  const reviewProducts = reviewingOrder
+    ? [...new Map(
+        reviewingOrder.items
+          .filter(item => item.productId)
+          .map(item => [item.productId, item])
+      ).values()]
+    : [];
 
   return (
     <>
@@ -867,7 +918,7 @@ function OrdersTab({
                       <button
                         type="button"
                         className="btn-shopee-primary"
-                        onClick={() => setReviewingOrder(order)}
+                        onClick={() => openReview(order)}
                       >
                         <i className="bi bi-star" /> Đánh giá
                       </button>
@@ -878,6 +929,14 @@ function OrdersTab({
                       >
                         <i className="bi bi-arrow-repeat" /> Mua lại
                       </button>
+                      {!order.returnStatus && (
+                        <button type="button" className="btn-shopee-outline" onClick={() => handleReturnRequest(order)}>
+                          <i className="bi bi-arrow-return-left" /> Yêu cầu đổi trả
+                        </button>
+                      )}
+                      {order.returnStatus === 'REQUESTED' && (
+                        <span style={{ fontSize: 12, color: 'var(--warm-deep)' }}>Đang chờ xử lý đổi trả</span>
+                      )}
                     </>
                   )}
 
@@ -891,7 +950,7 @@ function OrdersTab({
                     </button>
                   )}
 
-                  {(order.status === 'pending' || order.status === 'confirmed') && (
+                  {order.status === 'pending' && (
                     <button
                       type="button"
                       className="btn-shopee-outline text-danger"
@@ -982,8 +1041,8 @@ function OrdersTab({
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18 }}>
             <i className="bi bi-box-seam" style={{ fontSize: 24, color: 'var(--warm-deep)' }} />
             <div>
-              <div style={{ fontWeight: 600 }}>Đơn vị vận chuyển: SPX Express</div>
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>Mã vận đơn: SPXVN99283746</div>
+              <div style={{ fontWeight: 600 }}>Đơn vị vận chuyển: {trackingOrder?.shippingCarrier || 'Đang cập nhật'}</div>
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>Mã vận đơn: {trackingOrder?.trackingCode || 'Đang cập nhật'}</div>
             </div>
           </div>
           <div className="tracking-timeline" style={{ borderLeft: '2px solid #e5e7eb', marginLeft: 10, paddingLeft: 16 }}>
@@ -1009,10 +1068,26 @@ function OrdersTab({
       {/* Modal Đánh giá sản phẩm */}
       <Modal
         isOpen={Boolean(reviewingOrder)}
-        onClose={() => setReviewingOrder(null)}
+        onClose={() => { if (!reviewSubmitting) setReviewingOrder(null); }}
         title="Đánh giá sản phẩm"
         width={480}
       >
+        {reviewProducts.length > 1 && (
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 6 }}>
+              Sản phẩm cần đánh giá:
+            </label>
+            <select
+              className="form-field-input"
+              value={reviewProductId}
+              onChange={(event) => setReviewProductId(event.target.value)}
+            >
+              {reviewProducts.map(item => (
+                <option key={item.productId} value={item.productId}>{item.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div style={{ marginBottom: 16 }}>
           <label style={{ fontSize: 13, fontWeight: 500, display: 'block', marginBottom: 6 }}>Chất lượng sản phẩm:</label>
           <div style={{ display: 'flex', gap: 6 }}>
@@ -1037,11 +1112,11 @@ function OrdersTab({
           />
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-          <button type="button" className="btn-outline-lyra" onClick={() => setReviewingOrder(null)}>
+          <button type="button" className="btn-outline-lyra" disabled={reviewSubmitting} onClick={() => setReviewingOrder(null)}>
             Để sau
           </button>
-          <button type="button" className="btn-lyra" onClick={handleSubmitReview}>
-            Gửi đánh giá
+          <button type="button" className="btn-lyra" disabled={reviewSubmitting || !reviewProductId} onClick={handleSubmitReview}>
+            {reviewSubmitting ? 'Đang gửi...' : 'Gửi đánh giá'}
           </button>
         </div>
       </Modal>
@@ -1813,11 +1888,12 @@ const PASSWORD_FIELDS = [
   { key: 'confirm', label: 'Xác nhận mật khẩu mới', autoComplete: 'new-password' },
 ];
 
-function PasswordTab({ showToast }) {
+function PasswordTab({ showToast, navigate }) {
   const uid = useId();
   const [values, setValues] = useState({ current: '', next: '', confirm: '' });
   const [shown, setShown] = useState({ current: false, next: false, confirm: false });
   const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
 
   const set = (k) => (e) => {
     const { value } = e.target;
@@ -1825,12 +1901,12 @@ function PasswordTab({ showToast }) {
     setErrors((prev) => (prev[k] ? { ...prev, [k]: '' } : prev));
   };
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     const next = {};
     if (!values.current) next.current = 'Vui lòng nhập mật khẩu hiện tại.';
     if (!values.next) next.next = 'Vui lòng nhập mật khẩu mới.';
-    else if (values.next.length < 6) next.next = 'Mật khẩu mới phải có ít nhất 6 ký tự.';
+    else if (values.next.length < 12) next.next = 'Mật khẩu mới phải có ít nhất 12 ký tự.';
     else if (values.next === values.current) next.next = 'Mật khẩu mới phải khác mật khẩu hiện tại.';
     if (!values.confirm) next.confirm = 'Vui lòng xác nhận mật khẩu mới.';
     else if (values.confirm !== values.next) next.confirm = 'Hai mật khẩu chưa khớp nhau.';
@@ -1841,9 +1917,20 @@ function PasswordTab({ showToast }) {
       return;
     }
 
-    setValues({ current: '', next: '', confirm: '' });
-    setShown({ current: false, next: false, confirm: false });
-    showToast('Đã cập nhật mật khẩu mới thành công!', 'bi-shield-check');
+    setSubmitting(true);
+    try {
+      await authApi.changePassword({ currentPassword: values.current, newPassword: values.next });
+      setValues({ current: '', next: '', confirm: '' });
+      setShown({ current: false, next: false, confirm: false });
+      tokenStore.clear();
+      window.dispatchEvent(new Event('lyra:auth-expired'));
+      showToast('Đã đổi mật khẩu. Vui lòng đăng nhập lại.', 'bi-shield-check');
+      navigate('auth');
+    } catch (error) {
+      showToast(extractErrorMessage(error, 'Mật khẩu hiện tại không đúng hoặc mật khẩu mới không hợp lệ.'), 'bi-exclamation-circle');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -1928,8 +2015,8 @@ function PasswordTab({ showToast }) {
         ))}
 
         <div className="profile-form-actions">
-          <button type="submit" className="btn-lyra">
-            Cập nhật mật khẩu
+          <button type="submit" className="btn-lyra" disabled={submitting}>
+            {submitting ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
           </button>
         </div>
       </form>

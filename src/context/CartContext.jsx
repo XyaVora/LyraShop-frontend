@@ -149,7 +149,7 @@ export function CartProvider({ children }) {
   const updateQty = useCallback(async (key, delta) => {
     const item = cart.find(entry => entry.key === key);
     if (!item) return;
-    const quantity = Math.max(1, Math.min(item.stock || 99, item.qty + delta));
+    const quantity = Math.max(1, Math.min(item.stock ?? item.qty, item.qty + delta));
     if (quantity === item.qty) return;
     try {
       const response = await cartApi.updateItem(item.cartItemId, quantity);
@@ -233,7 +233,7 @@ function normalizeCartItem(item, catalog) {
     size: item.size || 'Tiêu chuẩn',
     colorName: item.color || 'Mặc định',
     qty: item.quantity || 1,
-    stock: variant?.stock ?? Math.max(item.quantity || 1, 99),
+    stock: variant?.stock ?? item.quantity ?? 0,
   };
 }
 

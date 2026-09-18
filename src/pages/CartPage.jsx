@@ -2,23 +2,18 @@
 import { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { fmt, FREE_SHIPPING_THRESHOLD } from '../data/products';
+import { fmt } from '../data/products';
 import { normalizeOrder } from '../data/orders';
-import { addressApi, extractErrorMessage, orderApi } from '../services/api';
+import { addressApi, extractErrorMessage, orderApi, paymentApi, voucherApi } from '../services/api';
 import { isEmail, isPhone, normPhone } from '../utils/validate';
 import { Footer } from '../components/index.jsx';
 import '../styles/cart.css';
 
-const AVAILABLE_VOUCHERS = [
-  { code: 'LYRA10',   label: 'Giảm 10% đơn đầu tiên', discountPercent: 10 },
-  { code: 'FREESHIP', label: 'Miễn phí vận chuyển',   freeShip: true },
-  { code: 'LYRA50K',  label: 'Giảm 50.000₫ đơn từ 800k', fixedDiscount: 50000, minOrder: 800000 },
-];
-
-export default function CartPage() {
-  const { navigate } = useApp();
-  const { cart, cartCount, subtotal, removeFromCart, updateQty, showToast } = useCart();
-  const [view, setView] = useState('cart'); // 'cart' | 'checkout' | 'success'
+export default function CartPage({ initialView = 'cart' }) {
+  const { navigate, isLoggedIn } = useApp();
+  const { cart, cartCount, subtotal, discount: promotionDiscount, shipping: cartShipping,
+    removeFromCart, updateQty, showToast } = useCart();
+  const [view, setView] = useState(initialView); // 'cart' | 'checkout' | 'success'
   const [createdOrder, setCreatedOrder] = useState(null);
 
   // Cart customization: Gift wrap
@@ -28,40 +23,52 @@ export default function CartPage() {
   // Voucher state
   const [voucherCode, setVoucherCode]         = useState('');
   const [appliedVoucher, setAppliedVoucher]   = useState(null);
+  const [availableVouchers, setAvailableVouchers] = useState([]);
 
   const giftWrapFee = giftWrapEnabled ? 30000 : 0;
-  const threshold = FREE_SHIPPING_THRESHOLD || 500000;
-  let shippingFee = subtotal >= threshold ? 0 : 30000;
+  let shippingFee = cartShipping;
 
   // Calculate voucher discount
   let voucherDiscount = 0;
   if (appliedVoucher) {
-    if (appliedVoucher.freeShip) {
-      shippingFee = 0;
-    } else if (appliedVoucher.discountPercent) {
-      voucherDiscount = Math.round((subtotal * appliedVoucher.discountPercent) / 100);
-    } else if (appliedVoucher.fixedDiscount) {
-      if (subtotal >= (appliedVoucher.minOrder || 0)) {
-        voucherDiscount = appliedVoucher.fixedDiscount;
-      }
-    }
+    shippingFee = Number(appliedVoucher.shippingFee ?? shippingFee);
+    voucherDiscount = Number(appliedVoucher.discountAmount ?? 0);
   }
 
-  const finalTotal = Math.max(0, subtotal + shippingFee + giftWrapFee - voucherDiscount);
+  const finalTotal = Math.max(0, subtotal - promotionDiscount + shippingFee + giftWrapFee - voucherDiscount);
 
-  const handleApplyVoucher = (code) => {
-    const target = AVAILABLE_VOUCHERS.find(v => v.code.toUpperCase() === code.toUpperCase().trim());
-    if (!target) {
-      showToast('Mã ưu đãi không hợp lệ hoặc đã hết hạn.', 'error');
+  useEffect(() => {
+    if (!isLoggedIn || cart.length === 0) return;
+    voucherApi.list()
+      .then(({ data }) => setAvailableVouchers(Array.isArray(data) ? data : []))
+      .catch(() => setAvailableVouchers([]));
+  }, [isLoggedIn, cart.length, subtotal]);
+
+  useEffect(() => {
+    if (!isLoggedIn || !appliedVoucher?.code) return;
+    voucherApi.quote(appliedVoucher.code)
+      .then(({ data }) => setAppliedVoucher(data))
+      .catch(() => {
+        setAppliedVoucher(null);
+        setVoucherCode('');
+        showToast('Mã ưu đãi không còn đủ điều kiện sau khi cập nhật giỏ hàng.', 'error');
+      });
+  }, [isLoggedIn, subtotal, appliedVoucher?.code, showToast]);
+
+  const handleApplyVoucher = async (code) => {
+    if (!isLoggedIn) {
+      showToast('Vui lòng đăng nhập để sử dụng mã ưu đãi.', 'error');
       return;
     }
-    if (target.minOrder && subtotal < target.minOrder) {
-      showToast(`Mã này chỉ áp dụng cho đơn hàng từ ${fmt(target.minOrder)}.`, 'error');
-      return;
+    try {
+      const { data } = await voucherApi.quote(code.trim());
+      setAppliedVoucher(data);
+      setVoucherCode(data.code);
+      showToast(`Đã áp dụng mã ưu đãi ${data.code} thành công!`, 'success');
+    } catch (error) {
+      setAppliedVoucher(null);
+      showToast(extractErrorMessage(error, 'Mã ưu đãi không hợp lệ hoặc chưa đủ điều kiện.'), 'error');
     }
-    setAppliedVoucher(target);
-    setVoucherCode(target.code);
-    showToast(`Đã áp dụng mã ưu đãi ${target.code} thành công!`, 'success');
   };
 
   if (view === 'success') {
@@ -78,8 +85,10 @@ export default function CartPage() {
         shippingFee={shippingFee}
         giftWrapFee={giftWrapFee}
         voucherDiscount={voucherDiscount}
+        promotionDiscount={promotionDiscount}
         appliedVoucher={appliedVoucher}
         giftNote={giftNote}
+        giftWrapEnabled={giftWrapEnabled}
       />
     );
   }
@@ -222,6 +231,13 @@ export default function CartPage() {
                 <span style={{ color: 'var(--ink)', fontWeight: 500 }}>{fmt(subtotal)}</span>
               </div>
 
+              {promotionDiscount > 0 && (
+                <div className="summary-data-row" style={{ color: 'var(--warm)' }}>
+                  <span>Khuyến mãi sản phẩm</span>
+                  <span>−{fmt(promotionDiscount)}</span>
+                </div>
+              )}
+
               <div className="summary-data-row">
                 <span>Phí vận chuyển</span>
                 <span style={{ color: shippingFee === 0 ? 'var(--warm)' : 'var(--ink)' }}>
@@ -265,7 +281,7 @@ export default function CartPage() {
 
                 {/* Quick Voucher Presets */}
                 <div className="voucher-chips-list">
-                  {AVAILABLE_VOUCHERS.map(v => {
+                  {availableVouchers.map(v => {
                     const active = appliedVoucher?.code === v.code;
                     return (
                       <button
@@ -318,8 +334,10 @@ function CheckoutView({
   shippingFee,
   giftWrapFee,
   voucherDiscount,
+  promotionDiscount,
   appliedVoucher,
   giftNote,
+  giftWrapEnabled,
 }) {
   const { user, isLoggedIn } = useApp();
   const { cart, subtotal, refreshCart, showToast } = useCart();
@@ -328,6 +346,7 @@ function CheckoutView({
   const [submitting, setSubmitting]             = useState(false);
   const [savedAddresses, setSavedAddresses]     = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState('');
+  const [vnpayEnabled, setVnpayEnabled]         = useState(false);
 
   const [form, setForm] = useState({
     name: user?.name || '',
@@ -341,8 +360,18 @@ function CheckoutView({
 
   const payOptions = [
     { id: 'cod',   label: 'Thanh toán khi nhận hàng (COD)', desc: 'Thanh toán tiền mặt cho shipper khi nhận kiện hàng.', icon: 'bi-cash-coin' },
-    { id: 'vnpay', label: 'Quét mã VNPay QR',               desc: 'Hỗ trợ quét mã qua 40+ ứng dụng ngân hàng & ví VNPay.', icon: 'bi-qr-code' },
+    ...(vnpayEnabled ? [
+      { id: 'vnpay', label: 'Quét mã VNPay QR', desc: 'Hỗ trợ quét mã qua 40+ ứng dụng ngân hàng & ví VNPay.', icon: 'bi-qr-code' },
+    ] : []),
   ];
+
+  useEffect(() => {
+    let cancelled = false;
+    paymentApi.vnpayStatus()
+      .then(({ data }) => { if (!cancelled) setVnpayEnabled(Boolean(data?.enabled)); })
+      .catch(() => { if (!cancelled) setVnpayEnabled(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   // Load saved addresses
   useEffect(() => {
@@ -405,6 +434,9 @@ function CheckoutView({
         shippingPhone: normPhone(form.phone),
         note: form.note || null,
         paymentMethod: activePayment.toUpperCase(),
+        voucherCode: appliedVoucher?.code || null,
+        giftWrap: giftWrapEnabled,
+        giftMessage: giftWrapEnabled ? (giftNote || null) : null,
       });
       const newOrder = normalizeOrder(response.data, {
         ...user,
@@ -609,6 +641,12 @@ function CheckoutView({
                 <span>Tạm tính</span>
                 <span>{fmt(subtotal)}</span>
               </div>
+              {promotionDiscount > 0 && (
+                <div className="summary-data-row" style={{ color: 'var(--warm)' }}>
+                  <span>Khuyến mãi sản phẩm</span>
+                  <span>−{fmt(promotionDiscount)}</span>
+                </div>
+              )}
               <div className="summary-data-row">
                 <span>Vận chuyển</span>
                 <span>{shippingFee === 0 ? 'Miễn phí' : fmt(shippingFee)}</span>
