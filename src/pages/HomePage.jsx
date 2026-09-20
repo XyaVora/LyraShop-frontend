@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { productApi, categoryApi } from '../services/api';
+import { productApi, categoryApi, voucherApi } from '../services/api';
 import { normalizeProduct, normalizeCategory, fmt } from '../data/products';
 import { ProductCard, Marquee, Newsletter, Footer } from '../components/index.jsx';
 import '../styles/home.css';
@@ -11,27 +11,22 @@ import '../styles/home.css';
 const CATEGORY_EDITORIAL_META = {
   'thoi-trang-nu': {
     tag: 'BST NỮ 2026',
-    count: '32+ Thiết kế',
     image: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?q=80&w=800&auto=format&fit=crop',
   },
   'thoi-trang-nam': {
     tag: 'SARTORIAL MEN',
-    count: '28+ Mẫu may đo',
     image: 'https://images.unsplash.com/photo-1617137984095-74e4e5e3613f?q=80&w=800&auto=format&fit=crop',
   },
   'giay-dep': {
     tag: 'ATELIER FOOTWEAR',
-    count: '16+ Mẫu da thủ công',
     image: 'https://images.unsplash.com/photo-1543163521-1bf539c55dd2?q=80&w=800&auto=format&fit=crop',
   },
   'phu-kien': {
     tag: 'SIGNATURE PIECES',
-    count: '24+ Phụ kiện cao cấp',
     image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=800&auto=format&fit=crop',
   },
   default: {
     tag: 'LYRA COLLECTION',
-    count: 'Tuyển chọn độc quyền',
     image: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?q=80&w=800&auto=format&fit=crop',
   },
 };
@@ -43,7 +38,7 @@ const LOOK_POSITIONS = [
 ];
 
 export default function HomePage() {
-  const { navigate } = useApp();
+  const { navigate, isLoggedIn } = useApp();
   const { showToast, addToCart } = useCart();
 
   const [featured, setFeatured]             = useState([]);
@@ -56,6 +51,8 @@ export default function HomePage() {
   const [reloadKey, setReloadKey]           = useState(0);
   const [voucherCopied, setVoucherCopied]   = useState(false);
   const [activeLookItem, setActiveLookItem] = useState(null);
+  const [campaignVoucher, setCampaignVoucher] = useState(null);
+  const [campaignVoucherLoading, setCampaignVoucherLoading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,11 +89,45 @@ export default function HomePage() {
     return () => { cancelled = true; };
   }, [reloadKey]);
 
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setCampaignVoucher(null);
+      setCampaignVoucherLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setCampaignVoucherLoading(true);
+    voucherApi.list()
+      .then(({ data }) => {
+        if (!cancelled) {
+          const vouchers = Array.isArray(data) ? data : [];
+          setCampaignVoucher(vouchers.find(voucher => voucher.eligible) || null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setCampaignVoucher(null);
+      })
+      .finally(() => {
+        if (!cancelled) setCampaignVoucherLoading(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [isLoggedIn]);
+
   // Handle voucher copy
   const handleCopyVoucher = () => {
-    navigator.clipboard?.writeText('LYRA10');
+    if (!isLoggedIn) {
+      navigate('auth');
+      return;
+    }
+    if (!campaignVoucher?.code) {
+      navigate('profile', { profileTab: 'vouchers' });
+      return;
+    }
+    navigator.clipboard?.writeText(campaignVoucher.code);
     setVoucherCopied(true);
-    showToast('Đã sao chép mã ưu đãi LYRA10 (-10%) thành công!', 'success');
+    showToast(`Đã sao chép mã ưu đãi ${campaignVoucher.code} thành công!`, 'success');
     setTimeout(() => setVoucherCopied(false), 3500);
   };
 
@@ -192,8 +223,10 @@ export default function HomePage() {
             >
               <div>
                 <div className="hero-floating-label">FEATURED LOOKBOOK PIECE</div>
-                <h3 className="hero-floating-title">Áo Sơ Mi Silk Étoile</h3>
-                <div className="hero-floating-price">890.000₫ • 100% Tơ lụa tự nhiên</div>
+                <h3 className="hero-floating-title">{featured[0]?.name || 'Thiết kế mới nhất từ LYRA'}</h3>
+                <div className="hero-floating-price">
+                  {featured[0] ? fmt(featured[0].price) : 'Đang cập nhật sản phẩm'}
+                </div>
               </div>
               <div className="hero-floating-btn">
                 <i className="bi bi-arrow-up-right" />
@@ -249,7 +282,7 @@ export default function HomePage() {
                       <div className="curated-cat-tag">{meta.tag}</div>
                       <h3 className="curated-cat-name">{cat.name}</h3>
                       <div className="curated-cat-link">
-                        <span>{cat.description || meta.count}</span>
+                        <span>{cat.count.toLocaleString('vi-VN')} sản phẩm</span>
                         <i className="bi bi-arrow-right" />
                       </div>
                     </div>
@@ -474,23 +507,44 @@ export default function HomePage() {
             <div className="campaign-banner-text">
               <div className="campaign-eyebrow">PRIVATE CLIENT PRIVILEGE • ĐẶC QUYỀN ĐỘC QUYỀN</div>
               <h2 className="campaign-title">
-                Ưu đãi 10% đơn hàng đầu tiên<br />
-                <em>dành cho khách hàng mới</em>
+                {!isLoggedIn ? (
+                  <>Khám phá ưu đãi dành riêng<br /><em>khi đăng nhập tài khoản LYRA</em></>
+                ) : campaignVoucherLoading ? (
+                  <>Đang chuẩn bị đặc quyền<br /><em>dành riêng cho bạn</em></>
+                ) : campaignVoucher ? (
+                  <>{campaignVoucher.label || 'Ưu đãi dành cho bạn'}<br /><em>Giảm {campaignVoucher.discountText}</em></>
+                ) : (
+                  <>Đặc quyền thành viên LYRA<br /><em>dành riêng cho tài khoản của bạn</em></>
+                )}
               </h2>
               <p className="campaign-desc">
-                Nhập mã ưu đãi độc quyền khi thanh toán để nhận ngay đặc quyền giảm 10% cùng hộp quà Signature Box đóng gói cao cấp.
+                {!isLoggedIn
+                  ? 'Đăng nhập để xem các mã ưu đãi đang hoạt động và điều kiện áp dụng chính xác cho giỏ hàng của bạn.'
+                  : campaignVoucherLoading
+                    ? 'Hệ thống đang kiểm tra những ưu đãi phù hợp với tài khoản của bạn.'
+                    : campaignVoucher
+                      ? `Áp dụng cho đơn từ ${fmt(Number(campaignVoucher.minimumOrderAmount || 0))}. Mã sẽ được backend kiểm tra lại khi thanh toán.`
+                      : 'Hiện chưa có mã ưu đãi đủ điều kiện. Bạn vẫn có thể theo dõi kho voucher và các quyền lợi thành viên của mình.'}
               </p>
             </div>
 
             <div className="campaign-action-box">
               <div style={{ fontSize: 11, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(255,255,255,.6)' }}>
-                MÃ ƯU ĐÃI RIÊNG CỦA BẠN:
+                {isLoggedIn ? 'ĐẶC QUYỀN TÀI KHOẢN CỦA BẠN:' : 'MÃ ƯU ĐÃI RIÊNG CỦA BẠN:'}
               </div>
               <div className="campaign-voucher-code">
-                <span className="voucher-pill">LYRA10</span>
-                <button className="btn-copy-voucher" onClick={handleCopyVoucher}>
-                  <i className={`bi ${voucherCopied ? 'bi-check-lg' : 'bi-clipboard'}`} />
-                  {' '}{voucherCopied ? 'ĐÃ SAO CHÉP' : 'SAO CHÉP MÃ'}
+                <span className="voucher-pill">
+                  {!isLoggedIn ? 'ĐĂNG NHẬP' : campaignVoucherLoading ? 'ĐANG TẢI' : campaignVoucher?.code || 'THÀNH VIÊN'}
+                </span>
+                <button className="btn-copy-voucher" onClick={handleCopyVoucher} disabled={campaignVoucherLoading}>
+                  <i className={`bi ${voucherCopied ? 'bi-check-lg' : campaignVoucher ? 'bi-clipboard' : isLoggedIn ? 'bi-gift' : 'bi-person'}`} />
+                  {' '}{voucherCopied
+                    ? 'ĐÃ SAO CHÉP'
+                    : campaignVoucherLoading
+                      ? 'ĐANG KIỂM TRA'
+                      : campaignVoucher
+                        ? 'SAO CHÉP MÃ'
+                        : isLoggedIn ? 'XEM KHO VOUCHER' : 'XEM ƯU ĐÃI'}
                 </button>
               </div>
             </div>
@@ -530,19 +584,6 @@ export default function HomePage() {
               ))}
             </div>
           )}
-        </div>
-      </section>
-
-      {/* ── 9. CLIENT TESTIMONIAL QUOTE ── */}
-      <section className="home-quotes-section">
-        <div className="container px-4">
-          <div className="quote-eyebrow">✦ LỜI TRI ÂN TỪ KHÁCH HÀNG ✦</div>
-          <p className="quote-text">
-            “Chất vải lụa tơ tằm và linen của Lyra mang lại cảm giác nhẹ tênh trên da. Từng đường may, chiếc khuy xà cừ và chiếc hộp Signature đóng gói chỉn chu đến mức mở ra như nhận một món quà từ Paris.”
-          </p>
-          <div className="quote-author">
-            — Lan Chi • Fashion Editor & VIP Patron
-          </div>
         </div>
       </section>
 

@@ -193,8 +193,9 @@ export function AppProvider({ children }) {
       localStorage.removeItem('lyra_user');
       setIsLoggedIn(false);
       setUser(null);
+      navigate('auth', { replace: true });
     }
-  }, []);
+  }, [navigate]);
 
   return (
     <AppContext.Provider value={{

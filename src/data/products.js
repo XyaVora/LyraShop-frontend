@@ -123,7 +123,7 @@ export function normalizeCategory(raw) {
     slug:        raw.slug,
     description: raw.description || '',
     parentId:    raw.parentId,
-    count:       0, // backend không trả về số lượng SP
+    count:       Number(raw.productCount || 0),
     icon:        meta.icon,
     color:       meta.color,
   };

@@ -127,18 +127,6 @@ export default function AuthPage() {
             <button className={`auth-toggle-btn${mode === 'register' ? ' active' : ''}`} onClick={() => setMode('register')}>Đăng ký</button>
           </div>
 
-          {/* Social */}
-          <div className="social-auth">
-            <button className="social-auth-btn" onClick={() => showToast('Chức năng đang phát triển', 'bi-info-circle')}>
-              <i className="bi bi-google" /> Google
-            </button>
-            <button className="social-auth-btn" onClick={() => showToast('Chức năng đang phát triển', 'bi-info-circle')}>
-              <i className="bi bi-facebook" /> Facebook
-            </button>
-          </div>
-
-          <div className="auth-divider">hoặc</div>
-
           {mode === 'register' && (
             <>
               <label className="form-field-label">Họ và tên</label>

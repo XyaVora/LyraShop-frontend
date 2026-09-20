@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import SearchModal from './SearchModal';
+import { brandApi, loyaltyApi } from '../services/api';
 import '../styles/navigation.css';
 
 export default function Navbar() {
@@ -16,6 +17,8 @@ export default function Navbar() {
   const [megaMenuOpen, setMegaMenuOpen]       = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [showTopBar, setShowTopBar]           = useState(true);
+  const [memberTier, setMemberTier]           = useState('MEMBER');
+  const [brand, setBrand]                     = useState(null);
 
   const userDropdownRef = useRef(null);
   const megaMenuRef = useRef(null);
@@ -25,6 +28,18 @@ export default function Navbar() {
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  useEffect(() => {
+    brandApi.get().then(({ data }) => setBrand(data)).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      setMemberTier('MEMBER');
+      return;
+    }
+    loyaltyApi.get().then(({ data }) => setMemberTier(data?.tier || 'MEMBER')).catch(() => {});
+  }, [isLoggedIn]);
 
   useEffect(() => {
     if (cartCount > prevCount) {
@@ -70,7 +85,6 @@ export default function Navbar() {
   const handleLogout = async () => {
     setUserDropdownOpen(false);
     await logout();
-    navigate('home');
   };
 
   return (
@@ -82,9 +96,9 @@ export default function Navbar() {
             <div className="top-announcement-text">
               <span>Miễn phí giao hàng cho đơn từ 500.000₫</span>
               <span className="top-announcement-bullet">●</span>
-              <span>Đổi size tận nơi trong 15 ngày</span>
+              <span>Hỗ trợ đổi trả trong 30 ngày</span>
               <span className="top-announcement-bullet">●</span>
-              <span>Hotline CSKH VIP: 1900 8899</span>
+              <span>Hotline CSKH: {brand?.hotline || 'Đang cập nhật'}</span>
             </div>
             <button
               className="top-announcement-close"
@@ -266,7 +280,7 @@ export default function Navbar() {
                       <div className="user-dropdown-name">{user?.name || 'Quý khách'}</div>
                       <div className="user-dropdown-email">{user?.email || 'Thành viên Lyra Club'}</div>
                       <div className="user-dropdown-tier-badge">
-                        <i className="bi bi-gem" /> VIP Gold Atelier
+                        <i className="bi bi-gem" /> Hạng {memberTier}
                       </div>
                     </div>
 

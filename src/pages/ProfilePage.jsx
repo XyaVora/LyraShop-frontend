@@ -178,7 +178,6 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     await logout();
     showToast('Đã đăng xuất thành công', 'bi-door-open');
-    navigate('home');
   };
 
   const openOrders = orders.filter((o) => o.status !== 'delivered' && o.status !== 'cancelled');
@@ -209,7 +208,7 @@ export default function ProfilePage() {
               <div className="profile-avatar-info">
                 <p className="profile-name">{user?.name || 'Khách hàng LYRA'}</p>
                 <div className="profile-vip-mini-tag">
-                  <i className="bi bi-gem" /> VIP Gold
+                  <i className="bi bi-gem" /> Thành viên LYRA
                 </div>
               </div>
             </div>
@@ -1215,7 +1214,15 @@ function VouchersTab({ navigate, showToast, vouchers, loading, error, onReload }
 /* ══════════════ Tab 4: Hạng hội viên & Lyra Xu (MembershipTab) ══════════════ */
 function MembershipTab({ user, showToast }) {
   const [loyalty, setLoyalty] = useState(null);
-  useEffect(()=>{loyaltyApi.get().then(({data})=>setLoyalty(data)).catch(()=>showToast('Không thể tải dữ liệu hội viên','bi-exclamation-circle'));},[showToast]);
+  const [transactions, setTransactions] = useState([]);
+  useEffect(()=>{
+    Promise.all([loyaltyApi.get(), loyaltyApi.transactions()])
+      .then(([account, history]) => {
+        setLoyalty(account.data);
+        setTransactions(Array.isArray(history.data) ? history.data : []);
+      })
+      .catch(()=>showToast('Không thể tải dữ liệu hội viên','bi-exclamation-circle'));
+  },[showToast]);
   const checkedIn = Boolean(loyalty?.checkedInToday);
 
   const handleCheckin = async () => {
@@ -1278,29 +1285,52 @@ function MembershipTab({ user, showToast }) {
         </button>
       </div>
 
-      {/* Đặc quyền hạng Vàng */}
+      <div className="membership-perks-section" style={{ marginTop: 24 }}>
+        <h3 className="perks-title">Lịch sử Lyra Xu</h3>
+        {transactions.length === 0 ? (
+          <p style={{ color: 'var(--muted)', fontSize: 13, margin: 0 }}>Chưa có giao dịch Lyra Xu.</p>
+        ) : (
+          <div style={{ display: 'grid', gap: 10 }}>
+            {transactions.map((transaction, index) => (
+              <div key={`${transaction.createdAt}-${index}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 16, padding: '12px 0', borderBottom: '1px solid var(--border)' }}>
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: 13 }}>{transaction.description}</div>
+                  <div style={{ color: 'var(--muted)', fontSize: 12 }}>
+                    {transaction.createdAt ? new Date(transaction.createdAt).toLocaleString('vi-VN') : ''}
+                  </div>
+                </div>
+                <strong style={{ color: Number(transaction.amount) >= 0 ? '#2E7D32' : '#C53030' }}>
+                  {Number(transaction.amount) >= 0 ? '+' : ''}{Number(transaction.amount).toLocaleString('vi-VN')} Xu
+                </strong>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Quy tắc hội viên đang được backend áp dụng */}
       <div className="membership-perks-section">
-        <h3 className="perks-title">Đặc quyền dành riêng cho Hạng Vàng (Gold Member)</h3>
+        <h3 className="perks-title">Quy tắc chương trình hội viên</h3>
         <div className="membership-perks-grid">
           <div className="perk-box">
-            <i className="bi bi-truck perk-icon" />
-            <h4>Miễn phí vận chuyển</h4>
-            <p>4 mã Freeship 30K được cộng tự động vào ví mỗi đầu tháng.</p>
+            <i className="bi bi-calendar-check perk-icon" />
+            <h4>Điểm danh mỗi ngày</h4>
+            <p>Nhận 100 Lyra Xu một lần mỗi ngày theo múi giờ Việt Nam.</p>
           </div>
           <div className="perk-box">
-            <i className="bi bi-cake2 perk-icon" />
-            <h4>Quà tặng sinh nhật</h4>
-            <p>Voucher giảm 200.000₫ áp dụng trong toàn bộ tháng sinh nhật của bạn.</p>
+            <i className="bi bi-award perk-icon" />
+            <h4>Hạng Member</h4>
+            <p>Hạng mặc định cho tài khoản có tổng chi tiêu dưới 2.000.000₫.</p>
           </div>
           <div className="perk-box">
-            <i className="bi bi-arrow-repeat perk-icon" />
-            <h4>Đổi trả 30 ngày</h4>
-            <p>Đặc quyền đổi trả miễn phí tận nhà trong vòng 30 ngày kể từ khi nhận hàng.</p>
+            <i className="bi bi-gem perk-icon" />
+            <h4>Hạng Gold</h4>
+            <p>Đạt khi tổng giá trị các đơn đã thanh toán từ 2.000.000₫.</p>
           </div>
           <div className="perk-box">
-            <i className="bi bi-lightning perk-icon" />
-            <h4>Ưu tiên xử lý đơn</h4>
-            <p>Đơn hàng được ưu tiên đóng gói và bàn giao sớm nhất cho bưu tá vận chuyển.</p>
+            <i className="bi bi-stars perk-icon" />
+            <h4>Hạng Diamond</h4>
+            <p>Đạt khi tổng giá trị các đơn đã thanh toán từ 5.000.000₫.</p>
           </div>
         </div>
       </div>
@@ -1311,8 +1341,6 @@ function MembershipTab({ user, showToast }) {
 /* ══════════════ Tab 5: Ngân hàng & Thẻ liên kết (PaymentCardsTab) ══════════════ */
 function PaymentCardsTab({ showToast }) {
   const [cards, setCards] = useState([]);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newCard, setNewCard] = useState({ bank: '', number: '', holder: '', exp: '' });
   const loadCards=useCallback(()=>paymentMethodApi.list().then(({data})=>setCards(data||[])).catch(e=>showToast(extractErrorMessage(e,'Không thể tải phương thức thanh toán'),'bi-exclamation-circle')),[showToast]);
   useEffect(()=>{loadCards();},[loadCards]);
 
@@ -1324,30 +1352,6 @@ function PaymentCardsTab({ showToast }) {
   const handleDeleteCard = async (id) => {
     await paymentMethodApi.remove(id);await loadCards();
     showToast('Đã xóa phương thức thanh toán.', 'bi-trash');
-  };
-
-  const handleAddCard = (e) => {
-    e.preventDefault();
-    showToast('Việc thêm thẻ phải được thực hiện qua màn hình token hóa của cổng thanh toán.', 'bi-shield-lock');
-    return;
-    if (!newCard.number || !newCard.holder) {
-      showToast('Vui lòng nhập đầy đủ thông tin thẻ!', 'bi-exclamation-circle');
-      return;
-    }
-    const last4 = newCard.number.replace(/\s+/g, '').slice(-4) || '9999';
-    const cardItem = {
-      id: `c_${Date.now()}`,
-      type: 'visa',
-      bank: newCard.bank || 'Ngân hàng TMCP',
-      number: `•••• •••• •••• ${last4}`,
-      holder: newCard.holder.toUpperCase(),
-      exp: newCard.exp || '12/29',
-      isDefault: cards.length === 0,
-    };
-    setCards((prev) => [...prev, cardItem]);
-    setShowAddModal(false);
-    setNewCard({ bank: '', number: '', holder: '', exp: '' });
-    showToast('Đã thêm thẻ thanh toán thành công!', 'bi-check2-circle');
   };
 
   return (
@@ -1392,73 +1396,11 @@ function PaymentCardsTab({ showToast }) {
           </div>
         ))}
 
-        <div className="add-card-placeholder" onClick={() => showToast('Cần cấu hình SDK token hóa của cổng thanh toán trước khi liên kết thẻ.', 'bi-shield-lock')}>
-          <i className="bi bi-plus-circle" style={{ fontSize: '28px' }} />
-          <span>Thêm thẻ hoặc tài khoản mới</span>
+        <div className="add-card-placeholder" style={{ cursor: 'default' }}>
+          <i className="bi bi-shield-lock" style={{ fontSize: '28px' }} />
+          <span>Liên kết thẻ sẽ được mở sau khi cấu hình cổng token hóa</span>
         </div>
       </div>
-
-      <Modal
-        isOpen={showAddModal}
-        onClose={() => setShowAddModal(false)}
-        title="Thêm phương thức thanh toán mới"
-        width={480}
-      >
-        <form onSubmit={handleAddCard} className="profile-form" style={{ marginTop: '10px' }}>
-          <div className="field-block">
-            <label className="form-field-label">Tên ngân hàng / Loại thẻ</label>
-            <input
-              className="form-field-input"
-              placeholder="VD: Vietcombank, Techcombank, MB..."
-              value={newCard.bank}
-              onChange={(e) => setNewCard({ ...newCard, bank: e.target.value })}
-              required
-            />
-          </div>
-          <div className="field-block">
-            <label className="form-field-label">Số thẻ (16 số)</label>
-            <input
-              className="form-field-input"
-              placeholder="4123 4567 8901 2345"
-              maxLength={19}
-              value={newCard.number}
-              onChange={(e) => setNewCard({ ...newCard, number: e.target.value })}
-              required
-            />
-          </div>
-          <div className="form-row-2">
-            <div className="field-block">
-              <label className="form-field-label">Tên in trên thẻ</label>
-              <input
-                className="form-field-input"
-                placeholder="NGUYEN VAN A"
-                value={newCard.holder}
-                onChange={(e) => setNewCard({ ...newCard, holder: e.target.value })}
-                required
-              />
-            </div>
-            <div className="field-block">
-              <label className="form-field-label">Hết hạn (MM/YY)</label>
-              <input
-                className="form-field-input"
-                placeholder="12/28"
-                maxLength={5}
-                value={newCard.exp}
-                onChange={(e) => setNewCard({ ...newCard, exp: e.target.value })}
-                required
-              />
-            </div>
-          </div>
-          <div className="profile-form-actions" style={{ marginTop: '20px' }}>
-            <button type="button" className="btn-secondary-lyra" onClick={() => setShowAddModal(false)}>
-              Hủy
-            </button>
-            <button type="submit" className="btn-lyra">
-              Lưu thẻ
-            </button>
-          </div>
-        </form>
-      </Modal>
     </>
   );
 }

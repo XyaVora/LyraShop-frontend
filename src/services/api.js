@@ -7,6 +7,7 @@ const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
 const TOKEN_KEY = 'lyra_access_token';
 const CSRF_KEY = 'lyra_xsrf_token';
 const productDetailCache = new Map();
+let brandRequest;
 
 function getProductDetail(id) {
   const key = String(id);
@@ -274,7 +275,15 @@ export const promotionApi = {
   active: () => api.get('/promotions/active'),
 };
 
-export const brandApi = { get: () => api.get('/brand') };
+export const brandApi = {
+  get: () => {
+    if (!brandRequest) brandRequest = api.get('/brand').catch(error => {
+      brandRequest = undefined;
+      throw error;
+    });
+    return brandRequest;
+  },
+};
 export const searchHistoryApi = {
   list: () => api.get('/search-history'),
   add: (query) => api.post('/search-history', { query }),
@@ -289,26 +298,9 @@ export const productApi = {
    * Params: keyword, category (slug), minPrice, maxPrice,
    *         sort (name|price|createdAt,asc|desc), page, size
    * Response: { content: ProductResponse[], page, size, totalElements, totalPages }
+   * Mỗi ProductResponse đã gồm variants và images để card không phải gọi N+1 API chi tiết.
    */
-  list: async (params = {}) => {
-    const response = await api.get('/products', { params });
-    const summaries = response.data?.content || [];
-
-    // API danh sách hiện không trả variants/images. Hydrate từng phần tử bằng
-    // API chi tiết để card có ảnh thật và có thể thêm đúng variant vào giỏ.
-    const details = await Promise.allSettled(
-      summaries.map(product => getProductDetail(product.id)),
-    );
-    return {
-      ...response,
-      data: {
-        ...response.data,
-        content: summaries.map((product, index) =>
-          details[index]?.status === 'fulfilled' ? details[index].value.data : product
-        ),
-      },
-    };
-  },
+  list: (params = {}) => api.get('/products', { params }),
 
   /**
    * Chi tiết sản phẩm — GET /products/:uuid
@@ -316,17 +308,9 @@ export const productApi = {
    *             variants: [{ id, sku, size, color, price, stock }] }
    */
   get: (id) => getProductDetail(id),
-  featured: async (size = 4) => hydrateProductArray(await api.get('/products/featured', { params: { size } })),
-  related: async (id, size = 4) => hydrateProductArray(await api.get(`/products/${id}/related`, { params: { size } })),
+  featured: (size = 4) => api.get('/products/featured', { params: { size } }),
+  related: (id, size = 4) => api.get(`/products/${id}/related`, { params: { size } }),
 };
-
-async function hydrateProductArray(response) {
-  const summaries = Array.isArray(response.data) ? response.data : [];
-  const details = await Promise.allSettled(summaries.map(product => getProductDetail(product.id)));
-  return { ...response, data: summaries.map((product, index) =>
-    details[index]?.status === 'fulfilled' ? details[index].value.data : product
-  ) };
-}
 
 /* ── Categories API ──────────────────────────── */
 export const categoryApi = {

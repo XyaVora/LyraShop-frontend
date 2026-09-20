@@ -1,7 +1,7 @@
 // src/components/index.jsx  — shared UI components
 
 import { useState, useEffect, useRef } from 'react';
-import { newsletterApi, extractErrorMessage } from '../services/api';
+import { brandApi, newsletterApi, extractErrorMessage } from '../services/api';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { fmt } from '../data/products';
@@ -228,6 +228,7 @@ export function Newsletter({ showToast }) {
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const subscribe = async () => { if (!email.includes('@')) return showToast('Vui lòng nhập email hợp lệ', 'bi-exclamation-circle'); setSubmitting(true); try { await newsletterApi.subscribe(email.trim()); setEmail(''); showToast('Đăng ký nhận bản tin thành công!', 'bi-envelope-check'); } catch(e){showToast(extractErrorMessage(e,'Không thể đăng ký nhận bản tin'),'bi-x-circle');} finally{setSubmitting(false);} };
+  const unsubscribe = async () => { if (!email.includes('@')) return showToast('Vui lòng nhập email hợp lệ', 'bi-exclamation-circle'); setSubmitting(true); try { await newsletterApi.unsubscribe(email.trim()); setEmail(''); showToast('Đã hủy đăng ký nhận bản tin.', 'bi-envelope-x'); } catch(e){showToast(extractErrorMessage(e,'Không thể hủy đăng ký'),'bi-x-circle');} finally{setSubmitting(false);} };
   return (
     <section className="newsletter-section">
       <div className="container">
@@ -244,7 +245,7 @@ export function Newsletter({ showToast }) {
               </button>
             </div>
             <p style={{ fontSize: 11.5, color: 'rgba(247,244,239,.3)', marginTop: 10 }}>
-              Không spam. Hủy đăng ký bất kỳ lúc nào.
+              Không spam. <button type="button" onClick={unsubscribe} disabled={submitting} style={{ border: 0, padding: 0, background: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}>Hủy đăng ký</button> bằng email đã nhập.
             </p>
           </div>
         </div>
@@ -255,24 +256,42 @@ export function Newsletter({ showToast }) {
 
 /* ─── Footer ─────────────────────────────────── */
 export function Footer({ navigate }) {
+  const [brand, setBrand] = useState(null);
+  useEffect(() => {
+    brandApi.get().then(({ data }) => setBrand(data)).catch(() => {});
+  }, []);
+  const groups = [
+    { heading: 'Sản phẩm', links: [
+      { label: 'Tất cả sản phẩm', page: 'shop' },
+      { label: 'Sản phẩm mới', page: 'new' },
+      { label: 'Ưu đãi', page: 'sale' },
+      { label: 'Yêu thích', page: 'wishlist' },
+    ] },
+    { heading: 'Tài khoản', links: [
+      { label: 'Đơn hàng của tôi', page: 'profile', params: { profileTab: 'orders' } },
+      { label: 'Sổ địa chỉ', page: 'profile', params: { profileTab: 'address' } },
+      { label: 'Hạng hội viên', page: 'profile', params: { profileTab: 'membership' } },
+    ] },
+    { heading: 'Về LYRA', links: [
+      { label: 'Câu chuyện thương hiệu', page: 'brands' },
+      { label: 'Bộ sưu tập mới', page: 'new' },
+    ] },
+  ];
   return (
     <footer className="site-footer">
       <div className="container">
         <div className="row">
           <div className="col-lg-3 col-md-6 mb-4">
-            <div className="footer-logo">LYRA</div>
-            <p className="footer-desc">Thương hiệu thời trang cao cấp Việt Nam. Nơi phong cách gặp gỡ chất lượng thủ công tuyệt vời.</p>
+            <div className="footer-logo">{brand?.name || 'LYRA'}</div>
+            <p className="footer-desc">{brand?.story || 'Thương hiệu thời trang cao cấp Việt Nam.'}</p>
+            {brand?.hotline && <p className="footer-desc">Hotline: {brand.hotline}<br />Email: {brand.email}</p>}
           </div>
-          {[
-            { heading: 'Sản phẩm', links: ['Thời trang nữ','Thời trang nam','Giày dép','Phụ kiện','Sale'] },
-            { heading: 'Hỗ trợ',   links: ['Chính sách đổi trả','Hướng dẫn size','Theo dõi đơn hàng','Liên hệ','FAQ'] },
-            { heading: 'Về chúng tôi', links: ['Câu chuyện thương hiệu','Tuyển dụng','Blog thời trang','Cửa hàng','Press'] },
-          ].map(({ heading, links }) => (
+          {groups.map(({ heading, links }) => (
             <div key={heading} className="col-lg-2 col-md-4 col-6 mb-4 offset-lg-1">
               <div className="footer-heading">{heading}</div>
               <ul className="footer-list">
-                {links.map(l => (
-                  <li key={l}><a onClick={() => navigate('shop')}>{l}</a></li>
+                {links.map(link => (
+                  <li key={link.label}><a onClick={() => navigate(link.page, link.params)}>{link.label}</a></li>
                 ))}
               </ul>
             </div>
@@ -280,12 +299,7 @@ export function Footer({ navigate }) {
         </div>
         <hr className="footer-divider" />
         <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
-          <div className="footer-copy">© 2025 MAISON. All rights reserved.</div>
-          <div className="social-row">
-            {['instagram','facebook','tiktok','pinterest'].map(s => (
-              <div key={s} className="social-btn"><i className={`bi bi-${s}`} /></div>
-            ))}
-          </div>
+          <div className="footer-copy">© {new Date().getFullYear()} {brand?.name || 'LYRA'}. All rights reserved.</div>
         </div>
       </div>
     </footer>

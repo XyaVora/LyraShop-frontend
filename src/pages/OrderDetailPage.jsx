@@ -18,6 +18,7 @@ export default function OrderDetailPage() {
   const [repurchasing, setRepurchasing] = useState(false);
   const [copied, setCopied] = useState(false);
   const [retryingPayment, setRetryingPayment] = useState(false);
+  const [trackingEvents, setTrackingEvents] = useState([]);
 
   useEffect(() => {
     if (!selectedOrder?.id) {
@@ -26,12 +27,15 @@ export default function OrderDetailPage() {
       return;
     }
     let cancelled = false;
-    orderApi.get(selectedOrder.id)
-      .then(({ data }) => {
-        if (!cancelled) setOrder(normalizeOrder(data, user));
-      })
-      .catch(() => {
-        if (!cancelled) setError('Không thể tải chi tiết đơn hàng.');
+    Promise.allSettled([orderApi.get(selectedOrder.id), orderApi.trackingEvents(selectedOrder.id)])
+      .then(([orderResult, trackingResult]) => {
+        if (cancelled) return;
+        if (orderResult.status === 'rejected') {
+          setError('Không thể tải chi tiết đơn hàng.');
+          return;
+        }
+        setOrder(normalizeOrder(orderResult.value.data, user));
+        setTrackingEvents(trackingResult.status === 'fulfilled' ? (trackingResult.value.data || []) : []);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -69,6 +73,18 @@ export default function OrderDetailPage() {
   };
 
   const activeStepIdx = getStepIndex(order?.status);
+  const refreshTracking = async () => {
+    if (!order?.id) return;
+    try {
+      const { data } = await orderApi.trackingEvents(order.id);
+      setTrackingEvents(data || []);
+    } catch {}
+  };
+  const eventForStep = (step) => trackingEvents.find(event => {
+    const status = String(event.status || '').toUpperCase();
+    if (step === 'pending') return status === 'ORDER_PLACED' || status === 'PENDING';
+    return status === step.toUpperCase();
+  });
 
   const handleCancel = async () => {
     if (!window.confirm('Quý khách có chắc chắn muốn hủy đơn hàng này?')) return;
@@ -78,6 +94,7 @@ export default function OrderDetailPage() {
     try {
       const { data } = await orderApi.cancel(order.id, reason.trim());
       setOrder(normalizeOrder(data, user));
+      await refreshTracking();
       showToast('Đã hủy đơn hàng thành công', 'bi-check-circle');
     } catch (cancelError) {
       showToast(extractErrorMessage(cancelError, 'Không thể hủy đơn hàng'), 'bi-x-circle');
@@ -103,6 +120,7 @@ export default function OrderDetailPage() {
     try {
       const { data } = await orderApi.confirmReceived(order.id);
       setOrder(normalizeOrder(data, user));
+      await refreshTracking();
       showToast('Đã xác nhận nhận hàng thành công', 'bi-check-circle');
     } catch (confirmError) {
       showToast(extractErrorMessage(confirmError, 'Không thể xác nhận nhận hàng'), 'bi-x-circle');
@@ -272,7 +290,9 @@ export default function OrderDetailPage() {
                     </div>
                     <div className="stepper-node-title">{st.title}</div>
                     <div className="stepper-node-time">
-                      {isDone ? 'Hoàn thành' : isActive ? 'Hiện tại' : 'Chờ xử lý'}
+                      {eventForStep(st.key)?.occurredAt
+                        ? new Date(eventForStep(st.key).occurredAt).toLocaleString('vi-VN')
+                        : isDone ? 'Hoàn thành' : isActive ? 'Hiện tại' : 'Chờ xử lý'}
                     </div>
                   </div>
                 );
@@ -285,6 +305,21 @@ export default function OrderDetailPage() {
             </div>
           )}
         </div>
+
+        {!isCancelled && trackingEvents.length > 0 && (
+          <div className="order-logistics-card" style={{ display: 'block' }}>
+            <h2 className="order-card-title"><span>Lịch sử vận chuyển</span></h2>
+            {trackingEvents.map((event, index) => (
+              <div key={event.id || index} style={{ display: 'grid', gridTemplateColumns: '170px 1fr', gap: 18, padding: '12px 0', borderBottom: index < trackingEvents.length - 1 ? '1px solid var(--border)' : 0 }}>
+                <time style={{ fontSize: 12, color: 'var(--muted)' }}>{event.occurredAt ? new Date(event.occurredAt).toLocaleString('vi-VN') : ''}</time>
+                <div>
+                  <strong style={{ fontSize: 13 }}>{event.description || event.status}</strong>
+                  {event.location && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 3 }}>{event.location}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Logistics & Tracking Card */}
         {!isCancelled && order.shippingCarrier && order.trackingCode && (
@@ -464,11 +499,11 @@ export default function OrderDetailPage() {
                 </div>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12, fontSize: 12.5, color: 'var(--muted)' }}>
                   <i className="bi bi-arrow-repeat text-primary" style={{ fontSize: 16 }} />
-                  <span>Hỗ trợ đổi size tận nhà trong vòng 15 ngày</span>
+                  <span>Hỗ trợ yêu cầu đổi trả trong vòng 30 ngày</span>
                 </div>
                 <div style={{ display: 'flex', gap: 12, alignItems: 'center', fontSize: 12.5, color: 'var(--muted)' }}>
                   <i className="bi bi-telephone text-secondary" style={{ fontSize: 16 }} />
-                  <span>Hotline CSKH VIP: <strong>1900 8899</strong> (8h - 22h)</span>
+                  <span>Thông tin liên hệ CSKH được cập nhật tại cuối trang.</span>
                 </div>
               </div>
             </div>

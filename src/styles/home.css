@@ -832,6 +832,15 @@
   background: #fff;
 }
 
+.btn-copy-voucher:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.btn-copy-voucher:disabled:hover {
+  background: var(--champagne, #DFC59E);
+}
+
 /* ── THE LYRA STANDARD (PERKS & SERVICE) ── */
 .home-standards-section {
   padding: 64px 0;
