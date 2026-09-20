@@ -198,6 +198,8 @@ export const authApi = {
     return res;
   },
   changePassword: (payload) => api.post('/auth/change-password', payload),
+  forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
+  resetPassword: (token, newPassword) => api.post('/auth/reset-password', { token, newPassword }),
 };
 
 /* ── Current user profile API ────────────────── */
@@ -225,7 +227,11 @@ export const orderApi = {
   retryPayment: (id) => api.post(`/orders/${id}/retry-payment`),
   requestReturn: (id, reason) => api.post(`/orders/${id}/return-request`, { reason }),
   cancelReturn: (id) => api.put(`/orders/${id}/return-request/cancel`),
+  trackingEvents: (id) => api.get(`/orders/${id}/tracking-events`),
 };
+export const loyaltyApi = { get: () => api.get('/me/loyalty'), checkIn: () => api.post('/me/loyalty/check-in'), transactions: () => api.get('/me/loyalty/transactions') };
+export const newsletterApi = { subscribe: (email) => api.post('/newsletter/subscriptions', { email }), unsubscribe: (email) => api.delete('/newsletter/subscriptions', { data: { email } }) };
+export const paymentMethodApi = { list: () => api.get('/me/payment-methods'), addToken: (payload) => api.post('/me/payment-methods', payload), setDefault: (id) => api.patch(`/me/payment-methods/${id}/default`), remove: (id) => api.delete(`/me/payment-methods/${id}`) };
 
 export const voucherApi = {
   list: () => api.get('/vouchers'),

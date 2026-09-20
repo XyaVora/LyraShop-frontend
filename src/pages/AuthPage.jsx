@@ -3,16 +3,41 @@ import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { isEmail } from '../utils/validate';
+import { authApi, extractErrorMessage } from '../services/api';
 
 export default function AuthPage() {
   const { navigate, login, register, authLoading } = useApp();
   const { showToast } = useCart();
-  const [mode, setMode]         = useState('login'); // login | register
+  const resetToken = new URLSearchParams(window.location.search).get('resetToken');
+  const [mode, setMode]         = useState(resetToken ? 'reset' : 'login');
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [name, setName]         = useState('');
   const [showPass, setShowPass] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+
+  const handlePasswordRecovery = async () => {
+    if (!isEmail(email)) return showToast('Vui lòng nhập email hợp lệ', 'bi-exclamation-circle');
+    setSubmitting(true);
+    try {
+      await authApi.forgotPassword(email.trim());
+      showToast('Nếu tài khoản tồn tại, liên kết đặt lại mật khẩu đã được gửi qua email.', 'bi-envelope-check');
+      setMode('login');
+    } catch (error) { showToast(extractErrorMessage(error, 'Không thể gửi yêu cầu'), 'bi-x-circle'); }
+    finally { setSubmitting(false); }
+  };
+
+  const handleResetPassword = async () => {
+    if (password.length < 12 || password !== confirmPassword) return showToast('Mật khẩu phải từ 12 ký tự và hai lần nhập phải khớp.', 'bi-exclamation-circle');
+    setSubmitting(true);
+    try {
+      await authApi.resetPassword(resetToken, password);
+      showToast('Đặt lại mật khẩu thành công. Bạn có thể đăng nhập.', 'bi-shield-check');
+      window.history.replaceState({}, '', '/auth'); setMode('login'); setPassword(''); setConfirmPassword('');
+    } catch (error) { showToast(extractErrorMessage(error, 'Liên kết không hợp lệ hoặc đã hết hạn'), 'bi-x-circle'); }
+    finally { setSubmitting(false); }
+  };
 
   const handleSubmit = async () => {
     if (!email.trim() || !password) {
@@ -75,10 +100,26 @@ export default function AuthPage() {
       {/* Form */}
       <div className="auth-form-col">
         <div className="auth-form-wrap">
-          <h2 className="auth-title">{mode === 'login' ? 'Đăng nhập' : 'Đăng ký'}</h2>
+          <h2 className="auth-title">{mode === 'login' ? 'Đăng nhập' : mode === 'register' ? 'Đăng ký' : mode === 'forgot' ? 'Quên mật khẩu' : 'Đặt lại mật khẩu'}</h2>
           <p className="auth-subtitle">
-            {mode === 'login' ? 'Chào mừng bạn trở lại với LYRA' : 'Tạo tài khoản mới và khám phá thời trang'}
+            {mode === 'login' ? 'Chào mừng bạn trở lại với LYRA' : mode === 'register' ? 'Tạo tài khoản mới và khám phá thời trang' : mode === 'forgot' ? 'Nhận liên kết bảo mật qua email' : 'Nhập mật khẩu mới cho tài khoản'}
           </p>
+
+          {mode === 'forgot' && <>
+            <label className="form-field-label">Email</label>
+            <input className="form-field-input" type="email" value={email} onChange={e=>setEmail(e.target.value)} />
+            <button className="btn-lyra w-100 justify-content-center py-3 mt-3" onClick={handlePasswordRecovery} disabled={submitting}>Gửi liên kết đặt lại</button>
+            <button className="btn btn-link w-100 mt-2" onClick={()=>setMode('login')}>Quay lại đăng nhập</button>
+          </>}
+          {mode === 'reset' && <>
+            <label className="form-field-label">Mật khẩu mới</label>
+            <input className="form-field-input" type="password" value={password} onChange={e=>setPassword(e.target.value)} />
+            <label className="form-field-label mt-3">Xác nhận mật khẩu mới</label>
+            <input className="form-field-input" type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} />
+            <button className="btn-lyra w-100 justify-content-center py-3 mt-3" onClick={handleResetPassword} disabled={submitting}>Đặt lại mật khẩu</button>
+          </>}
+
+          {(mode === 'login' || mode === 'register') && <>
 
           {/* Toggle */}
           <div className="auth-toggle mb-4">
@@ -127,7 +168,7 @@ export default function AuthPage() {
 
           {mode === 'login' && (
             <div className="d-flex justify-content-end mb-3">
-              <span className="forgot-link" onClick={() => showToast('Chức năng khôi phục đang phát triển', 'bi-info-circle')}>
+              <span className="forgot-link" onClick={() => setMode('forgot')}>
                 Quên mật khẩu?
               </span>
             </div>
@@ -156,6 +197,7 @@ export default function AuthPage() {
               {mode === 'login' ? 'Đăng ký ngay' : 'Đăng nhập'}
             </span>
           </div>
+          </>}
 
           <button className="btn-outline-lyra w-100 justify-content-center mt-4"
             onClick={() => navigate('home')}>

@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { fmt } from '../data/products';
 import { normalizeOrder } from '../data/orders';
-import { addressApi, authApi, extractErrorMessage, orderApi, reviewApi, tokenStore } from '../services/api';
+import { addressApi, authApi, extractErrorMessage, loyaltyApi, orderApi, paymentMethodApi, reviewApi, tokenStore, voucherApi } from '../services/api';
 import { isPhone, normPhone } from '../utils/validate';
 import { Footer, Stars, ProductCard } from '../components/index.jsx';
 import Modal from '../components/Modal.jsx';
@@ -120,6 +120,9 @@ export default function ProfilePage() {
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(true);
   const [ordersError, setOrdersError] = useState('');
+  const [vouchers, setVouchers] = useState([]);
+  const [vouchersLoading, setVouchersLoading] = useState(true);
+  const [vouchersError, setVouchersError] = useState('');
 
   const loadOrders = useCallback(async () => {
     setOrdersLoading(true);
@@ -137,6 +140,23 @@ export default function ProfilePage() {
   useEffect(() => {
     loadOrders();
   }, [loadOrders]);
+
+  const loadVouchers = useCallback(async () => {
+    setVouchersLoading(true);
+    setVouchersError('');
+    try {
+      const { data } = await voucherApi.list();
+      setVouchers(Array.isArray(data) ? data : []);
+    } catch (error) {
+      setVouchersError(extractErrorMessage(error, 'Không thể tải kho voucher'));
+    } finally {
+      setVouchersLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadVouchers();
+  }, [loadVouchers]);
 
   useEffect(() => {
     if (profileTab && TAB_IDS.includes(profileTab)) {
@@ -252,6 +272,8 @@ export default function ProfilePage() {
               goTab={goTab}
               showToast={showToast}
               onRefreshOrders={loadOrders}
+              vouchers={vouchers}
+              vouchersLoading={vouchersLoading}
             />
           )}
           {activeTab === 'orders' && (
@@ -267,7 +289,10 @@ export default function ProfilePage() {
               onRefreshOrders={loadOrders}
             />
           )}
-          {activeTab === 'vouchers' && <VouchersTab navigate={navigate} showToast={showToast} />}
+          {activeTab === 'vouchers' && (
+            <VouchersTab navigate={navigate} showToast={showToast} vouchers={vouchers}
+              loading={vouchersLoading} error={vouchersError} onReload={loadVouchers} />
+          )}
           {activeTab === 'membership' && <MembershipTab user={user} showToast={showToast} />}
           {activeTab === 'cards' && <PaymentCardsTab showToast={showToast} />}
           {activeTab === 'wishlist' && (
@@ -341,7 +366,12 @@ function DashboardTab({
   goTab,
   showToast,
   onRefreshOrders,
+  vouchers,
+  vouchersLoading,
 }) {
+  const [confirmingOrderId, setConfirmingOrderId] = useState(null);
+  const [loyaltySummary, setLoyaltySummary] = useState(null);
+  useEffect(()=>{loyaltyApi.get().then(({data})=>setLoyaltySummary(data)).catch(()=>{});},[]);
   // Counts theo trạng thái
   const unpaidCount = orders.filter(
     (o) => (o.status === 'pending' || o.paymentStatus !== 'PAID') && o.status !== 'cancelled'
@@ -372,6 +402,20 @@ function DashboardTab({
     { key: 'refund', label: 'Trả hàng / Hoàn tiền', icon: 'bi-arrow-repeat', count: refundCount },
   ];
 
+  const confirmActiveOrder = async () => {
+    if (!activeOrder || activeOrder.status !== 'shipping') return;
+    setConfirmingOrderId(activeOrder.id);
+    try {
+      await orderApi.confirmReceived(activeOrder.id);
+      showToast(`Đã xác nhận nhận hàng cho đơn ${activeOrder.displayId || activeOrder.id}!`, 'bi-check2-circle');
+      if (onRefreshOrders) await onRefreshOrders();
+    } catch (error) {
+      showToast(extractErrorMessage(error, 'Không thể xác nhận nhận hàng'), 'bi-exclamation-circle');
+    } finally {
+      setConfirmingOrderId(null);
+    }
+  };
+
   return (
     <div className="profile-dashboard">
       {/* ── 1. Hero VIP Card ── */}
@@ -385,7 +429,7 @@ function DashboardTab({
               <div className="profile-hero-name-row">
                 <h2 className="profile-hero-name">{user?.name || 'Khách hàng LYRA'}</h2>
                 <span className="profile-vip-tag">
-                  <i className="bi bi-gem-fill" /> GOLD MEMBER
+                  <i className="bi bi-gem-fill" /> {loyaltySummary?.tier || 'MEMBER'}
                 </span>
               </div>
               <p className="profile-hero-email">{user?.email || 'lyra.member@example.com'}</p>
@@ -400,15 +444,15 @@ function DashboardTab({
         <div className="profile-tier-progress-card">
           <div className="tier-progress-head">
             <span className="tier-current">
-              <i className="bi bi-shield-fill-check" /> Hạng Vàng (Gold)
+              <i className="bi bi-shield-fill-check" /> Hạng {loyaltySummary?.tier || 'Member'}
             </span>
-            <span className="tier-target">Hạng Kim Cương (Diamond): 5.000.000₫</span>
+            <span className="tier-target">Mốc hạng tiếp theo: {fmt(Number(loyaltySummary?.nextTierSpend || 0))}</span>
           </div>
           <div className="tier-progress-bar">
-            <div className="tier-progress-fill" style={{ width: '68%' }} />
+            <div className="tier-progress-fill" style={{ width: `${Math.min(100, Number(loyaltySummary?.nextTierSpend || 1) ? Number(loyaltySummary?.totalSpend || 0) / Number(loyaltySummary?.nextTierSpend || 1) * 100 : 100)}%` }} />
           </div>
           <p className="tier-progress-sub">
-            Chi tiêu thêm <strong>1.550.000₫</strong> trước 31/12/2026 để nâng hạng Kim Cương với đặc quyền Freeship trọn đời.
+            Tổng chi tiêu đã ghi nhận: <strong>{fmt(Number(loyaltySummary?.totalSpend || 0))}</strong>.
           </p>
         </div>
 
@@ -417,14 +461,14 @@ function DashboardTab({
           <div className="profile-quick-stat-box clickable" onClick={() => goTab('vouchers')}>
             <div className="stat-box-icon"><i className="bi bi-ticket-perforated" /></div>
             <div className="stat-box-info">
-              <span className="stat-box-num">5</span>
+              <span className="stat-box-num">{vouchersLoading ? '…' : vouchers.length}</span>
               <span className="stat-box-title">Voucher của tôi</span>
             </div>
           </div>
           <div className="profile-quick-stat-box clickable" onClick={() => goTab('membership')}>
             <div className="stat-box-icon"><i className="bi bi-coin" /></div>
             <div className="stat-box-info">
-              <span className="stat-box-num">24.500</span>
+              <span className="stat-box-num">{Number(loyaltySummary?.coinBalance || 0).toLocaleString('vi-VN')}</span>
               <span className="stat-box-title">Lyra Xu tích lũy</span>
             </div>
           </div>
@@ -503,16 +547,14 @@ function DashboardTab({
             >
               Xem chi tiết
             </button>
-            <button
+            {activeOrder.status === 'shipping' && <button
               type="button"
               className="btn-order-received"
-              onClick={() => {
-                showToast(`Đã xác nhận nhận hàng cho đơn ${activeOrder.displayId || activeOrder.id}!`, 'bi-check2-circle');
-                if (onRefreshOrders) onRefreshOrders();
-              }}
+              onClick={confirmActiveOrder}
+              disabled={confirmingOrderId === activeOrder.id}
             >
-              Đã nhận hàng
-            </button>
+              {confirmingOrderId === activeOrder.id ? 'Đang xác nhận...' : 'Đã nhận hàng'}
+            </button>}
           </div>
         </div>
       )}
@@ -524,36 +566,18 @@ function DashboardTab({
             <i className="bi bi-ticket-perforated" /> Voucher dành riêng cho bạn
           </h3>
           <button type="button" className="see-all-link" onClick={() => goTab('vouchers')}>
-            Xem tất cả (5) <i className="bi bi-chevron-right" />
+            Xem tất cả ({vouchers.length}) <i className="bi bi-chevron-right" />
           </button>
         </div>
         <div className="vouchers-grid">
-          <VoucherCardItem
-            code="FREESHIP30K"
-            discount="30K"
-            title="Miễn phí vận chuyển 30.000₫"
-            minSpend="Đơn từ 200.000₫"
-            expiry="HSD: 30/10/2026"
-            tag="Freeship"
-            onUse={() => navigate('shop')}
-            onCopy={() => {
-              navigator.clipboard?.writeText('FREESHIP30K');
-              showToast('Đã sao chép mã FREESHIP30K', 'bi-clipboard-check');
-            }}
-          />
-          <VoucherCardItem
-            code="LYRA10"
-            discount="10%"
-            title="Giảm 10% tối đa 100.000₫"
-            minSpend="Đơn từ 350.000₫"
-            expiry="HSD: 25/10/2026"
-            tag="Toàn sàn"
-            onUse={() => navigate('shop')}
-            onCopy={() => {
-              navigator.clipboard?.writeText('LYRA10');
-              showToast('Đã sao chép mã LYRA10', 'bi-clipboard-check');
-            }}
-          />
+          {vouchers.slice(0, 2).map(voucher => (
+            <VoucherCardItem key={voucher.code} {...voucherCardProps(voucher)}
+              onUse={() => navigate('cart')}
+              onCopy={() => {
+                navigator.clipboard?.writeText(voucher.code);
+                showToast(`Đã sao chép mã ${voucher.code}`, 'bi-clipboard-check');
+              }} />
+          ))}
         </div>
       </div>
 
@@ -601,6 +625,7 @@ function OrdersTab({
   const [selectedReason, setSelectedReason] = useState(CANCEL_REASONS[0]);
   const [confirmDelivered, setConfirmDelivered] = useState(null);
   const [trackingOrder, setTrackingOrder] = useState(null);
+  const [trackingEvents, setTrackingEvents] = useState([]);
   const [reviewingOrder, setReviewingOrder] = useState(null);
   const [reviewProductId, setReviewProductId] = useState('');
   const [reviewRating, setReviewRating] = useState(5);
@@ -612,6 +637,7 @@ function OrdersTab({
       setFilter(initialFilter);
     }
   }, [initialFilter]);
+  useEffect(()=>{if(!trackingOrder?.id){setTrackingEvents([]);return;}orderApi.trackingEvents(trackingOrder.id).then(({data})=>setTrackingEvents(data||[])).catch(()=>setTrackingEvents([]));},[trackingOrder?.id]);
 
   const currentTab = SHOPEE_STATUS_TABS.find((t) => t.id === filter) || SHOPEE_STATUS_TABS[0];
 
@@ -1046,21 +1072,8 @@ function OrdersTab({
             </div>
           </div>
           <div className="tracking-timeline" style={{ borderLeft: '2px solid #e5e7eb', marginLeft: 10, paddingLeft: 16 }}>
-            <div style={{ marginBottom: 16, position: 'relative' }}>
-              <div style={{ position: 'absolute', left: -22, top: 2, width: 10, height: 10, borderRadius: '50%', background: '#10b981' }} />
-              <div style={{ fontWeight: 600, fontSize: 13, color: '#10b981' }}>Bưu tá đang phát hàng</div>
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>Hôm nay 08:30 — Bưu tá Nguyễn Văn Hùng (0988***888) đang trên đường giao.</div>
-            </div>
-            <div style={{ marginBottom: 16, position: 'relative' }}>
-              <div style={{ position: 'absolute', left: -22, top: 2, width: 10, height: 10, borderRadius: '50%', background: '#9ca3af' }} />
-              <div style={{ fontWeight: 500, fontSize: 13 }}>Đã đến kho phân loại Cầu Giấy SOC</div>
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>Hôm qua 21:15 — Kiện hàng đã được quét nhập kho.</div>
-            </div>
-            <div style={{ position: 'relative' }}>
-              <div style={{ position: 'absolute', left: -22, top: 2, width: 10, height: 10, borderRadius: '50%', background: '#9ca3af' }} />
-              <div style={{ fontWeight: 500, fontSize: 13 }}>Người bán đã gửi kiện hàng</div>
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>2 ngày trước 14:00 — Kiện hàng đã được bàn giao cho bưu cục LYRA HUB.</div>
-            </div>
+            {trackingEvents.length===0 && <div style={{fontSize:13,color:'var(--muted)'}}>Chưa có sự kiện vận chuyển.</div>}
+            {trackingEvents.map((event,index)=><div key={event.id} style={{marginBottom:16,position:'relative'}}><div style={{position:'absolute',left:-22,top:2,width:10,height:10,borderRadius:'50%',background:index===0?'#10b981':'#9ca3af'}}/><div style={{fontWeight:600,fontSize:13}}>{event.status}</div><div style={{fontSize:12,color:'var(--muted)'}}>{new Date(event.occurredAt).toLocaleString('vi-VN')} — {event.description}{event.location?` (${event.location})`:''}</div></div>)}
           </div>
         </div>
       </Modal>
@@ -1124,59 +1137,23 @@ function OrdersTab({
   );
 }
 
+function voucherCardProps(voucher) {
+  const minimum = Number(voucher.minimumOrderAmount || 0);
+  const expiry = voucher.expiresAt ? new Date(voucher.expiresAt).toLocaleDateString('vi-VN') : null;
+  return {
+    code: voucher.code,
+    discount: voucher.discountText || 'Ưu đãi',
+    title: voucher.label,
+    minSpend: minimum > 0 ? `Đơn từ ${fmt(minimum)}` : 'Không yêu cầu giá trị tối thiểu',
+    expiry: `${expiry ? `HSD: ${expiry} • ` : ''}${voucher.eligible ? 'Có thể áp dụng' : 'Chưa đủ điều kiện hiện tại'}`,
+    tag: voucher.type === 'shipping' ? 'Freeship' : 'Giảm giá',
+  };
+}
+
 /* ══════════════ Tab 3: Kho Voucher (VouchersTab) ══════════════ */
-function VouchersTab({ navigate, showToast }) {
+function VouchersTab({ navigate, showToast, vouchers, loading, error, onReload }) {
   const [filter, setFilter] = useState('all');
-
-  const VOUCHERS = [
-    {
-      code: 'FREESHIP30K',
-      discount: '30K',
-      title: 'Miễn phí vận chuyển toàn quốc',
-      minSpend: 'Đơn từ 200.000₫',
-      expiry: 'HSD: 30/10/2026',
-      tag: 'Freeship',
-      type: 'shipping',
-    },
-    {
-      code: 'LYRA10',
-      discount: '10%',
-      title: 'Giảm 10% cho mọi đơn hàng thời trang',
-      minSpend: 'Đơn từ 350.000₫ • Tối đa 100K',
-      expiry: 'HSD: 25/10/2026',
-      tag: 'Toàn sàn',
-      type: 'discount',
-    },
-    {
-      code: 'VIP50K',
-      discount: '50K',
-      title: 'Đặc quyền thành viên Gold Member',
-      minSpend: 'Đơn từ 499.000₫',
-      expiry: 'HSD: 31/12/2026',
-      tag: 'VIP Only',
-      type: 'vip',
-    },
-    {
-      code: 'WELCOME20',
-      discount: '20K',
-      title: 'Ưu đãi chào đón thành viên mới',
-      minSpend: 'Đơn từ 150.000₫',
-      expiry: 'HSD: 15/10/2026',
-      tag: 'Thành viên mới',
-      type: 'discount',
-    },
-    {
-      code: 'LYRASPRING',
-      discount: '15%',
-      title: 'Giảm 15% cho BST Thời trang Thu Đông mới',
-      minSpend: 'Đơn từ 500.000₫ • Tối đa 150K',
-      expiry: 'HSD: 20/11/2026',
-      tag: 'BST Mới',
-      type: 'discount',
-    },
-  ];
-
-  const filtered = filter === 'all' ? VOUCHERS : VOUCHERS.filter((v) => v.type === filter);
+  const filtered = filter === 'all' ? vouchers : vouchers.filter((v) => v.type === filter);
 
   return (
     <>
@@ -1192,7 +1169,7 @@ function VouchersTab({ navigate, showToast }) {
           className={`chip${filter === 'all' ? ' is-active' : ''}`}
           onClick={() => setFilter('all')}
         >
-          Tất cả ({VOUCHERS.length})
+          Tất cả ({vouchers.length})
         </button>
         <button
           type="button"
@@ -1208,21 +1185,22 @@ function VouchersTab({ navigate, showToast }) {
         >
           Giảm giá đơn hàng
         </button>
-        <button
-          type="button"
-          className={`chip${filter === 'vip' ? ' is-active' : ''}`}
-          onClick={() => setFilter('vip')}
-        >
-          Đặc quyền VIP
-        </button>
       </div>
 
       <div className="vouchers-grid" style={{ marginTop: '20px' }}>
-        {filtered.map((v) => (
+        {loading && <p>Đang tải kho voucher...</p>}
+        {!loading && error && (
+          <div>
+            <p>{error}</p>
+            <button type="button" className="btn-outline-lyra" onClick={onReload}>Thử lại</button>
+          </div>
+        )}
+        {!loading && !error && filtered.length === 0 && <p>Chưa có voucher phù hợp.</p>}
+        {!loading && !error && filtered.map((v) => (
           <VoucherCardItem
             key={v.code}
-            {...v}
-            onUse={() => navigate('shop')}
+            {...voucherCardProps(v)}
+            onUse={() => navigate('cart')}
             onCopy={() => {
               navigator.clipboard?.writeText(v.code);
               showToast(`Đã sao chép mã ${v.code}!`, 'bi-clipboard-check');
@@ -1236,12 +1214,13 @@ function VouchersTab({ navigate, showToast }) {
 
 /* ══════════════ Tab 4: Hạng hội viên & Lyra Xu (MembershipTab) ══════════════ */
 function MembershipTab({ user, showToast }) {
-  const [checkedIn, setCheckedIn] = useState(false);
+  const [loyalty, setLoyalty] = useState(null);
+  useEffect(()=>{loyaltyApi.get().then(({data})=>setLoyalty(data)).catch(()=>showToast('Không thể tải dữ liệu hội viên','bi-exclamation-circle'));},[showToast]);
+  const checkedIn = Boolean(loyalty?.checkedInToday);
 
-  const handleCheckin = () => {
+  const handleCheckin = async () => {
     if (checkedIn) return;
-    setCheckedIn(true);
-    showToast('Điểm danh thành công! +100 Lyra Xu vào ví.', 'bi-check-circle-fill');
+    try{const {data}=await loyaltyApi.checkIn();setLoyalty(data);showToast('Điểm danh thành công! +100 Lyra Xu vào ví.', 'bi-check-circle-fill');}catch(e){showToast(extractErrorMessage(e,'Không thể điểm danh'),'bi-exclamation-circle');}
   };
 
   return (
@@ -1262,8 +1241,8 @@ function MembershipTab({ user, showToast }) {
           </div>
         </div>
         <div className="membership-card-mid">
-          <span className="membership-tier-name">GOLD MEMBER</span>
-          <p className="membership-card-number">LYRA • 8899 • 2026 • VIP</p>
+          <span className="membership-tier-name">{loyalty?.tier || 'MEMBER'}</span>
+          <p className="membership-card-number">LYRA PRIVILEGE MEMBER</p>
         </div>
         <div className="membership-card-bot">
           <div>
@@ -1272,7 +1251,7 @@ function MembershipTab({ user, showToast }) {
           </div>
           <div>
             <span className="membership-lbl">TÍCH LŨY CHI TIÊU</span>
-            <span className="membership-val">3.450.000₫</span>
+            <span className="membership-val">{fmt(Number(loyalty?.totalSpend || 0))}</span>
           </div>
         </div>
       </div>
@@ -1284,8 +1263,8 @@ function MembershipTab({ user, showToast }) {
             <i className="bi bi-coin" />
           </div>
           <div>
-            <h3 className="coin-balance">{checkedIn ? '24.600' : '24.500'} <span>Xu</span></h3>
-            <p className="coin-sub">Tương đương {(checkedIn ? 24600 : 24500).toLocaleString('vi-VN')}₫ có thể trừ trực tiếp khi thanh toán đơn hàng</p>
+            <h3 className="coin-balance">{Number(loyalty?.coinBalance || 0).toLocaleString('vi-VN')} <span>Xu</span></h3>
+            <p className="coin-sub">Số dư Lyra Xu của tài khoản</p>
           </div>
         </div>
         <button
@@ -1330,29 +1309,27 @@ function MembershipTab({ user, showToast }) {
 }
 
 /* ══════════════ Tab 5: Ngân hàng & Thẻ liên kết (PaymentCardsTab) ══════════════ */
-const INITIAL_CARDS = [
-  { id: 'c1', type: 'visa', bank: 'Vietcombank Visa Platinum', number: '•••• •••• •••• 8899', holder: 'NGUYEN VAN A', exp: '12/28', isDefault: true },
-  { id: 'c2', type: 'mastercard', bank: 'Techcombank Mastercard', number: '•••• •••• •••• 4512', holder: 'NGUYEN VAN A', exp: '08/27', isDefault: false },
-  { id: 'c3', type: 'bank', bank: 'MB Bank (Tài khoản liên kết)', number: '0988776655', holder: 'NGUYEN VAN A', exp: 'Liên kết', isDefault: false },
-];
-
 function PaymentCardsTab({ showToast }) {
-  const [cards, setCards] = useState(INITIAL_CARDS);
+  const [cards, setCards] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [newCard, setNewCard] = useState({ bank: '', number: '', holder: '', exp: '' });
+  const loadCards=useCallback(()=>paymentMethodApi.list().then(({data})=>setCards(data||[])).catch(e=>showToast(extractErrorMessage(e,'Không thể tải phương thức thanh toán'),'bi-exclamation-circle')),[showToast]);
+  useEffect(()=>{loadCards();},[loadCards]);
 
-  const handleSetDefault = (id) => {
-    setCards((prev) => prev.map((c) => ({ ...c, isDefault: c.id === id })));
+  const handleSetDefault = async (id) => {
+    await paymentMethodApi.setDefault(id);await loadCards();
     showToast('Đã đặt làm phương thức thanh toán mặc định!', 'bi-check-circle');
   };
 
-  const handleDeleteCard = (id) => {
-    setCards((prev) => prev.filter((c) => c.id !== id));
+  const handleDeleteCard = async (id) => {
+    await paymentMethodApi.remove(id);await loadCards();
     showToast('Đã xóa phương thức thanh toán.', 'bi-trash');
   };
 
   const handleAddCard = (e) => {
     e.preventDefault();
+    showToast('Việc thêm thẻ phải được thực hiện qua màn hình token hóa của cổng thanh toán.', 'bi-shield-lock');
+    return;
     if (!newCard.number || !newCard.holder) {
       showToast('Vui lòng nhập đầy đủ thông tin thẻ!', 'bi-exclamation-circle');
       return;
@@ -1386,14 +1363,13 @@ function PaymentCardsTab({ showToast }) {
           <div key={c.id} className={`payment-card-box${c.isDefault ? ' is-default' : ''}`}>
             <div className="payment-card-header">
               <span className="payment-bank-name">
-                <i className={`bi ${c.type === 'bank' ? 'bi-bank' : 'bi-credit-card-2-front'}`} /> {c.bank}
+                <i className="bi bi-credit-card-2-front" /> {c.displayName}
               </span>
               {c.isDefault && <span className="payment-default-badge">Mặc định</span>}
             </div>
-            <div className="payment-card-num">{c.number}</div>
+            <div className="payment-card-num">•••• •••• •••• {c.lastFour || '••••'}</div>
             <div className="payment-card-footer">
-              <div className="payment-card-holder">{c.holder}</div>
-              <div className="payment-card-exp">{c.exp}</div>
+              <div className="payment-card-holder">{c.provider}</div>
             </div>
             <div className="payment-card-actions">
               {!c.isDefault && (
@@ -1416,7 +1392,7 @@ function PaymentCardsTab({ showToast }) {
           </div>
         ))}
 
-        <div className="add-card-placeholder" onClick={() => setShowAddModal(true)}>
+        <div className="add-card-placeholder" onClick={() => showToast('Cần cấu hình SDK token hóa của cổng thanh toán trước khi liên kết thẻ.', 'bi-shield-lock')}>
           <i className="bi bi-plus-circle" style={{ fontSize: '28px' }} />
           <span>Thêm thẻ hoặc tài khoản mới</span>
         </div>

@@ -288,6 +288,8 @@ export default function CartPage({ initialView = 'cart' }) {
                         key={v.code}
                         className={`voucher-chip-btn ${active ? 'active' : ''}`}
                         onClick={() => handleApplyVoucher(v.code)}
+                        disabled={!v.eligible}
+                        title={v.eligible ? v.label : `${v.label} — chưa đủ điều kiện`}
                       >
                         <i className={`bi ${active ? 'bi-check-circle-fill' : 'bi-tag'}`} />
                         <span>{v.code}</span>

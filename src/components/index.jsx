@@ -1,6 +1,7 @@
 // src/components/index.jsx  — shared UI components
 
 import { useState, useEffect, useRef } from 'react';
+import { newsletterApi, extractErrorMessage } from '../services/api';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { fmt } from '../data/products';
@@ -224,6 +225,9 @@ export function Marquee() {
 
 /* ─── Newsletter ─────────────────────────────── */
 export function Newsletter({ showToast }) {
+  const [email, setEmail] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const subscribe = async () => { if (!email.includes('@')) return showToast('Vui lòng nhập email hợp lệ', 'bi-exclamation-circle'); setSubmitting(true); try { await newsletterApi.subscribe(email.trim()); setEmail(''); showToast('Đăng ký nhận bản tin thành công!', 'bi-envelope-check'); } catch(e){showToast(extractErrorMessage(e,'Không thể đăng ký nhận bản tin'),'bi-x-circle');} finally{setSubmitting(false);} };
   return (
     <section className="newsletter-section">
       <div className="container">
@@ -234,8 +238,8 @@ export function Newsletter({ showToast }) {
           </div>
           <div className="col-lg-6 offset-lg-1">
             <div className="newsletter-form">
-              <input className="newsletter-input" type="email" placeholder="Nhập địa chỉ email của bạn..." />
-              <button className="newsletter-btn" onClick={() => showToast('Đăng ký thành công! Cảm ơn bạn 🎉', 'bi-envelope-check')}>
+              <input className="newsletter-input" type="email" placeholder="Nhập địa chỉ email của bạn..." value={email} onChange={e=>setEmail(e.target.value)} />
+              <button className="newsletter-btn" onClick={subscribe} disabled={submitting}>
                 Đăng ký
               </button>
             </div>

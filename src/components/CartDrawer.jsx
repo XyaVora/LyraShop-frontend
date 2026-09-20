@@ -1,15 +1,13 @@
 // src/components/CartDrawer.jsx
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { PRODUCTS, fmt, FREE_SHIPPING_THRESHOLD } from '../data/products';
+import { fmt, FREE_SHIPPING_THRESHOLD, normalizeProduct } from '../data/products';
+import { productApi } from '../services/api';
 import { buildUrl } from '../router.js';
 import { useBodyScrollLock, useDialogA11y, isModifiedClick } from './index.jsx';
 import '../styles/cart.css';
-
-// Fallback suggestions for empty cart
-const SUGGESTED = [...PRODUCTS].sort((a, b) => (b.sold || 0) - (a.sold || 0)).slice(0, 3);
 
 export default function CartDrawer() {
   const { navigate } = useApp();
@@ -26,9 +24,21 @@ export default function CartDrawer() {
 
   const panelRef = useRef(null);
   const closeBtnRef = useRef(null);
+  const [suggested, setSuggested] = useState([]);
 
   useBodyScrollLock(cartOpen);
   useDialogA11y(cartOpen, panelRef, closeCart, { initialFocus: closeBtnRef });
+
+  useEffect(() => {
+    if (!cartOpen || cart.length > 0) return;
+    let cancelled = false;
+    productApi.featured(3)
+      .then(({ data }) => {
+        if (!cancelled) setSuggested((data || []).map((product, index) => normalizeProduct(product, index)));
+      })
+      .catch(() => { if (!cancelled) setSuggested([]); });
+    return () => { cancelled = true; };
+  }, [cartOpen, cart.length]);
 
   if (!cartOpen || typeof document === 'undefined') return null;
 
@@ -114,6 +124,26 @@ export default function CartDrawer() {
               >
                 Khám phá Cửa Hàng
               </button>
+              {suggested.length > 0 && (
+                <div style={{ marginTop: 32, textAlign: 'left' }}>
+                  <div style={{ fontSize: 11, letterSpacing: '.12em', textTransform: 'uppercase', marginBottom: 12 }}>
+                    Gợi ý dành cho bạn
+                  </div>
+                  {suggested.map(product => (
+                    <button key={product.id} type="button" onClick={openProduct(product.slug || product.id)}
+                      style={{ width: '100%', display: 'flex', gap: 10, alignItems: 'center', border: 0,
+                        borderTop: '1px solid var(--border)', background: 'transparent', padding: '10px 0', textAlign: 'left' }}>
+                      {product.image ? <img src={product.image} alt="" style={{ width: 48, height: 56, objectFit: 'cover' }} /> : (
+                        <span style={{ width: 48, height: 56, display: 'grid', placeItems: 'center', background: '#f2eee8' }}>
+                          <i className={`bi ${product.icon}`} />
+                        </span>
+                      )}
+                      <span style={{ flex: 1, fontSize: 12 }}>{product.name}</span>
+                      <strong style={{ fontSize: 12 }}>{fmt(product.price)}</strong>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           ) : (
             <ul className="drawer-items-list">

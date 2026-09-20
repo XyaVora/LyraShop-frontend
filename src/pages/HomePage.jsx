@@ -36,38 +36,10 @@ const CATEGORY_EDITORIAL_META = {
   },
 };
 
-// "Shop The Look" ensemble data
-const ENSEMBLE_ITEMS = [
-  {
-    id: 'look-1',
-    name: 'Áo Blazer Linen Dáng Rộng Cổ Điển',
-    category: 'Áo khoác',
-    price: 1680000,
-    thumb: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?q=80&w=300&auto=format&fit=crop',
-    top: '32%',
-    left: '48%',
-    slug: 'ao-khoac-trench-coat-nu-dang-dai',
-  },
-  {
-    id: 'look-2',
-    name: 'Quần Wide-Leg Xếp Ly Đôi Lưng Cao',
-    category: 'Quần dài',
-    price: 620000,
-    thumb: 'https://images.unsplash.com/photo-1509631179647-0177331693ae?q=80&w=300&auto=format&fit=crop',
-    top: '64%',
-    left: '52%',
-    slug: 'quan-tay-nu-ong-rong-xep-ly-doi',
-  },
-  {
-    id: 'look-3',
-    name: 'Túi Tote Da Thật Đựng Vừa Laptop',
-    category: 'Phụ kiện',
-    price: 1550000,
-    thumb: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?q=80&w=300&auto=format&fit=crop',
-    top: '55%',
-    left: '26%',
-    slug: 'tui-tote-nu-da-that-co-lon',
-  },
+const LOOK_POSITIONS = [
+  { top: '32%', left: '48%' },
+  { top: '64%', left: '52%' },
+  { top: '55%', left: '26%' },
 ];
 
 export default function HomePage() {
@@ -83,7 +55,7 @@ export default function HomePage() {
   const [loadError, setLoadError]           = useState('');
   const [reloadKey, setReloadKey]           = useState(0);
   const [voucherCopied, setVoucherCopied]   = useState(false);
-  const [activeLookItem, setActiveLookItem] = useState(ENSEMBLE_ITEMS[0]);
+  const [activeLookItem, setActiveLookItem] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,6 +108,34 @@ export default function HomePage() {
         return String(p.categoryId) === String(selectedFilter) ||
                (p.cat && p.cat.toLowerCase().includes(selectedFilter.toLowerCase()));
       });
+
+  const lookItems = allProducts
+    .filter(product => product.variants?.some(variant => variant.stock > 0))
+    .slice(0, 3)
+    .map((product, index) => ({
+      ...product,
+      category: product.cat || 'Thiết kế LYRA',
+      thumb: product.image,
+      ...LOOK_POSITIONS[index],
+    }));
+
+  useEffect(() => {
+    if (lookItems.length && !lookItems.some(item => item.id === activeLookItem?.id)) {
+      setActiveLookItem(lookItems[0]);
+    }
+  }, [allProducts, activeLookItem?.id]);
+
+  const addLookItem = async (item) => {
+    await addToCart(item, 1);
+  };
+
+  const addFullLook = async () => {
+    let added = 0;
+    for (const item of lookItems) {
+      if (await addToCart(item, 1)) added++;
+    }
+    if (added > 0) showToast(`Đã thêm ${added}/${lookItems.length} món trong bộ phối vào giỏ hàng.`, 'success');
+  };
 
   return (
     <div className="home-page-root">
@@ -337,7 +337,7 @@ export default function HomePage() {
               />
               <div className="look-badge">LOOKBOOK EDIT NO. 04</div>
 
-              {ENSEMBLE_ITEMS.map((item, idx) => (
+              {lookItems.map((item, idx) => (
                 <div
                   key={item.id}
                   className="look-hotspot"
@@ -363,18 +363,20 @@ export default function HomePage() {
               </p>
 
               <div className="look-items-list">
-                {ENSEMBLE_ITEMS.map((item, idx) => (
+                {lookItems.map((item, idx) => (
                   <div
                     key={item.id}
                     className="look-item-card"
                     style={{
-                      borderColor: activeLookItem.id === item.id ? 'var(--warm)' : 'var(--border)',
-                      background: activeLookItem.id === item.id ? '#FFFFFF' : '#FAFAF8',
+                      borderColor: activeLookItem?.id === item.id ? 'var(--warm)' : 'var(--border)',
+                      background: activeLookItem?.id === item.id ? '#FFFFFF' : '#FAFAF8',
                     }}
                     onClick={() => setActiveLookItem(item)}
                   >
                     <div className="look-item-info">
-                      <img src={item.thumb} alt={item.name} className="look-item-thumb" />
+                      {item.thumb ? <img src={item.thumb} alt={item.name} className="look-item-thumb" /> : (
+                        <div className="look-item-thumb" aria-hidden="true"><i className={`bi ${item.icon}`} /></div>
+                      )}
                       <div>
                         <div style={{ fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--muted)', marginBottom: 2 }}>
                           MÓN ĐỒ 0{idx + 1} • {item.category}
@@ -387,7 +389,7 @@ export default function HomePage() {
                       className="look-item-action"
                       onClick={(e) => {
                         e.stopPropagation();
-                        showToast(`Đã thêm ${item.name} vào giỏ hàng!`, 'success');
+                        addLookItem(item);
                       }}
                     >
                       <span>Mua món này</span>
@@ -400,9 +402,8 @@ export default function HomePage() {
               <div style={{ display: 'flex', gap: 14 }}>
                 <button
                   className="btn-hero-primary"
-                  onClick={() => {
-                    showToast('Đã thêm trọn bộ Parisian Ensemble (3 món) vào giỏ hàng!', 'success');
-                  }}
+                  onClick={addFullLook}
+                  disabled={lookItems.length === 0}
                 >
                   Mua trọn bộ phối này <i className="bi bi-arrow-right" />
                 </button>
