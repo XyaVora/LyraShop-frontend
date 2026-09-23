@@ -25,19 +25,16 @@ export function AppProvider({ children }) {
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError]     = useState(null);
 
-  // Khôi phục phiên bằng token rồi lấy danh tính thật từ backend. Không dùng
-  // email/name trong localStorage làm bằng chứng đăng nhập.
+  // Access token chỉ nằm trong bộ nhớ. Sau mỗi lần tải trang, khôi phục phiên
+  // bằng refresh cookie HttpOnly rồi lấy danh tính thật từ backend.
   useEffect(() => {
-    const token = tokenStore.get();
-    if (!token || token === 'undefined' || token === 'null') {
-      tokenStore.clear();
-      localStorage.removeItem('lyra_user');
-      setAuthReady(true);
-      return;
-    }
-
     let cancelled = false;
-    profileApi.get()
+    authApi.refresh()
+      .then(({ data }) => {
+        if (!data?.accessToken || typeof data.accessToken !== 'string') throw new Error('Invalid refresh response');
+        tokenStore.set(data.accessToken);
+        return profileApi.get();
+      })
       .then(({ data }) => {
         if (cancelled) return;
         setUser(normalizeProfile(data));
@@ -134,7 +131,9 @@ export function AppProvider({ children }) {
       tokenStore.clear();
       setUser(null);
       setIsLoggedIn(false);
-      const msg = extractErrorMessage(err, err.message || 'Email hoặc mật khẩu không đúng');
+      const msg = err.response?.data?.code === 'EMAIL_NOT_VERIFIED'
+        ? 'Email chưa được xác minh. Vui lòng kiểm tra hộp thư hoặc gửi lại email xác minh.'
+        : extractErrorMessage(err, err.message || 'Email hoặc mật khẩu không đúng');
       setAuthError(msg);
       throw new Error(msg);
     } finally {
@@ -142,18 +141,13 @@ export function AppProvider({ children }) {
     }
   }, []);
 
-  /**
-   * Đăng ký.
-   * Backend trả về { id, email, fullName, phone, createdAt }.
-   * Sau đăng ký thành công, tự động đăng nhập.
-   */
+  /** Đăng ký và chờ người dùng xác minh email trước khi đăng nhập. */
   const register = useCallback(async (fullName, email, password) => {
     setAuthLoading(true);
     setAuthError(null);
     try {
-      await authApi.register({ fullName, email, password });
-      // Tự động login sau khi đăng ký
-      return await login(email, password);
+      const { data } = await authApi.register({ fullName, email, password });
+      return data;
     } catch (err) {
       const msg = extractErrorMessage(err, 'Đăng ký thất bại, vui lòng thử lại');
       setAuthError(msg);
@@ -161,7 +155,7 @@ export function AppProvider({ children }) {
     } finally {
       setAuthLoading(false);
     }
-  }, [login]);
+  }, []);
 
   const updateProfile = useCallback(async (fullName, phone = null) => {
     setAuthLoading(true);

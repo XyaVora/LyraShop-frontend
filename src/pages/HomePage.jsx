@@ -1,8 +1,8 @@
 // src/pages/HomePage.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
-import { productApi, categoryApi, voucherApi } from '../services/api';
+import { productApi, categoryApi, voucherApi, newsletterApi, extractErrorMessage } from '../services/api';
 import { normalizeProduct, normalizeCategory, fmt } from '../data/products';
 import { ProductCard, Marquee, Newsletter, Footer } from '../components/index.jsx';
 import '../styles/home.css';
@@ -53,6 +53,32 @@ export default function HomePage() {
   const [activeLookItem, setActiveLookItem] = useState(null);
   const [campaignVoucher, setCampaignVoucher] = useState(null);
   const [campaignVoucherLoading, setCampaignVoucherLoading] = useState(false);
+  const newsletterActionHandled = useRef(false);
+
+  useEffect(() => {
+    if (newsletterActionHandled.current) return;
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get('newsletterAction');
+    const token = params.get('newsletterToken');
+    if (!token || !['confirm', 'unsubscribe'].includes(action)) return;
+
+    newsletterActionHandled.current = true;
+    const request = action === 'confirm'
+      ? newsletterApi.confirm(token)
+      : newsletterApi.unsubscribe(token);
+    request
+      .then(() => showToast(
+        action === 'confirm' ? 'Đã xác nhận đăng ký nhận bản tin.' : 'Đã hủy đăng ký nhận bản tin.',
+        action === 'confirm' ? 'bi-envelope-check' : 'bi-envelope-x',
+      ))
+      .catch(error => showToast(extractErrorMessage(error, 'Liên kết newsletter không hợp lệ hoặc đã hết hạn.'), 'bi-x-circle'))
+      .finally(() => {
+        params.delete('newsletterAction');
+        params.delete('newsletterToken');
+        const query = params.toString();
+        window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
+      });
+  }, [showToast]);
 
   useEffect(() => {
     let cancelled = false;
@@ -189,7 +215,7 @@ export default function HomePage() {
             <button className="btn-hero-primary" onClick={() => navigate('shop')}>
               Khám phá Bộ sưu tập <i className="bi bi-arrow-right" />
             </button>
-            <button className="btn-hero-secondary" onClick={() => navigate('shop', { filter: 'lookbook' })}>
+            <button className="btn-hero-secondary" onClick={() => navigate('new')}>
               Xem Lookbook 2026
             </button>
           </div>

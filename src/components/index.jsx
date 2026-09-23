@@ -129,9 +129,18 @@ export function ProductCard({ product, delay = 0, onQuickView }) {
   const wished = isWishlisted(product.id);
 
   return (
-    <div
+    <article
       className={`product-card fade-up fade-up-${(delay % 4) + 1}`}
+      tabIndex={0}
+      role="article"
+      aria-label={product.name}
       onClick={() => navigate('detail', { product })}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' && e.target.classList.contains('product-card')) {
+          e.preventDefault();
+          navigate('detail', { product });
+        }
+      }}
     >
       <div className="product-card-img">
         <ProductVisual product={product} />
@@ -141,25 +150,32 @@ export function ProductCard({ product, delay = 0, onQuickView }) {
         <div className="product-card-actions">
           {onQuickView && (
             <button
+              type="button"
               className="product-action-btn quick-view-btn"
               onClick={e => { e.stopPropagation(); onQuickView(product); }}
               title="Xem nhanh"
+              aria-label={`Xem nhanh ${product.name}`}
             >
-              <i className="bi bi-eye" />
+              <i className="bi bi-eye" aria-hidden="true" />
             </button>
           )}
           <button
+            type="button"
             className="product-action-btn"
             onClick={e => { e.stopPropagation(); addToCart(product); }}
+            aria-label={`Thêm ${product.name} vào giỏ`}
           >
             + Giỏ
           </button>
           <button
+            type="button"
             className="product-action-btn wish-btn"
             onClick={e => { e.stopPropagation(); toggleWishlist(product); }}
             title={wished ? 'Bỏ yêu thích' : 'Yêu thích'}
+            aria-label={wished ? `Bỏ yêu thích ${product.name}` : `Thêm ${product.name} vào yêu thích`}
+            aria-pressed={wished}
           >
-            <i className={`bi bi-heart${wished ? '-fill' : ''}`} style={{ color: wished ? '#C8A97E' : 'inherit' }} />
+            <i className={`bi bi-heart${wished ? '-fill' : ''}`} style={{ color: wished ? '#C8A97E' : 'inherit' }} aria-hidden="true" />
           </button>
         </div>
       </div>
@@ -170,7 +186,7 @@ export function ProductCard({ product, delay = 0, onQuickView }) {
         <span className="product-price">{fmt(product.price)}</span>
         {product.oldPrice && <span className="product-price-old">{fmt(product.oldPrice)}</span>}
       </div>
-    </div>
+    </article>
   );
 }
 
@@ -227,8 +243,7 @@ export function Marquee() {
 export function Newsletter({ showToast }) {
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const subscribe = async () => { if (!email.includes('@')) return showToast('Vui lòng nhập email hợp lệ', 'bi-exclamation-circle'); setSubmitting(true); try { await newsletterApi.subscribe(email.trim()); setEmail(''); showToast('Đăng ký nhận bản tin thành công!', 'bi-envelope-check'); } catch(e){showToast(extractErrorMessage(e,'Không thể đăng ký nhận bản tin'),'bi-x-circle');} finally{setSubmitting(false);} };
-  const unsubscribe = async () => { if (!email.includes('@')) return showToast('Vui lòng nhập email hợp lệ', 'bi-exclamation-circle'); setSubmitting(true); try { await newsletterApi.unsubscribe(email.trim()); setEmail(''); showToast('Đã hủy đăng ký nhận bản tin.', 'bi-envelope-x'); } catch(e){showToast(extractErrorMessage(e,'Không thể hủy đăng ký'),'bi-x-circle');} finally{setSubmitting(false);} };
+  const subscribe = async () => { if (!email.includes('@')) return showToast('Vui lòng nhập email hợp lệ', 'bi-exclamation-circle'); setSubmitting(true); try { await newsletterApi.subscribe(email.trim()); setEmail(''); showToast('Vui lòng kiểm tra email để xác nhận đăng ký.', 'bi-envelope-check'); } catch(e){showToast(extractErrorMessage(e,'Không thể đăng ký nhận bản tin'),'bi-x-circle');} finally{setSubmitting(false);} };
   return (
     <section className="newsletter-section">
       <div className="container">
@@ -245,7 +260,7 @@ export function Newsletter({ showToast }) {
               </button>
             </div>
             <p style={{ fontSize: 11.5, color: 'rgba(247,244,239,.3)', marginTop: 10 }}>
-              Không spam. <button type="button" onClick={unsubscribe} disabled={submitting} style={{ border: 0, padding: 0, background: 'none', color: 'inherit', textDecoration: 'underline', cursor: 'pointer' }}>Hủy đăng ký</button> bằng email đã nhập.
+              Không spam. Bạn có thể hủy đăng ký an toàn bằng liên kết riêng trong mỗi email.
             </p>
           </div>
         </div>

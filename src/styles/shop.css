@@ -6,14 +6,14 @@
 .shop-root {
   background: var(--bg);
   min-height: 100vh;
-  padding-bottom: 100px;
+  padding-bottom: 80px;
 }
 
 /* ── EDITORIAL SHOP HEADER ── */
 .shop-editorial-header {
   background: #FAF8F5;
   border-bottom: 1px solid var(--border);
-  padding: 60px 0 40px;
+  padding:0 0 40px;
   margin-bottom: 36px;
 }
 
@@ -317,6 +317,7 @@
 }
 
 .shop-color-swatch {
+  position: relative;
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -328,6 +329,12 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.shop-color-swatch::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
 }
 
 .shop-color-swatch.active {

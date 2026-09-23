@@ -45,17 +45,19 @@ export default function OrderDetailPage() {
 
   const statusLabel = {
     pending: 'Chờ xác nhận',
-    confirmed: 'Đã xác nhận',
-    processing: 'Đang chuẩn bị hàng',
+    confirmed: 'Chờ lấy hàng',
+    processing: 'Chờ lấy hàng',
     shipping: 'Đang vận chuyển',
     delivered: 'Đã giao thành công',
     cancelled: 'Đã hủy',
   };
+  const isOnlinePaymentPending = order?.payment === 'VNPAY'
+    && order?.paymentStatus !== 'PAID'
+    && order?.status !== 'cancelled';
 
   const statusSteps = [
-    { key: 'pending', title: 'Đặt hàng thành công', icon: 'bi-bag-check' },
-    { key: 'confirmed', title: 'Đã xác nhận', icon: 'bi-check2-circle' },
-    { key: 'processing', title: 'Chuẩn bị hàng', icon: 'bi-box-seam' },
+    { key: 'pending', title: isOnlinePaymentPending ? 'Chờ thanh toán' : 'Chờ xác nhận', icon: isOnlinePaymentPending ? 'bi-credit-card' : 'bi-clock-history' },
+    { key: 'to_ship', title: 'Chờ lấy hàng', icon: 'bi-box-seam' },
     { key: 'shipping', title: 'Đang vận chuyển', icon: 'bi-truck' },
     { key: 'delivered', title: 'Giao thành công', icon: 'bi-house-check' },
   ];
@@ -63,10 +65,10 @@ export default function OrderDetailPage() {
   const getStepIndex = (status) => {
     switch (status) {
       case 'pending': return 0;
-      case 'confirmed': return 1;
-      case 'processing': return 2;
-      case 'shipping': return 3;
-      case 'delivered': return 4;
+      case 'confirmed':
+      case 'processing': return 1;
+      case 'shipping': return 2;
+      case 'delivered': return 3;
       case 'cancelled': return -1;
       default: return 1;
     }
@@ -83,6 +85,7 @@ export default function OrderDetailPage() {
   const eventForStep = (step) => trackingEvents.find(event => {
     const status = String(event.status || '').toUpperCase();
     if (step === 'pending') return status === 'ORDER_PLACED' || status === 'PENDING';
+    if (step === 'to_ship') return status === 'PROCESSING' || status === 'CONFIRMED';
     return status === step.toUpperCase();
   });
 
@@ -192,6 +195,8 @@ export default function OrderDetailPage() {
 
   const trackingCode = order.trackingCode;
   const isCancelled = order.status === 'cancelled';
+  const loyaltyDiscount = Number(order.loyaltyDiscount || 0);
+  const voucherAndPromotionDiscount = Math.max(0, Number(order.discount || 0) - loyaltyDiscount);
 
   return (
     <div className="order-detail-root">
@@ -210,7 +215,7 @@ export default function OrderDetailPage() {
                 {order.status === 'shipping' && <i className="bi bi-truck" />}
                 {order.status === 'delivered' && <i className="bi bi-patch-check" />}
                 {order.status === 'cancelled' && <i className="bi bi-x-circle" />}
-                {statusLabel[order.status] || 'Đang xử lý'}
+                {isOnlinePaymentPending ? 'Chờ thanh toán online' : statusLabel[order.status] || 'Đang xử lý'}
               </span>
             </h1>
             <div className="order-detail-meta-text">
@@ -458,10 +463,17 @@ export default function OrderDetailPage() {
                 <span>{order.shipping ? fmt(order.shipping) : 'Miễn phí'}</span>
               </div>
 
-              {order.discount > 0 && (
+              {voucherAndPromotionDiscount > 0 && (
                 <div className="order-summary-row" style={{ color: 'var(--warm)' }}>
-                  <span>Ưu đãi voucher</span>
-                  <span>−{fmt(order.discount)}</span>
+                  <span>Ưu đãi sản phẩm / voucher</span>
+                  <span>−{fmt(voucherAndPromotionDiscount)}</span>
+                </div>
+              )}
+
+              {loyaltyDiscount > 0 && (
+                <div className="order-summary-row" style={{ color: 'var(--warm)' }}>
+                  <span>Đã dùng {order.loyaltyCoinsUsed.toLocaleString('vi-VN')} Lyra Xu</span>
+                  <span>−{fmt(loyaltyDiscount)}</span>
                 </div>
               )}
 
@@ -477,7 +489,11 @@ export default function OrderDetailPage() {
                   fontWeight: 600,
                   fontSize: 12
                 }}>
-                  {order.paymentStatus === 'PAID' ? '● Đã thanh toán' : '○ Chờ thanh toán / COD'}
+                  {order.paymentStatus === 'PAID'
+                    ? '● Đã thanh toán'
+                    : order.payment === 'COD'
+                      ? '○ Thanh toán khi nhận hàng'
+                      : '○ Chưa thanh toán'}
                 </span>
               </div>
 

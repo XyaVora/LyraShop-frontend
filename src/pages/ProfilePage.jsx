@@ -47,23 +47,45 @@ const NAV_GROUPS = [
 const ALL_NAV_ITEMS = NAV_GROUPS.flatMap((g) => g.items);
 const TAB_IDS = ALL_NAV_ITEMS.map((t) => t.id);
 
+const isAwaitingOnlinePayment = (order) =>
+  order.payment === 'VNPAY' && order.paymentStatus !== 'PAID' && order.status !== 'cancelled';
+
+const isAwaitingConfirmation = (order) =>
+  order.status === 'pending' && !isAwaitingOnlinePayment(order);
+
+const customerOrderStatusLabel = (order) => {
+  if (order.status === 'cancelled') return 'Đã hủy';
+  if (order.status === 'delivered') return 'Giao hàng thành công';
+  if (order.status === 'shipping') return 'Đang giao hàng';
+  if (order.status === 'confirmed' || order.status === 'processing' || order.status === 'packing') return 'Chờ lấy hàng';
+  if (isAwaitingOnlinePayment(order)) return 'Chờ thanh toán online';
+  if (order.status === 'pending') return 'Chờ xác nhận';
+  return 'Đang xử lý';
+};
+
 const SHOPEE_STATUS_TABS = [
   { id: 'all', label: 'Tất cả', icon: 'bi-grid', match: () => true },
+  {
+    id: 'pending',
+    label: 'Chờ xác nhận',
+    icon: 'bi-clock-history',
+    match: isAwaitingConfirmation,
+  },
   {
     id: 'unpaid',
     label: 'Chờ thanh toán',
     icon: 'bi-credit-card',
-    match: (o) => (o.status === 'pending' || o.paymentStatus !== 'PAID') && o.status !== 'cancelled',
+    match: isAwaitingOnlinePayment,
   },
   {
     id: 'to_ship',
-    label: 'Vận chuyển',
+    label: 'Chờ lấy hàng',
     icon: 'bi-box-seam',
     match: (o) => (o.status === 'confirmed' || o.status === 'processing' || o.status === 'packing') && o.status !== 'cancelled',
   },
   {
     id: 'shipping',
-    label: 'Chờ giao hàng',
+    label: 'Đang giao hàng',
     icon: 'bi-truck',
     match: (o) => o.status === 'shipping',
   },
@@ -372,9 +394,8 @@ function DashboardTab({
   const [loyaltySummary, setLoyaltySummary] = useState(null);
   useEffect(()=>{loyaltyApi.get().then(({data})=>setLoyaltySummary(data)).catch(()=>{});},[]);
   // Counts theo trạng thái
-  const unpaidCount = orders.filter(
-    (o) => (o.status === 'pending' || o.paymentStatus !== 'PAID') && o.status !== 'cancelled'
-  ).length;
+  const pendingCount = orders.filter(isAwaitingConfirmation).length;
+  const unpaidCount = orders.filter(isAwaitingOnlinePayment).length;
 
   const toShipCount = orders.filter(
     (o) =>
@@ -393,7 +414,18 @@ function DashboardTab({
     orders.find((o) => o.status === 'shipping') ||
     orders.find((o) => o.status !== 'delivered' && o.status !== 'cancelled');
 
+  const activeOrderFilter = activeOrder
+    ? activeOrder.status === 'shipping'
+      ? 'shipping'
+      : isAwaitingOnlinePayment(activeOrder)
+        ? 'unpaid'
+        : activeOrder.status === 'pending'
+          ? 'pending'
+          : 'to_ship'
+    : 'all';
+
   const QUICK_STATUSES = [
+    { key: 'pending', label: 'Chờ xác nhận', icon: 'bi-clock-history', count: pendingCount },
     { key: 'unpaid', label: 'Chờ thanh toán', icon: 'bi-wallet2', count: unpaidCount },
     { key: 'to_ship', label: 'Chờ lấy hàng', icon: 'bi-box-seam', count: toShipCount },
     { key: 'shipping', label: 'Đang giao hàng', icon: 'bi-truck', count: shippingCount },
@@ -528,13 +560,18 @@ function DashboardTab({
               <i className="bi bi-truck" />
             </div>
             <div className="active-order-details">
-              <div className="active-order-badge">Đang vận chuyển</div>
+              <div className="active-order-badge">{customerOrderStatusLabel(activeOrder)}</div>
               <p className="active-order-title">
                 Đơn hàng <strong>{activeOrder.displayId || activeOrder.id}</strong> — {activeOrder.items?.length || 1} sản phẩm
               </p>
               <p className="active-order-sub">
-                Đơn vị: <strong>{activeOrder.shippingCarrier || 'Đang cập nhật'}</strong>
-                {activeOrder.trackingCode ? ` — Mã vận đơn ${activeOrder.trackingCode}` : ' — Thông tin vận chuyển đang được cập nhật.'}
+                {activeOrder.status === 'shipping'
+                  ? <>Đơn vị: <strong>{activeOrder.shippingCarrier || 'Đang cập nhật'}</strong>{activeOrder.trackingCode ? ` — Mã vận đơn ${activeOrder.trackingCode}` : ' — Thông tin vận chuyển đang được cập nhật.'}</>
+                  : isAwaitingOnlinePayment(activeOrder)
+                    ? 'Đơn hàng online chưa hoàn tất thanh toán.'
+                    : activeOrder.status === 'pending'
+                      ? 'Đơn hàng đã được tiếp nhận và đang chờ Lyra xác nhận.'
+                      : 'Đơn hàng đã được xác nhận và đang chờ bàn giao cho đơn vị vận chuyển.'}
               </p>
             </div>
           </div>
@@ -542,7 +579,7 @@ function DashboardTab({
             <button
               type="button"
               className="btn-order-track"
-              onClick={() => onSelectStatus(activeOrder.status === 'shipping' ? 'shipping' : 'to_ship')}
+              onClick={() => onSelectStatus(activeOrderFilter)}
             >
               Xem chi tiết
             </button>
@@ -630,6 +667,16 @@ function OrdersTab({
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState('');
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [returningOrder, setReturningOrder] = useState(null);
+  const [returnReason, setReturnReason] = useState('');
+  const [returnQuantities, setReturnQuantities] = useState({});
+  const [returnEvidence, setReturnEvidence] = useState('');
+  const [returnFiles, setReturnFiles] = useState([]);
+  const [returnSubmitting, setReturnSubmitting] = useState(false);
+  const [returnDetailOrder, setReturnDetailOrder] = useState(null);
+  const [returnDetail, setReturnDetail] = useState(null);
+  const [returnDetailLoading, setReturnDetailLoading] = useState(false);
+  const [returnCanceling, setReturnCanceling] = useState(false);
 
   useEffect(() => {
     if (initialFilter) {
@@ -713,15 +760,78 @@ function OrdersTab({
     setReviewRating(5);
   };
 
-  const handleReturnRequest = async (order) => {
-    const reason = window.prompt('Vui lòng mô tả lý do đổi/trả sản phẩm:');
-    if (!reason?.trim()) return;
+  const openReturnRequest = (order) => {
+    setReturningOrder(order);
+    setReturnReason('');
+    setReturnEvidence('');
+    setReturnFiles([]);
+    setReturnQuantities(Object.fromEntries((order.items || []).map(item => [item.id, 0])));
+  };
+
+  const handleReturnRequest = async () => {
+    if (!returningOrder || !returnReason.trim()) return;
+    const items = (returningOrder.items || [])
+      .map(item => ({ orderItemId: item.id, quantity: Number(returnQuantities[item.id] || 0) }))
+      .filter(item => item.quantity > 0);
+    if (items.length === 0) {
+      showToast('Vui lòng chọn ít nhất một sản phẩm cần trả', 'bi-exclamation-circle');
+      return;
+    }
+    const evidenceUrls = returnEvidence.split(/\r?\n/).map(value => value.trim()).filter(Boolean);
+    if (evidenceUrls.length + returnFiles.length > 5) {
+      showToast('Chỉ được cung cấp tối đa 5 ảnh hoặc URL bằng chứng', 'bi-exclamation-circle');
+      return;
+    }
+    setReturnSubmitting(true);
     try {
-      await orderApi.requestReturn(order.id, reason.trim());
+      const uploadedUrls = [];
+      for (const file of returnFiles) {
+        const { data } = await orderApi.uploadReturnEvidence(file);
+        uploadedUrls.push(data.url);
+      }
+      await orderApi.requestReturn(returningOrder.id, {
+        reason: returnReason.trim(),
+        items,
+        evidenceUrls: [...evidenceUrls, ...uploadedUrls],
+      });
       showToast('Đã gửi yêu cầu đổi trả. Bộ phận CSKH sẽ liên hệ với bạn.', 'bi-check-circle');
+      setReturningOrder(null);
       if (onRefreshOrders) onRefreshOrders();
     } catch (error) {
       showToast(extractErrorMessage(error, 'Không thể gửi yêu cầu đổi trả'), 'bi-exclamation-circle');
+    } finally {
+      setReturnSubmitting(false);
+    }
+  };
+
+  const openReturnDetail = async (order) => {
+    setReturnDetailOrder(order);
+    setReturnDetail(null);
+    setReturnDetailLoading(true);
+    try {
+      const { data } = await orderApi.getReturnRequest(order.id);
+      setReturnDetail(data);
+    } catch (error) {
+      showToast(extractErrorMessage(error, 'Không thể tải chi tiết yêu cầu đổi trả'), 'bi-exclamation-circle');
+      setReturnDetailOrder(null);
+    } finally {
+      setReturnDetailLoading(false);
+    }
+  };
+
+  const handleCancelReturn = async () => {
+    if (!returnDetailOrder || !window.confirm('Bạn có chắc muốn hủy yêu cầu đổi trả này?')) return;
+    setReturnCanceling(true);
+    try {
+      await orderApi.cancelReturn(returnDetailOrder.id);
+      showToast('Đã hủy yêu cầu đổi trả.', 'bi-check-circle');
+      setReturnDetailOrder(null);
+      setReturnDetail(null);
+      if (onRefreshOrders) await onRefreshOrders();
+    } catch (error) {
+      showToast(extractErrorMessage(error, 'Không thể hủy yêu cầu đổi trả'), 'bi-exclamation-circle');
+    } finally {
+      setReturnCanceling(false);
     }
   };
 
@@ -876,10 +986,7 @@ function OrdersTab({
                 </div>
                 <div className="order-status-highlight">
                   <span className={`order-status-badge ${order.status || 'processing'}`}>
-                    {order.status === 'delivered' ? 'Giao hàng thành công' :
-                     order.status === 'shipping' ? 'Đang giao hàng' :
-                     order.status === 'cancelled' ? 'Đã hủy' :
-                     order.status === 'pending' ? 'Chờ thanh toán' : 'Đang xử lý'}
+                    {customerOrderStatusLabel(order)}
                   </span>
                 </div>
               </div>
@@ -955,12 +1062,14 @@ function OrdersTab({
                         <i className="bi bi-arrow-repeat" /> Mua lại
                       </button>
                       {!order.returnStatus && (
-                        <button type="button" className="btn-shopee-outline" onClick={() => handleReturnRequest(order)}>
+                        <button type="button" className="btn-shopee-outline" onClick={() => openReturnRequest(order)}>
                           <i className="bi bi-arrow-return-left" /> Yêu cầu đổi trả
                         </button>
                       )}
                       {order.returnStatus === 'REQUESTED' && (
-                        <span style={{ fontSize: 12, color: 'var(--warm-deep)' }}>Đang chờ xử lý đổi trả</span>
+                        <button type="button" className="btn-shopee-outline" onClick={() => openReturnDetail(order)}>
+                          <i className="bi bi-card-checklist" /> Xem yêu cầu đổi trả
+                        </button>
                       )}
                     </>
                   )}
@@ -1075,6 +1184,135 @@ function OrdersTab({
             {trackingEvents.map((event,index)=><div key={event.id} style={{marginBottom:16,position:'relative'}}><div style={{position:'absolute',left:-22,top:2,width:10,height:10,borderRadius:'50%',background:index===0?'#10b981':'#9ca3af'}}/><div style={{fontWeight:600,fontSize:13}}>{event.status}</div><div style={{fontSize:12,color:'var(--muted)'}}>{new Date(event.occurredAt).toLocaleString('vi-VN')} — {event.description}{event.location?` (${event.location})`:''}</div></div>)}
           </div>
         </div>
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(returningOrder)}
+        onClose={() => { if (!returnSubmitting) setReturningOrder(null); }}
+        title="Yêu cầu đổi trả sản phẩm"
+        width={620}
+      >
+        <div style={{ display: 'grid', gap: 12, marginBottom: 18 }}>
+          {(returningOrder?.items || []).map(item => {
+            const quantity = Number(returnQuantities[item.id] || 0);
+            return (
+              <div key={item.id} style={{ display: 'grid', gridTemplateColumns: '28px 1fr 90px', gap: 12, alignItems: 'center', padding: 12, border: '1px solid var(--border)' }}>
+                <input
+                  type="checkbox"
+                  checked={quantity > 0}
+                  onChange={event => setReturnQuantities(current => ({ ...current, [item.id]: event.target.checked ? 1 : 0 }))}
+                />
+                <div>
+                  <strong style={{ fontSize: 13 }}>{item.name}</strong>
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>{item.colorName} · Size {item.size} · Đã mua {item.qty}</div>
+                </div>
+                <input
+                  className="form-field-input"
+                  type="number"
+                  min="0"
+                  max={item.qty}
+                  value={quantity}
+                  onChange={event => setReturnQuantities(current => ({
+                    ...current,
+                    [item.id]: Math.min(item.qty, Math.max(0, Number(event.target.value) || 0)),
+                  }))}
+                  aria-label={`Số lượng trả của ${item.name}`}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <label className="form-field-label">Lý do đổi trả</label>
+        <textarea
+          className="form-field-input"
+          rows={4}
+          maxLength={1000}
+          value={returnReason}
+          onChange={event => setReturnReason(event.target.value)}
+          placeholder="Mô tả tình trạng sản phẩm và mong muốn hỗ trợ..."
+        />
+        <label className="form-field-label" style={{ marginTop: 16 }}>URL ảnh/video bằng chứng (không bắt buộc)</label>
+        <textarea
+          className="form-field-input"
+          rows={3}
+          value={returnEvidence}
+          onChange={event => setReturnEvidence(event.target.value)}
+          placeholder={'Mỗi dòng một URL https, tối đa 5 URL'}
+        />
+        <label className="form-field-label" style={{ marginTop: 16 }}>Hoặc tải ảnh bằng chứng</label>
+        <input
+          className="form-field-input"
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          multiple
+          onChange={event => {
+            const files = Array.from(event.target.files || []).slice(0, 5);
+            setReturnFiles(files);
+          }}
+        />
+        {returnFiles.length > 0 && (
+          <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
+            Đã chọn {returnFiles.length} ảnh: {returnFiles.map(file => file.name).join(', ')}
+          </div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+          <button type="button" className="btn-outline-lyra" disabled={returnSubmitting} onClick={() => setReturningOrder(null)}>Hủy</button>
+          <button type="button" className="btn-lyra" disabled={returnSubmitting || !returnReason.trim()} onClick={handleReturnRequest}>
+            {returnSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu'}
+          </button>
+        </div>
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(returnDetailOrder)}
+        onClose={() => { if (!returnCanceling) setReturnDetailOrder(null); }}
+        title="Chi tiết yêu cầu đổi trả"
+        width={620}
+      >
+        {returnDetailLoading ? (
+          <div style={{ padding: 24, textAlign: 'center', color: 'var(--muted)' }}>Đang tải yêu cầu...</div>
+        ) : returnDetail ? (
+          <div style={{ display: 'grid', gap: 16 }}>
+            <div style={{ padding: 14, background: 'var(--cream)', border: '1px solid var(--border)' }}>
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 6 }}>
+                Gửi lúc {returnDetail.createdAt ? new Date(returnDetail.createdAt).toLocaleString('vi-VN') : '—'}
+              </div>
+              <strong>Trạng thái: Đang chờ xử lý</strong>
+            </div>
+            <div>
+              <div className="form-field-label">Sản phẩm yêu cầu trả</div>
+              {(returnDetail.items || []).map(selected => {
+                const item = returnDetailOrder.items?.find(orderItem => Number(orderItem.id) === Number(selected.orderItemId));
+                return (
+                  <div key={selected.orderItemId} style={{ padding: '10px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+                    <strong>{item?.name || `Sản phẩm #${selected.orderItemId}`}</strong>
+                    <div style={{ color: 'var(--muted)', marginTop: 3 }}>Số lượng yêu cầu trả: {selected.quantity}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div>
+              <div className="form-field-label">Lý do</div>
+              <div style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>{returnDetail.reason}</div>
+            </div>
+            {(returnDetail.evidenceUrls || []).length > 0 && (
+              <div>
+                <div className="form-field-label">Bằng chứng</div>
+                {(returnDetail.evidenceUrls || []).map((url, index) => (
+                  <div key={url} style={{ marginTop: 6 }}>
+                    <a href={url} target="_blank" rel="noreferrer">Bằng chứng {index + 1} <i className="bi bi-box-arrow-up-right" /></a>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button type="button" className="btn-outline-lyra" onClick={() => setReturnDetailOrder(null)} disabled={returnCanceling}>Đóng</button>
+              <button type="button" className="btn-outline-lyra text-danger" onClick={handleCancelReturn} disabled={returnCanceling}>
+                {returnCanceling ? 'Đang hủy...' : 'Hủy yêu cầu đổi trả'}
+              </button>
+            </div>
+          </div>
+        ) : null}
       </Modal>
 
       {/* Modal Đánh giá sản phẩm */}
@@ -1224,10 +1462,13 @@ function MembershipTab({ user, showToast }) {
       .catch(()=>showToast('Không thể tải dữ liệu hội viên','bi-exclamation-circle'));
   },[showToast]);
   const checkedIn = Boolean(loyalty?.checkedInToday);
+  const checkInReward = Number(loyalty?.checkInReward || 0);
+  const goldThreshold = Number(loyalty?.goldThreshold || 0);
+  const diamondThreshold = Number(loyalty?.diamondThreshold || 0);
 
   const handleCheckin = async () => {
     if (checkedIn) return;
-    try{const {data}=await loyaltyApi.checkIn();setLoyalty(data);showToast('Điểm danh thành công! +100 Lyra Xu vào ví.', 'bi-check-circle-fill');}catch(e){showToast(extractErrorMessage(e,'Không thể điểm danh'),'bi-exclamation-circle');}
+    try{const {data}=await loyaltyApi.checkIn();setLoyalty(data);showToast(`Điểm danh thành công! +${Number(data.checkInReward || checkInReward).toLocaleString('vi-VN')} Lyra Xu vào ví.`, 'bi-check-circle-fill');}catch(e){showToast(extractErrorMessage(e,'Không thể điểm danh'),'bi-exclamation-circle');}
   };
 
   return (
@@ -1281,7 +1522,7 @@ function MembershipTab({ user, showToast }) {
           disabled={checkedIn}
         >
           <i className={`bi ${checkedIn ? 'bi-check2' : 'bi-calendar-check'}`} />
-          {checkedIn ? 'Đã điểm danh hôm nay' : 'Điểm danh nhận +100 Xu'}
+          {checkedIn ? 'Đã điểm danh hôm nay' : `Điểm danh nhận +${checkInReward.toLocaleString('vi-VN')} Xu`}
         </button>
       </div>
 
@@ -1315,22 +1556,22 @@ function MembershipTab({ user, showToast }) {
           <div className="perk-box">
             <i className="bi bi-calendar-check perk-icon" />
             <h4>Điểm danh mỗi ngày</h4>
-            <p>Nhận 100 Lyra Xu một lần mỗi ngày theo múi giờ Việt Nam.</p>
+            <p>Nhận {checkInReward.toLocaleString('vi-VN')} Lyra Xu một lần mỗi ngày theo múi giờ Việt Nam.</p>
           </div>
           <div className="perk-box">
             <i className="bi bi-award perk-icon" />
             <h4>Hạng Member</h4>
-            <p>Hạng mặc định cho tài khoản có tổng chi tiêu dưới 2.000.000₫.</p>
+            <p>Hạng mặc định cho tài khoản có tổng chi tiêu dưới {fmt(goldThreshold)}.</p>
           </div>
           <div className="perk-box">
             <i className="bi bi-gem perk-icon" />
             <h4>Hạng Gold</h4>
-            <p>Đạt khi tổng giá trị các đơn đã thanh toán từ 2.000.000₫.</p>
+            <p>Đạt khi tổng giá trị các đơn đã thanh toán từ {fmt(goldThreshold)}.</p>
           </div>
           <div className="perk-box">
             <i className="bi bi-stars perk-icon" />
             <h4>Hạng Diamond</h4>
-            <p>Đạt khi tổng giá trị các đơn đã thanh toán từ 5.000.000₫.</p>
+            <p>Đạt khi tổng giá trị các đơn đã thanh toán từ {fmt(diamondThreshold)}.</p>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 // src/pages/AuthPage.jsx
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { isEmail } from '../utils/validate';
@@ -9,13 +9,44 @@ export default function AuthPage() {
   const { navigate, login, register, authLoading } = useApp();
   const { showToast } = useCart();
   const resetToken = new URLSearchParams(window.location.search).get('resetToken');
-  const [mode, setMode]         = useState(resetToken ? 'reset' : 'login');
+  const verifyEmailToken = new URLSearchParams(window.location.search).get('verifyEmailToken');
+  const [mode, setMode]         = useState(resetToken ? 'reset' : verifyEmailToken ? 'verifying' : 'login');
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [name, setName]         = useState('');
   const [showPass, setShowPass] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  useEffect(() => {
+    if (!verifyEmailToken) return;
+    let cancelled = false;
+    authApi.verifyEmail(verifyEmailToken)
+      .then(() => {
+        if (cancelled) return;
+        showToast('Xác minh email thành công. Bạn có thể đăng nhập.', 'bi-envelope-check');
+        window.history.replaceState({}, '', '/auth');
+        setMode('login');
+      })
+      .catch(error => {
+        if (cancelled) return;
+        showToast(extractErrorMessage(error, 'Liên kết xác minh không hợp lệ hoặc đã hết hạn.'), 'bi-x-circle');
+        window.history.replaceState({}, '', '/auth');
+        setMode('login');
+      });
+    return () => { cancelled = true; };
+  }, [verifyEmailToken, showToast]);
+
+  const handleResendVerification = async () => {
+    if (!isEmail(email)) return showToast('Vui lòng nhập email hợp lệ', 'bi-exclamation-circle');
+    setSubmitting(true);
+    try {
+      await authApi.resendVerification(email.trim());
+      showToast('Nếu tài khoản chưa xác minh, email mới đã được gửi.', 'bi-envelope-check');
+    } catch (error) {
+      showToast(extractErrorMessage(error, 'Không thể gửi lại email xác minh'), 'bi-x-circle');
+    } finally { setSubmitting(false); }
+  };
 
   const handlePasswordRecovery = async () => {
     if (!isEmail(email)) return showToast('Vui lòng nhập email hợp lệ', 'bi-exclamation-circle');
@@ -67,7 +98,10 @@ export default function AuthPage() {
         showToast('Đăng nhập thành công! Chào mừng bạn trở lại.', 'bi-person-check');
       } else {
         await register(name.trim(), email.trim(), password);
-        showToast('Đăng ký thành công! Chào mừng bạn đến với LYRA.', 'bi-person-check');
+        showToast('Đăng ký thành công. Vui lòng kiểm tra email để xác minh tài khoản.', 'bi-envelope-check');
+        setPassword('');
+        setMode('login');
+        return;
       }
       navigate('home');
     } catch (err) {
@@ -100,10 +134,12 @@ export default function AuthPage() {
       {/* Form */}
       <div className="auth-form-col">
         <div className="auth-form-wrap">
-          <h2 className="auth-title">{mode === 'login' ? 'Đăng nhập' : mode === 'register' ? 'Đăng ký' : mode === 'forgot' ? 'Quên mật khẩu' : 'Đặt lại mật khẩu'}</h2>
+          <h2 className="auth-title">{mode === 'login' ? 'Đăng nhập' : mode === 'register' ? 'Đăng ký' : mode === 'forgot' ? 'Quên mật khẩu' : mode === 'verifying' ? 'Đang xác minh email' : 'Đặt lại mật khẩu'}</h2>
           <p className="auth-subtitle">
-            {mode === 'login' ? 'Chào mừng bạn trở lại với LYRA' : mode === 'register' ? 'Tạo tài khoản mới và khám phá thời trang' : mode === 'forgot' ? 'Nhận liên kết bảo mật qua email' : 'Nhập mật khẩu mới cho tài khoản'}
+            {mode === 'login' ? 'Chào mừng bạn trở lại với LYRA' : mode === 'register' ? 'Tạo tài khoản mới và khám phá thời trang' : mode === 'forgot' ? 'Nhận liên kết bảo mật qua email' : mode === 'verifying' ? 'Vui lòng chờ trong giây lát' : 'Nhập mật khẩu mới cho tài khoản'}
           </p>
+
+          {mode === 'verifying' && <div style={{ padding: '28px 0', textAlign: 'center', color: 'var(--muted)' }}>Đang kiểm tra liên kết xác minh...</div>}
 
           {mode === 'forgot' && <>
             <label className="form-field-label">Email</label>
@@ -155,7 +191,10 @@ export default function AuthPage() {
           </div>
 
           {mode === 'login' && (
-            <div className="d-flex justify-content-end mb-3">
+            <div className="d-flex justify-content-between mb-3">
+              <span className="forgot-link" onClick={handleResendVerification}>
+                Gửi lại email xác minh
+              </span>
               <span className="forgot-link" onClick={() => setMode('forgot')}>
                 Quên mật khẩu?
               </span>

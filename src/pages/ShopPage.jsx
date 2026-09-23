@@ -22,23 +22,16 @@ const PRICE_PRESETS = [
   { id: 'above-2000',  label: 'Trên 2.000.000₫', min: '2000000', max: '' },
 ];
 
-const FILTER_COLORS = [
-  { name: 'Trắng Kem', value: 'trắng', hex: '#FAF7F0' },
-  { name: 'Đen Than',  value: 'đen',   hex: '#1A1815' },
-  { name: 'Be Khaki',  value: 'be',    hex: '#D9CEBF' },
-  { name: 'Xanh Rêu',  value: 'rêu',   hex: '#485743' },
-  { name: 'Xanh Than', value: 'xanh',  hex: '#1B232E' },
-  { name: 'Nâu Sáp',   value: 'nâu',   hex: '#6E472A' },
-  { name: 'Ánh Bạc',   value: 'bạc',   hex: '#D4D6D9' },
-];
+const COLOR_HEX = {
+  trắng: '#FAF7F0', đen: '#1A1815', be: '#D9CEBF', rêu: '#485743',
+  xanh: '#1B4D72', nâu: '#6E472A', bạc: '#D4D6D9', đỏ: '#9B2C2C', hồng: '#D9A6B2',
+};
 
-const FILTER_SIZES = [
-  { label: 'S', value: 'S' },
-  { label: 'M', value: 'M' },
-  { label: 'L', value: 'L' },
-  { label: 'XL', value: 'XL' },
-  { label: 'Free Size', value: 'Freesize' },
-];
+function facetColorHex(name) {
+  const normalized = String(name || '').toLowerCase();
+  const key = Object.keys(COLOR_HEX).find(value => normalized.includes(value));
+  return key ? COLOR_HEX[key] : '#B9B0A5';
+}
 
 const PAGE_SIZE = 12;
 
@@ -60,6 +53,8 @@ export default function ShopPage() {
   // Data state
   const [products, setProducts]           = useState([]);
   const [categories, setCategories]       = useState([]);
+  const [filterColors, setFilterColors]   = useState([]);
+  const [filterSizes, setFilterSizes]     = useState([]);
   const [totalPages, setTotalPages]       = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading]             = useState(true);
@@ -76,8 +71,12 @@ export default function ShopPage() {
 
   // Load categories
   useEffect(() => {
-    categoryApi.list()
-      .then(res => setCategories((res.data || []).map(normalizeCategory)))
+    Promise.all([categoryApi.list(), productApi.facets()])
+      .then(([categoryResponse, facetResponse]) => {
+        setCategories((categoryResponse.data || []).map(normalizeCategory));
+        setFilterColors(facetResponse.data?.colors || []);
+        setFilterSizes(facetResponse.data?.sizes || []);
+      })
       .catch(() => {})
       .finally(() => setCatLoading(false));
   }, []);
@@ -176,7 +175,8 @@ export default function ShopPage() {
   const hasActiveFilters = Boolean(selectedCatSlug || minPrice || maxPrice || selectedColor || selectedSize);
 
   return (
-    <div className="shop-root">
+    <>
+      <div className="shop-root">
       {/* ── 1. EDITORIAL HEADER ── */}
       <section className="shop-editorial-header">
         <div className="container-fluid px-4 px-lg-5">
@@ -317,14 +317,14 @@ export default function ShopPage() {
                 <i className="bi bi-palette" style={{ color: 'var(--warm)' }} />
               </div>
               <div className="shop-colors-grid">
-                {FILTER_COLORS.map(c => (
+                {filterColors.map(color => (
                   <div
-                    key={c.name}
-                    className={`shop-color-swatch ${selectedColor === c.value ? 'active' : ''}`}
-                    onClick={() => { setSelectedColor(selectedColor === c.value ? '' : c.value); setPage(0); }}
-                    title={c.name}
+                    key={color}
+                    className={`shop-color-swatch ${selectedColor === color ? 'active' : ''}`}
+                    onClick={() => { setSelectedColor(selectedColor === color ? '' : color); setPage(0); }}
+                    title={color}
                   >
-                    <div className="shop-color-inner" style={{ backgroundColor: c.hex }} />
+                    <div className="shop-color-inner" style={{ backgroundColor: facetColorHex(color) }} />
                   </div>
                 ))}
               </div>
@@ -337,13 +337,13 @@ export default function ShopPage() {
                 <i className="bi bi-rulers" style={{ color: 'var(--warm)' }} />
               </div>
               <div className="shop-sizes-grid">
-                {FILTER_SIZES.map(s => (
+                {filterSizes.map(size => (
                   <button
-                    key={s.value}
-                    className={`shop-size-btn ${selectedSize === s.value ? 'active' : ''}`}
-                    onClick={() => { setSelectedSize(selectedSize === s.value ? '' : s.value); setPage(0); }}
+                    key={size}
+                    className={`shop-size-btn ${selectedSize === size ? 'active' : ''}`}
+                    onClick={() => { setSelectedSize(selectedSize === size ? '' : size); setPage(0); }}
                   >
-                    {s.label}
+                    {size}
                   </button>
                 ))}
               </div>
@@ -643,8 +643,10 @@ export default function ShopPage() {
         </div>
       )}
 
+      </div>
+
       {/* ── 6. FOOTER ── */}
       <Footer navigate={navigate} />
-    </div>
+    </>
   );
 }

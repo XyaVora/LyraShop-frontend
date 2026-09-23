@@ -1,13 +1,31 @@
 // src/pages/CartPage.jsx
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { fmt } from '../data/products';
 import { normalizeOrder } from '../data/orders';
-import { addressApi, extractErrorMessage, orderApi, paymentApi, voucherApi } from '../services/api';
+import { addressApi, extractErrorMessage, loyaltyApi, orderApi, paymentApi, storePolicyApi, voucherApi } from '../services/api';
 import { isEmail, isPhone, normPhone } from '../utils/validate';
 import { Footer } from '../components/index.jsx';
 import '../styles/cart.css';
+
+const CHECKOUT_IDEMPOTENCY_STORAGE_KEY = 'lyra.checkout.idempotencyKey';
+
+function checkoutIdempotencyKey() {
+  try {
+    const existing = window.sessionStorage.getItem(CHECKOUT_IDEMPOTENCY_STORAGE_KEY);
+    if (existing) return existing;
+    const created = globalThis.crypto?.randomUUID?.() || `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    window.sessionStorage.setItem(CHECKOUT_IDEMPOTENCY_STORAGE_KEY, created);
+    return created;
+  } catch {
+    return globalThis.crypto?.randomUUID?.() || `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  }
+}
+
+function clearCheckoutIdempotencyKey() {
+  try { window.sessionStorage.removeItem(CHECKOUT_IDEMPOTENCY_STORAGE_KEY); } catch {}
+}
 
 export default function CartPage({ initialView = 'cart' }) {
   const { navigate, isLoggedIn } = useApp();
@@ -15,6 +33,7 @@ export default function CartPage({ initialView = 'cart' }) {
     removeFromCart, updateQty, showToast } = useCart();
   const [view, setView] = useState(initialView); // 'cart' | 'checkout' | 'success'
   const [createdOrder, setCreatedOrder] = useState(null);
+  const [storePolicy, setStorePolicy] = useState(null);
 
   // Cart customization: Gift wrap
   const [giftWrapEnabled, setGiftWrapEnabled] = useState(false);
@@ -25,7 +44,7 @@ export default function CartPage({ initialView = 'cart' }) {
   const [appliedVoucher, setAppliedVoucher]   = useState(null);
   const [availableVouchers, setAvailableVouchers] = useState([]);
 
-  const giftWrapFee = giftWrapEnabled ? 30000 : 0;
+  const giftWrapFee = giftWrapEnabled ? Number(storePolicy?.giftWrapFee || 0) : 0;
   let shippingFee = cartShipping;
 
   // Calculate voucher discount
@@ -36,6 +55,12 @@ export default function CartPage({ initialView = 'cart' }) {
   }
 
   const finalTotal = Math.max(0, subtotal - promotionDiscount + shippingFee + giftWrapFee - voucherDiscount);
+
+  useEffect(() => {
+    storePolicyApi.get()
+      .then(({ data }) => setStorePolicy(data))
+      .catch(() => showToast('Không thể tải chính sách giá của cửa hàng.', 'error'));
+  }, [showToast]);
 
   useEffect(() => {
     if (!isLoggedIn || cart.length === 0) return;
@@ -188,17 +213,18 @@ export default function CartPage({ initialView = 'cart' }) {
                 <div className="gift-wrap-option-card">
                   <div
                     className="gift-wrap-header"
-                    onClick={() => setGiftWrapEnabled(v => !v)}
+                    onClick={() => { if (storePolicy) setGiftWrapEnabled(v => !v); }}
                   >
                     <div className="gift-wrap-title">
                       <i className="bi bi-gift" />
-                      <span>Đóng gói Hộp Quà Signature Box & Thiệp viết tay (+30.000₫)</span>
+                      <span>Đóng gói Hộp Quà Signature Box & Thiệp viết tay{storePolicy ? ` (+${fmt(Number(storePolicy.giftWrapFee || 0))})` : ''}</span>
                     </div>
                     <input
                       type="checkbox"
                       checked={giftWrapEnabled}
                       onChange={e => setGiftWrapEnabled(e.target.checked)}
                       onClick={e => e.stopPropagation()}
+                      disabled={!storePolicy}
                       style={{ width: 18, height: 18, accentColor: 'var(--warm)' }}
                     />
                   </div>
@@ -349,6 +375,15 @@ function CheckoutView({
   const [savedAddresses, setSavedAddresses]     = useState([]);
   const [selectedAddressId, setSelectedAddressId] = useState('');
   const [vnpayEnabled, setVnpayEnabled]         = useState(false);
+  const [loyalty, setLoyalty]                   = useState(null);
+  const [loyaltyCoins, setLoyaltyCoins]         = useState(0);
+  const idempotencyKey = useRef(checkoutIdempotencyKey());
+  const maxLoyaltyCoins = Math.max(0, Math.min(
+    Number(loyalty?.coinBalance || 0),
+    Math.floor(finalTotal * Number(loyalty?.maxRedemptionPercent || 20) / 100),
+  ));
+  const appliedLoyaltyCoins = Math.min(Math.max(0, Number(loyaltyCoins) || 0), maxLoyaltyCoins);
+  const payableTotal = Math.max(0, finalTotal - appliedLoyaltyCoins);
 
   const [form, setForm] = useState({
     name: user?.name || '',
@@ -374,6 +409,15 @@ function CheckoutView({
       .catch(() => { if (!cancelled) setVnpayEnabled(false); });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    loyaltyApi.get().then(({ data }) => setLoyalty(data)).catch(() => setLoyalty(null));
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    setLoyaltyCoins(current => Math.min(Number(current) || 0, maxLoyaltyCoins));
+  }, [maxLoyaltyCoins]);
 
   // Load saved addresses
   useEffect(() => {
@@ -439,13 +483,15 @@ function CheckoutView({
         voucherCode: appliedVoucher?.code || null,
         giftWrap: giftWrapEnabled,
         giftMessage: giftWrapEnabled ? (giftNote || null) : null,
-      });
+        loyaltyCoins: appliedLoyaltyCoins,
+      }, idempotencyKey.current);
       const newOrder = normalizeOrder(response.data, {
         ...user,
         name: form.name,
       });
+      clearCheckoutIdempotencyKey();
       setCreatedOrder(newOrder);
-      await refreshCart();
+      await refreshCart().catch(() => {});
       if (newOrder.paymentUrl) {
         window.location.assign(newOrder.paymentUrl);
         return;
@@ -603,6 +649,32 @@ function CheckoutView({
               })}
             </div>
 
+            {loyalty && (
+              <div style={{ marginTop: 24, padding: 18, border: '1px solid var(--border)', background: 'rgba(200,169,126,.06)' }}>
+                <label style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--muted)', display: 'block', marginBottom: 8 }}>
+                  Dùng Lyra Xu
+                </label>
+                <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  <input
+                    className="custom-price-field"
+                    type="number"
+                    min="0"
+                    max={maxLoyaltyCoins}
+                    step="1"
+                    value={loyaltyCoins}
+                    onChange={event => setLoyaltyCoins(Math.min(maxLoyaltyCoins, Math.max(0, Number(event.target.value) || 0)))}
+                    style={{ height: 44, flex: 1 }}
+                  />
+                  <button type="button" className="btn-outline-lyra" onClick={() => setLoyaltyCoins(maxLoyaltyCoins)}>
+                    Dùng tối đa
+                  </button>
+                </div>
+                <div style={{ fontSize: 11.5, color: 'var(--muted)', marginTop: 8 }}>
+                  Số dư {Number(loyalty.coinBalance || 0).toLocaleString('vi-VN')} Xu · Có thể dùng tối đa {maxLoyaltyCoins.toLocaleString('vi-VN')} Xu ({Number(loyalty.maxRedemptionPercent || 0)}% đơn hàng).
+                </div>
+              </div>
+            )}
+
             {/* Note */}
             <div style={{ marginTop: 20 }}>
               <label style={{ fontSize: 12, textTransform: 'uppercase', letterSpacing: '.1em', color: 'var(--muted)', display: 'block', marginBottom: 6 }}>
@@ -665,9 +737,15 @@ function CheckoutView({
                   <span>−{fmt(voucherDiscount)}</span>
                 </div>
               )}
+              {appliedLoyaltyCoins > 0 && (
+                <div className="summary-data-row" style={{ color: 'var(--warm)' }}>
+                  <span>Lyra Xu</span>
+                  <span>−{fmt(appliedLoyaltyCoins)}</span>
+                </div>
+              )}
               <div className="summary-total-row">
                 <span className="summary-total-label">Tổng thanh toán</span>
-                <span className="summary-total-amount">{fmt(finalTotal)}</span>
+                <span className="summary-total-amount">{fmt(payableTotal)}</span>
               </div>
             </div>
 
@@ -705,7 +783,7 @@ function OrderSuccess({ navigate, order }) {
 
         <h1 className="success-title">Đặt Hàng Thành Công!</h1>
         <p style={{ fontSize: 15, color: 'var(--muted)', maxWidth: 480, margin: '0 auto', lineHeight: 1.7 }}>
-          Cảm ơn quý khách đã tin tưởng và lựa chọn thiết kế của Lyra. Đơn hàng của bạn đã được tiếp nhận và chuyển đến bộ phận đóng gói Signature Box.
+          Cảm ơn quý khách đã tin tưởng và lựa chọn thiết kế của Lyra. Đơn hàng đã được tiếp nhận và đang chờ Lyra xác nhận.
         </p>
 
         <div className="success-order-id-box">

@@ -89,6 +89,36 @@ h3,
   padding-top: 68px;
 }
 
+/* Accessibility skip link */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 16px;
+  z-index: 10000;
+  padding: 10px 18px;
+  background: var(--ink, #0E0E0E);
+  color: var(--cream, #F7F4EF);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: top 0.2s ease;
+}
+.skip-link:focus {
+  top: 16px;
+}
+
+.page-skeleton-loader {
+  width: 100%;
+  animation: pulseSkeleton 1.5s ease-in-out infinite;
+  background: linear-gradient(90deg, rgba(200, 169, 126, 0.05) 25%, rgba(200, 169, 126, 0.12) 37%, rgba(200, 169, 126, 0.05) 63%);
+  background-size: 400% 100%;
+}
+
+@keyframes pulseSkeleton {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+
 /* =============================================
    NAVBAR
    ============================================= */

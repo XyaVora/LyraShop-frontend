@@ -4,10 +4,15 @@ import axios from 'axios';
 // Cùng origin trong môi trường dev qua Vite proxy để không phụ thuộc cấu hình
 // CORS của backend. Production vẫn có thể đặt URL tuyệt đối bằng VITE_API_URL.
 const API_BASE = import.meta.env.VITE_API_URL || '/api/v1';
-const TOKEN_KEY = 'lyra_access_token';
+const LEGACY_TOKEN_KEY = 'lyra_access_token';
 const CSRF_KEY = 'lyra_xsrf_token';
 const productDetailCache = new Map();
 let brandRequest;
+let accessToken = null;
+
+function removeLegacyToken() {
+  try { localStorage.removeItem(LEGACY_TOKEN_KEY); } catch {}
+}
 
 function getProductDetail(id) {
   const key = String(id);
@@ -33,10 +38,20 @@ const api = axios.create({
 
 /* ── Token helpers ───────────────────────────── */
 export const tokenStore = {
-  get: ()        => localStorage.getItem(TOKEN_KEY),
-  set: (token)   => localStorage.setItem(TOKEN_KEY, token),
-  clear: ()      => localStorage.removeItem(TOKEN_KEY),
+  get: () => accessToken,
+  set: (token) => {
+    accessToken = token;
+    removeLegacyToken();
+  },
+  clear: () => {
+    accessToken = null;
+    removeLegacyToken();
+  },
 };
+
+// Remove tokens written by older frontend versions. Authentication is restored
+// from the rotating HttpOnly refresh cookie instead of persistent JS storage.
+removeLegacyToken();
 
 export const csrfStore = {
   get: ()        => sessionStorage.getItem(CSRF_KEY),
@@ -201,6 +216,8 @@ export const authApi = {
   changePassword: (payload) => api.post('/auth/change-password', payload),
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
   resetPassword: (token, newPassword) => api.post('/auth/reset-password', { token, newPassword }),
+  verifyEmail: (token) => api.post('/auth/verify-email', { token }),
+  resendVerification: (email) => api.post('/auth/resend-verification', { email }),
 };
 
 /* ── Current user profile API ────────────────── */
@@ -221,17 +238,29 @@ export const cartApi = {
 /* ── Orders API ──────────────────────────────── */
 export const orderApi = {
   list: () => api.get('/orders'),
-  create: (payload) => api.post('/orders', payload),
+  create: (payload, idempotencyKey) => api.post('/orders', payload, {
+    headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
+  }),
   get: (id) => api.get(`/orders/${id}`),
   cancel: (id, reason) => api.put(`/orders/${id}/cancel`, { reason }),
   confirmReceived: (id) => api.put(`/orders/${id}/confirm-received`),
   retryPayment: (id) => api.post(`/orders/${id}/retry-payment`),
-  requestReturn: (id, reason) => api.post(`/orders/${id}/return-request`, { reason }),
+  requestReturn: (id, payload) => api.post(`/orders/${id}/return-request`, payload),
+  getReturnRequest: (id) => api.get(`/orders/${id}/return-request`),
   cancelReturn: (id) => api.put(`/orders/${id}/return-request/cancel`),
   trackingEvents: (id) => api.get(`/orders/${id}/tracking-events`),
+  uploadReturnEvidence: (file) => {
+    const data = new FormData();
+    data.append('file', file);
+    return api.post('/orders/return-evidence', data, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
 };
 export const loyaltyApi = { get: () => api.get('/me/loyalty'), checkIn: () => api.post('/me/loyalty/check-in'), transactions: () => api.get('/me/loyalty/transactions') };
-export const newsletterApi = { subscribe: (email) => api.post('/newsletter/subscriptions', { email }), unsubscribe: (email) => api.delete('/newsletter/subscriptions', { data: { email } }) };
+export const newsletterApi = {
+  subscribe: (email) => api.post('/newsletter/subscriptions', { email }),
+  confirm: (token) => api.post('/newsletter/subscriptions/confirm', { token }),
+  unsubscribe: (token) => api.post('/newsletter/subscriptions/unsubscribe', { token }),
+};
 export const paymentMethodApi = { list: () => api.get('/me/payment-methods'), addToken: (payload) => api.post('/me/payment-methods', payload), setDefault: (id) => api.patch(`/me/payment-methods/${id}/default`), remove: (id) => api.delete(`/me/payment-methods/${id}`) };
 
 export const voucherApi = {
@@ -284,6 +313,9 @@ export const brandApi = {
     return brandRequest;
   },
 };
+export const storePolicyApi = {
+  get: () => api.get('/store-policy'),
+};
 export const searchHistoryApi = {
   list: () => api.get('/search-history'),
   add: (query) => api.post('/search-history', { query }),
@@ -309,6 +341,7 @@ export const productApi = {
    */
   get: (id) => getProductDetail(id),
   featured: (size = 4) => api.get('/products/featured', { params: { size } }),
+  facets: () => api.get('/products/facets'),
   related: (id, size = 4) => api.get(`/products/${id}/related`, { params: { size } }),
 };
 

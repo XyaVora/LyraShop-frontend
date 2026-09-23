@@ -22,6 +22,7 @@ function sizeClass(size) {
  */
 export default function Modal({
   open,
+  isOpen,
   onClose,
   title,
   children,
@@ -30,14 +31,16 @@ export default function Modal({
   className = '',
   hideClose = false,
   label,
+  width,
 }) {
+  const visible = open ?? isOpen ?? false;
   const panelRef = useRef(null);
   const titleId = useId();
 
-  useBodyScrollLock(open);
-  useDialogA11y(open, panelRef, onClose);
+  useBodyScrollLock(visible);
+  useDialogA11y(visible, panelRef, onClose);
 
-  if (!open || typeof document === 'undefined') return null;
+  if (!visible || typeof document === 'undefined') return null;
 
   // Bấm ra vùng nền (không phải panel) thì đóng.
   const onOverlayClick = (e) => {
@@ -49,6 +52,7 @@ export default function Modal({
       <div
         ref={panelRef}
         className={`lyra-modal${sizeClass(size)}${className ? ` ${className}` : ''}`}
+        style={width ? { width: 'min(92vw, ' + Number(width) + 'px)', maxWidth: Number(width) } : undefined}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? titleId : undefined}

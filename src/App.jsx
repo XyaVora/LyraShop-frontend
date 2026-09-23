@@ -1,30 +1,30 @@
 // src/App.jsx
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useApp } from './context/AppContext';
 import { useCart } from './context/CartContext';
 
 import Navbar from './components/Navbar';
 import { ToastContainer } from './components/index.jsx';
-import { LoadingScreen } from './pages/NotFoundPage.jsx';
+import { LoadingScreen } from './components/LoadingScreen.jsx';
 
-import HomePage           from './pages/HomePage';
-import ShopPage           from './pages/ShopPage';
-import SalePage           from './pages/SalePage';
-import NewArrivalsPage    from './pages/NewArrivalsPage';
-import BrandsPage         from './pages/BrandsPage';
-import ProductDetailPage  from './pages/ProductDetailPage';
-import CartPage           from './pages/CartPage';
-import AuthPage           from './pages/AuthPage';
-import ProfilePage        from './pages/ProfilePage';
-import NotFoundPage       from './pages/NotFoundPage';
-import SearchPage         from './pages/SearchPage';
-import WishlistPage       from './pages/WishlistPage';
-import OrderDetailPage    from './pages/OrderDetailPage';
-import SharedWishlistPage from './pages/SharedWishlistPage';
-import PaymentResultPage  from './pages/PaymentResultPage';
+const HomePage           = lazy(() => import('./pages/HomePage'));
+const ShopPage           = lazy(() => import('./pages/ShopPage'));
+const SalePage           = lazy(() => import('./pages/SalePage'));
+const NewArrivalsPage    = lazy(() => import('./pages/NewArrivalsPage'));
+const BrandsPage         = lazy(() => import('./pages/BrandsPage'));
+const ProductDetailPage  = lazy(() => import('./pages/ProductDetailPage'));
+const CartPage           = lazy(() => import('./pages/CartPage'));
+const AuthPage           = lazy(() => import('./pages/AuthPage'));
+const ProfilePage        = lazy(() => import('./pages/ProfilePage'));
+const NotFoundPage       = lazy(() => import('./pages/NotFoundPage'));
+const SearchPage         = lazy(() => import('./pages/SearchPage'));
+const WishlistPage       = lazy(() => import('./pages/WishlistPage'));
+const OrderDetailPage    = lazy(() => import('./pages/OrderDetailPage'));
+const SharedWishlistPage = lazy(() => import('./pages/SharedWishlistPage'));
+const PaymentResultPage  = lazy(() => import('./pages/PaymentResultPage'));
 
 export default function App() {
-  const { currentPage, isLoggedIn, authReady } = useApp();
+  const { currentPage, isLoggedIn, authReady, selectedProduct } = useApp();
   const { showToast } = useCart();
   const [loading, setLoading] = useState(true);
 
@@ -40,6 +40,31 @@ export default function App() {
       setTimeout(() => showToast('Chào mừng đến với LYRA! 👋', 'bi-bag-heart'), 400);
     }
   }, [loading]);
+
+  /* Cập nhật tiêu đề trang động cho SEO và a11y */
+  useEffect(() => {
+    const titles = {
+      home: 'LYRA — Thời trang & Giày dép thủ công',
+      shop: 'Cửa hàng — LYRA',
+      sale: 'Ưu đãi đặc quyền — LYRA',
+      new: 'Bộ sưu tập mới về — LYRA',
+      brands: 'Thương hiệu đối tác — LYRA',
+      search: 'Tìm kiếm sản phẩm — LYRA',
+      cart: 'Giỏ hàng của bạn — LYRA',
+      checkout: 'Thanh toán đơn hàng — LYRA',
+      'payment-result': 'Kết quả thanh toán — LYRA',
+      auth: 'Đăng nhập & Đăng ký — LYRA',
+      wishlist: 'Danh sách yêu thích — LYRA',
+      'shared-wishlist': 'Danh sách yêu thích chia sẻ — LYRA',
+      profile: 'Tài khoản của tôi — LYRA',
+      'order-detail': 'Chi tiết đơn hàng — LYRA',
+    };
+    if (currentPage === 'detail' && selectedProduct?.name) {
+      document.title = `${selectedProduct.name} — LYRA`;
+    } else {
+      document.title = titles[currentPage] || 'LYRA — Thời trang & Giày dép';
+    }
+  }, [currentPage, selectedProduct]);
 
   if (loading || !authReady) return <LoadingScreen />;
 
@@ -70,11 +95,13 @@ export default function App() {
 
   return (
     <>
+      <a className="skip-link" href="#main">Bỏ qua điều hướng</a>
       <Navbar />
-      {showWrapper
-        ? <div className="page-wrapper">{renderPage()}</div>
-        : renderPage()
-      }
+      <main id="main" tabIndex={-1} className={showWrapper ? 'page-wrapper' : 'page-wrapper no-wrapper'}>
+        <Suspense fallback={<div className="page-skeleton-loader" aria-hidden="true" style={{ minHeight: '60vh' }} />}>
+          {renderPage()}
+        </Suspense>
+      </main>
       <ToastContainer />
     </>
   );
