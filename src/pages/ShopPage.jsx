@@ -618,13 +618,13 @@ export default function ShopPage() {
               <div>
                 <div className="shop-filter-title" style={{ marginBottom: 12 }}>Kích Cỡ</div>
                 <div className="shop-sizes-grid">
-                  {FILTER_SIZES.map(s => (
+                  {filterSizes.map(size => (
                     <button
-                      key={s.value}
-                      className={`shop-size-btn ${selectedSize === s.value ? 'active' : ''}`}
-                      onClick={() => { setSelectedSize(selectedSize === s.value ? '' : s.value); setPage(0); }}
+                      key={size}
+                      className={`shop-size-btn ${selectedSize === size ? 'active' : ''}`}
+                      onClick={() => { setSelectedSize(selectedSize === size ? '' : size); setPage(0); }}
                     >
-                      {s.label}
+                      {size}
                     </button>
                   ))}
                 </div>

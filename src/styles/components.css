@@ -122,9 +122,139 @@ a.product-name:hover {
   }
 }
 
-/* ── Modal: biến thể hẹp ───────────────────────────────── */
+/* ══════════════════════════════════════════════
+   MODAL DÙNG CHUNG (LYRA MODAL)
+   ══════════════════════════════════════════════ */
+.lyra-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(14, 14, 14, 0.65);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: clamp(16px, 4vw, 32px);
+  overflow-y: auto;
+  animation: lyraModalFadeIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.lyra-modal {
+  position: relative;
+  background: var(--paper, #FBFAF7);
+  width: min(100%, 560px);
+  max-width: 100%;
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(14, 14, 14, 0.28);
+  border: 1px solid var(--border, #E2DDD8);
+  animation: lyraModalSlideIn 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+  overflow: hidden;
+}
+
 .lyra-modal.narrow {
-  width: min(100%, 440px);
+  width: min(100%, 460px);
+}
+
+.lyra-modal.wide {
+  width: min(100%, 860px);
+}
+
+.lyra-modal.lightbox {
+  width: min(100%, 720px);
+  background: var(--ink, #0E0E0E);
+}
+
+@keyframes lyraModalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes lyraModalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border, #E2DDD8);
+  background: var(--cream, #F7F4EF);
+  flex: none;
+}
+
+.modal-title {
+  font-family: var(--font-serif, serif);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.25;
+  color: var(--ink, #0E0E0E);
+  margin: 0;
+  min-width: 0;
+}
+
+.lyra-modal .modal-body {
+  padding: 24px;
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--ink-2, #3A3632);
+}
+
+.modal-foot {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  padding: 16px 24px;
+  border-top: 1px solid var(--border, #E2DDD8);
+  background: var(--cream, #F7F4EF);
+  flex: none;
+}
+
+.modal-close {
+  min-width: 32px;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--ink, #0E0E0E);
+  font-size: 16px;
+  cursor: pointer;
+  flex: none;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+}
+
+.modal-close:hover {
+  background: rgba(14, 14, 14, 0.06);
+  color: var(--warm-hover, #B8956E);
+}
+
+@media (max-width: 576px) {
+  .lyra-modal-overlay {
+    padding: 12px;
+    align-items: flex-end;
+  }
+  .lyra-modal {
+    width: 100% !important;
+    max-height: calc(100vh - 24px);
+  }
 }
 
 /* ── CartDrawer: phần index.css chưa có ────────────────── */

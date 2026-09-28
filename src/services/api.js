@@ -90,6 +90,7 @@ api.interceptors.request.use((config) => {
 /* ── Response interceptor: lưu XSRF-TOKEN và auto-refresh khi 401 ─ */
 let isRefreshing = false;
 let refreshQueue = [];
+let refreshRequest = null;
 
 api.interceptors.response.use(
   (response) => {
@@ -191,14 +192,27 @@ export const authApi = {
    * Dùng cookie refresh token + X-XSRF-TOKEN header
    */
   refresh: async () => {
-    // Nếu chưa có CSRF token trong session, lấy trước
-    if (!csrfStore.get()) {
-      try { await authApi.csrf(); } catch {}
+    // React StrictMode có thể chạy effect khởi tạo hai lần trong môi trường dev.
+    // Dùng một request dùng chung để refresh token xoay vòng không bị tiêu thụ
+    // đồng thời rồi làm backend thu hồi cả token family.
+    if (refreshRequest) return refreshRequest;
+
+    refreshRequest = (async () => {
+      // Nếu chưa có CSRF token trong session, lấy trước
+      if (!csrfStore.get()) {
+        try { await authApi.csrf(); } catch {}
+      }
+      const res = await api.post('/auth/refresh');
+      const xsrf = res.headers?.['x-xsrf-token'] || res.headers?.['X-XSRF-TOKEN'];
+      if (xsrf) csrfStore.set(xsrf);
+      return res;
+    })();
+
+    try {
+      return await refreshRequest;
+    } finally {
+      refreshRequest = null;
     }
-    const res = await api.post('/auth/refresh');
-    const xsrf = res.headers?.['x-xsrf-token'] || res.headers?.['X-XSRF-TOKEN'];
-    if (xsrf) csrfStore.set(xsrf);
-    return res;
   },
 
   /**

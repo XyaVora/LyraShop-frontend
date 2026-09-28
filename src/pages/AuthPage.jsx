@@ -185,8 +185,13 @@ export default function AuthPage() {
               style={{ paddingRight: 44 }}
               onKeyDown={e => e.key === 'Enter' && handleSubmit()}
             />
-            <button onClick={() => setShowPass(v => !v)} style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 16 }}>
-              <i className={`bi ${showPass ? '-slash' : ''}`} />
+            <button
+              type="button"
+              onClick={() => setShowPass(v => !v)}
+              aria-label={showPass ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+              style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--muted)', fontSize: 16 }}
+            >
+              <i className={`bi ${showPass ? 'bi-eye-slash' : 'bi-eye'}`} aria-hidden="true" />
             </button>
           </div>
 

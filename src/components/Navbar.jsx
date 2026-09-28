@@ -305,7 +305,7 @@ export default function Navbar() {
                       </li>
                       <li
                         className="user-dropdown-link-item"
-                        onClick={() => go('profile', { profileTab: 'account' })}
+                        onClick={() => go('profile', { profileTab: 'profile' })}
                       >
                         <i className="bi bi-person-gear" /> Thông tin tài khoản
                       </li>

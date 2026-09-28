@@ -86,7 +86,7 @@ h3,
    ============================================= */
 .page-wrapper {
   min-height: 100vh;
-  padding-top: 68px;
+  padding-top: 0;
 }
 
 /* Accessibility skip link */
@@ -1109,7 +1109,7 @@ h3,
 .site-footer {
   background: var(--ink);
   color: var(--cream);
-  padding: 64px 0 28px;
+  padding: 40px 0 28px;
   border-top: 1px solid rgba(255, 255, 255, .06);
 }
 
