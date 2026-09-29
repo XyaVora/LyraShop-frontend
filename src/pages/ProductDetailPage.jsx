@@ -9,18 +9,63 @@ import '../styles/product-detail.css';
 
 // Map color names to visual hex codes for swatches
 const COLOR_SWATCH_MAP = {
-  'trắng': '#FFFFFF',
+  'trắng phối hồng': 'linear-gradient(135deg, #FFFFFF 52%, #F2B8C6 52%)',
+  'trắng phối xanh': 'linear-gradient(135deg, #FFFFFF 52%, #7AA7C7 52%)',
   'trắng kem': '#FAF7F0',
+  'trắng tinh': '#FFFEFA',
+  'trắng': '#FFFFFF',
+  'đen phối vàng': 'linear-gradient(135deg, #1A1815 52%, #C8A44D 52%)',
+  'dây đen mặt đen': '#171717',
   'đen': '#1A1815',
-  'be': '#E6DDD0',
+  'be cổ điển': '#D2B48C',
+  'be yến mạch': '#D8C9AD',
   'be khaki': '#D9CEBF',
+  'be nhạt': '#EDE3D5',
+  'be kem': '#EFE3CE',
+  'be': '#E6DDD0',
+  'xanh navy họa tiết': 'linear-gradient(135deg, #1E293B 65%, #C8A97E 65%)',
   'xanh rêu': '#485743',
   'xanh than': '#1B232E',
   'xanh navy': '#1E293B',
+  'xanh pastel': '#B8CEE3',
+  'xanh baby': '#AFCFEA',
+  'xanh mint': '#A8DCC4',
+  'xanh cốm': '#B8CF75',
+  'xanh denim': '#4D6D8A',
+  'xanh nhạt': '#B9D7EA',
+  'xanh da trời': '#9BC4E2',
   'xám tiêu': '#8C8C8C',
+  'xám đậm': '#55575B',
+  'xám khói': '#85898D',
+  'xám than': '#41464B',
   'kem': '#F5EFE6',
+  'dây nâu mặt trắng': 'linear-gradient(135deg, #68462F 52%, #F8F5EE 52%)',
+  'nâu cổ điển': '#6B4226',
+  'nâu hạt dẻ': '#7A4328',
+  'nâu cà phê': '#5B3826',
+  'nâu socola': '#4E2E22',
+  'nâu mocha': '#806257',
+  'nâu camel': '#B7865D',
   'nâu sáp': '#6E472A',
+  'nâu tây': '#795548',
+  'nâu đậm': '#4B3025',
+  'nâu đất': '#76513B',
+  'nâu bò': '#9A6A3A',
   'nâu': '#593D28',
+  'camel': '#C19A6B',
+  'nude': '#D8B5A5',
+  'hồng nude': '#D8A7A0',
+  'vàng bò': '#B88746',
+  'vàng hồng': '#C98F82',
+  'vàng mù tạt': '#C49A28',
+  'navy': '#1E293B',
+  'đỏ burgundy': '#722F37',
+  'đỏ rượu vang': '#781F33',
+  'đỏ rượu chìm': '#681C2B',
+  'burgundy': '#722F37',
+  'đồi mồi nâu': 'linear-gradient(135deg, #4B3025, #B88746 50%, #2B211B)',
+  'đa sắc': 'conic-gradient(#722F37, #C8A97E, #1E293B, #722F37)',
+  'bạc ánh kim': '#C8CDD2',
   'ánh bạc': '#D4D6D9',
   'hồng pastel': '#F2D7D9',
   'xanh chàm': '#2C3E50',
@@ -29,7 +74,8 @@ const COLOR_SWATCH_MAP = {
 function getColorHex(colorName) {
   if (!colorName) return '#C8A97E';
   const clean = colorName.toLowerCase().trim();
-  for (const [key, hex] of Object.entries(COLOR_SWATCH_MAP)) {
+  const entries = Object.entries(COLOR_SWATCH_MAP).sort(([a], [b]) => b.length - a.length);
+  for (const [key, hex] of entries) {
     if (clean.includes(key)) return hex;
   }
   return '#D8CEC0';
@@ -184,16 +230,26 @@ export default function ProductDetailPage() {
   const selectedSize  = selectedVariant?.size  || '';
   const selectedColor = selectedVariant?.color || '';
 
-  const selectVariant = (size, color) => {
-    const v = variants.find(v =>
-      (size  ? v.size  === size  : true) &&
-      (color ? v.color === color : true) &&
-      v.stock > 0
-    ) || variants.find(v =>
-      (size  ? v.size  === size  : true) &&
-      (color ? v.color === color : true)
-    );
-    if (v) setSelectedVariant(v);
+  const selectVariant = (size, color, changedOption) => {
+    const isExactMatch = v =>
+      (size ? v.size === size : true) &&
+      (color ? v.color === color : true);
+    const matchesChangedOption = v => changedOption === 'color'
+      ? v.color === color
+      : v.size === size;
+
+    // Some products do not have every size/color combination. Prefer the exact
+    // pair, then keep the option the customer just clicked and switch the other
+    // dimension to a real variant instead of leaving the click unresponsive.
+    const v = variants.find(item => isExactMatch(item) && item.stock > 0)
+      || variants.find(item => matchesChangedOption(item) && item.stock > 0)
+      || variants.find(isExactMatch)
+      || variants.find(matchesChangedOption);
+
+    if (v) {
+      setSelectedVariant(v);
+      setQty(currentQty => Math.min(currentQty, Math.max(1, v.stock)));
+    }
   };
 
   const handleAddToCart = () => {
@@ -400,15 +456,20 @@ export default function ProductDetailPage() {
                     {colors.map(color => {
                       const active = selectedColor === color;
                       const hex = getColorHex(color);
+                      const isOutOfStock = !variants.some(item => item.color === color && item.stock > 0);
                       return (
-                        <div
+                        <button
+                          type="button"
                           key={color}
-                          className={`pdp-swatch-circle ${active ? 'active' : ''}`}
-                          onClick={() => selectVariant(selectedSize, color)}
+                          className={`pdp-swatch-circle ${active ? 'active' : ''} ${isOutOfStock ? 'disabled' : ''}`}
+                          onClick={() => selectVariant(selectedSize, color, 'color')}
+                          disabled={isOutOfStock}
+                          aria-label={`Màu ${color}`}
+                          aria-pressed={active}
                           title={color}
                         >
-                          <div className="pdp-swatch-inner" style={{ backgroundColor: hex }} />
-                        </div>
+                          <span className="pdp-swatch-inner" style={{ background: hex }} />
+                        </button>
                       );
                     })}
                   </div>
@@ -431,18 +492,14 @@ export default function ProductDetailPage() {
                   </div>
                   <div className="pdp-sizes-row">
                     {sizes.map(size => {
-                      const v = variants.find(item =>
-                        item.size === size &&
-                        (selectedColor ? item.color === selectedColor : true)
-                      );
-                      const isOutOfStock = v && v.stock <= 0;
+                      const isOutOfStock = !variants.some(item => item.size === size && item.stock > 0);
                       const active = selectedSize === size;
 
                       return (
                         <button
                           key={size}
                           className={`pdp-size-pill ${active ? 'active' : ''} ${isOutOfStock ? 'disabled' : ''}`}
-                          onClick={() => !isOutOfStock && selectVariant(size, selectedColor)}
+                          onClick={() => selectVariant(size, selectedColor, 'size')}
                           disabled={isOutOfStock}
                         >
                           {size}
@@ -766,7 +823,7 @@ export default function ProductDetailPage() {
             <select
               className="pdp-sticky-size-select"
               value={selectedSize}
-              onChange={e => selectVariant(e.target.value, selectedColor)}
+              onChange={e => selectVariant(e.target.value, selectedColor, 'size')}
             >
               {sizes.map(s => (
                 <option key={s} value={s}>Kích cỡ: {s}</option>
