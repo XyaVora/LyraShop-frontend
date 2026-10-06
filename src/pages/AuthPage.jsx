@@ -37,17 +37,6 @@ export default function AuthPage() {
     return () => { cancelled = true; };
   }, [verifyEmailToken, showToast]);
 
-  const handleResendVerification = async () => {
-    if (!isEmail(email)) return showToast('Vui lòng nhập email hợp lệ', 'bi-exclamation-circle');
-    setSubmitting(true);
-    try {
-      await authApi.resendVerification(email.trim());
-      showToast('Nếu tài khoản chưa xác minh, email mới đã được gửi.', 'bi-envelope-check');
-    } catch (error) {
-      showToast(extractErrorMessage(error, 'Không thể gửi lại email xác minh'), 'bi-x-circle');
-    } finally { setSubmitting(false); }
-  };
-
   const handlePasswordRecovery = async () => {
     if (!isEmail(email)) return showToast('Vui lòng nhập email hợp lệ', 'bi-exclamation-circle');
     setSubmitting(true);
@@ -98,7 +87,7 @@ export default function AuthPage() {
         showToast('Đăng nhập thành công! Chào mừng bạn trở lại.', 'bi-person-check');
       } else {
         await register(name.trim(), email.trim(), password);
-        showToast('Đăng ký thành công. Vui lòng kiểm tra email để xác minh tài khoản.', 'bi-envelope-check');
+        showToast('Đăng ký thành công. Bạn có thể đăng nhập ngay.', 'bi-person-check');
         setPassword('');
         setMode('login');
         return;
@@ -134,7 +123,7 @@ export default function AuthPage() {
       {/* Form */}
       <div className="auth-form-col">
         <div className="auth-form-wrap">
-          <h2 className="auth-title">{mode === 'login' ? 'Đăng nhập' : mode === 'register' ? 'Đăng ký' : mode === 'forgot' ? 'Quên mật khẩu' : mode === 'verifying' ? 'Đang xác minh email' : 'Đặt lại mật khẩu'}</h2>
+          <h1 className="auth-title">{mode === 'login' ? 'Đăng nhập' : mode === 'register' ? 'Đăng ký' : mode === 'forgot' ? 'Quên mật khẩu' : mode === 'verifying' ? 'Đang xác minh email' : 'Đặt lại mật khẩu'}</h1>
           <p className="auth-subtitle">
             {mode === 'login' ? 'Chào mừng bạn trở lại với LYRA' : mode === 'register' ? 'Tạo tài khoản mới và khám phá thời trang' : mode === 'forgot' ? 'Nhận liên kết bảo mật qua email' : mode === 'verifying' ? 'Vui lòng chờ trong giây lát' : 'Nhập mật khẩu mới cho tài khoản'}
           </p>
@@ -142,16 +131,16 @@ export default function AuthPage() {
           {mode === 'verifying' && <div style={{ padding: '28px 0', textAlign: 'center', color: 'var(--muted)' }}>Đang kiểm tra liên kết xác minh...</div>}
 
           {mode === 'forgot' && <>
-            <label className="form-field-label">Email</label>
-            <input className="form-field-input" type="email" value={email} onChange={e=>setEmail(e.target.value)} />
+            <label className="form-field-label" htmlFor="recovery-email">Email</label>
+            <input id="recovery-email" className="form-field-input" type="email" autoComplete="email" value={email} onChange={e=>setEmail(e.target.value)} />
             <button className="btn-lyra w-100 justify-content-center py-3 mt-3" onClick={handlePasswordRecovery} disabled={submitting}>Gửi liên kết đặt lại</button>
             <button className="btn btn-link w-100 mt-2" onClick={()=>setMode('login')}>Quay lại đăng nhập</button>
           </>}
           {mode === 'reset' && <>
-            <label className="form-field-label">Mật khẩu mới</label>
-            <input className="form-field-input" type="password" value={password} onChange={e=>setPassword(e.target.value)} />
-            <label className="form-field-label mt-3">Xác nhận mật khẩu mới</label>
-            <input className="form-field-input" type="password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} />
+            <label className="form-field-label" htmlFor="reset-password">Mật khẩu mới</label>
+            <input id="reset-password" className="form-field-input" type="password" autoComplete="new-password" value={password} onChange={e=>setPassword(e.target.value)} />
+            <label className="form-field-label mt-3" htmlFor="reset-password-confirm">Xác nhận mật khẩu mới</label>
+            <input id="reset-password-confirm" className="form-field-input" type="password" autoComplete="new-password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} />
             <button className="btn-lyra w-100 justify-content-center py-3 mt-3" onClick={handleResetPassword} disabled={submitting}>Đặt lại mật khẩu</button>
           </>}
 
@@ -165,21 +154,22 @@ export default function AuthPage() {
 
           {mode === 'register' && (
             <>
-              <label className="form-field-label">Họ và tên</label>
-              <input className="form-field-input" type="text" placeholder="Nguyễn Văn An"
+              <label className="form-field-label" htmlFor="auth-name">Họ và tên</label>
+              <input id="auth-name" className="form-field-input" type="text" autoComplete="name" placeholder="Nguyễn Văn An"
                 value={name} onChange={e => setName(e.target.value)} />
             </>
           )}
 
-          <label className="form-field-label">Email</label>
-          <input className="form-field-input" type="email" placeholder="email@example.com"
+          <label className="form-field-label" htmlFor="auth-email">Email</label>
+          <input id="auth-email" className="form-field-input" type="email" autoComplete="email" placeholder="email@example.com"
             value={email} onChange={e => setEmail(e.target.value)} />
 
-          <label className="form-field-label">
+          <label className="form-field-label" htmlFor="auth-password">
             Mật khẩu {mode === 'register' && <span style={{ fontSize: 11, color: 'var(--muted)', fontWeight: 400 }}>(tối thiểu 12 ký tự)</span>}
           </label>
           <div style={{ position: 'relative' }}>
-            <input className="form-field-input" type={showPass ? 'text' : 'password'}
+            <input id="auth-password" className="form-field-input" type={showPass ? 'text' : 'password'}
+              autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
               placeholder={mode === 'register' ? 'Nhập mật khẩu (tối thiểu 12 ký tự)...' : 'Nhập mật khẩu...'}
               value={password} onChange={e => setPassword(e.target.value)}
               style={{ paddingRight: 44 }}
@@ -196,21 +186,23 @@ export default function AuthPage() {
           </div>
 
           {mode === 'login' && (
-            <div className="d-flex justify-content-between mb-3">
-              <span className="forgot-link" onClick={handleResendVerification}>
-                Gửi lại email xác minh
-              </span>
-              <span className="forgot-link" onClick={() => setMode('forgot')}>
+            <div className="d-flex justify-content-end mb-3">
+              <button
+                type="button"
+                className="forgot-link"
+                style={{ background: 'none', border: 0, padding: 0 }}
+                onClick={() => setMode('forgot')}
+              >
                 Quên mật khẩu?
-              </span>
+              </button>
             </div>
           )}
 
           {mode === 'register' && (
             <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 16, lineHeight: 1.6 }}>
               Bằng cách đăng ký, bạn đồng ý với{' '}
-              <span style={{ color: 'var(--ink)', cursor: 'pointer', textDecoration: 'underline' }}>Điều khoản dịch vụ</span>{' '}và{' '}
-              <span style={{ color: 'var(--ink)', cursor: 'pointer', textDecoration: 'underline' }}>Chính sách bảo mật</span> của LYRA.
+              <button type="button" className="auth-inline-link" onClick={() => navigate('terms')}>Điều khoản dịch vụ</button>{' '}và{' '}
+              <button type="button" className="auth-inline-link" onClick={() => navigate('privacy')}>Chính sách bảo mật</button> của LYRA.
             </div>
           )}
 
@@ -224,10 +216,10 @@ export default function AuthPage() {
 
           <div style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: 'var(--muted)' }}>
             {mode === 'login' ? 'Chưa có tài khoản?' : 'Đã có tài khoản?'}{' '}
-            <span style={{ color: 'var(--ink)', cursor: 'pointer', textDecoration: 'underline' }}
+            <button type="button" className="auth-inline-link"
               onClick={() => setMode(mode === 'login' ? 'register' : 'login')}>
               {mode === 'login' ? 'Đăng ký ngay' : 'Đăng nhập'}
-            </span>
+            </button>
           </div>
           </>}
 

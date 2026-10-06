@@ -22,6 +22,7 @@ const WishlistPage       = lazy(() => import('./pages/WishlistPage'));
 const OrderDetailPage    = lazy(() => import('./pages/OrderDetailPage'));
 const SharedWishlistPage = lazy(() => import('./pages/SharedWishlistPage'));
 const PaymentResultPage  = lazy(() => import('./pages/PaymentResultPage'));
+const LegalPage          = lazy(() => import('./pages/LegalPage'));
 
 export default function App() {
   const { currentPage, isLoggedIn, authReady, selectedProduct } = useApp();
@@ -54,6 +55,8 @@ export default function App() {
       checkout: 'Thanh toán đơn hàng — LYRA',
       'payment-result': 'Kết quả thanh toán — LYRA',
       auth: 'Đăng nhập & Đăng ký — LYRA',
+      terms: 'Điều khoản dịch vụ — LYRA',
+      privacy: 'Chính sách bảo mật — LYRA',
       wishlist: 'Danh sách yêu thích — LYRA',
       'shared-wishlist': 'Danh sách yêu thích chia sẻ — LYRA',
       profile: 'Tài khoản của tôi — LYRA',
@@ -83,6 +86,8 @@ export default function App() {
       case 'checkout':     return <CartPage initialView="checkout" />;
       case 'payment-result': return <PaymentResultPage />;
       case 'auth':         return <AuthPage />;
+      case 'terms':        return <LegalPage type="terms" />;
+      case 'privacy':      return <LegalPage type="privacy" />;
       case 'wishlist':     return <WishlistPage />;
       case 'shared-wishlist': return <SharedWishlistPage />;
       case 'order-detail': return <OrderDetailPage />;

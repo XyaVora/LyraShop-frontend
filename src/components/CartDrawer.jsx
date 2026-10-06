@@ -223,7 +223,7 @@ export default function CartDrawer() {
               <span className="drawer-subtotal-val">{fmt(subtotal)}</span>
             </div>
             <p style={{ fontSize: 11.5, color: 'var(--muted)', margin: 0 }}>
-              Thuế và phí vận chuyển sẽ được tính tại bước hoàn tất đơn.
+              Phí vận chuyển và gói quà (nếu có) sẽ được tính tại bước hoàn tất đơn.
             </p>
             <button
               className="btn-hero-primary w-100 justify-content-center"

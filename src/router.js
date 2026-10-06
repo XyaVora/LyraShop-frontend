@@ -4,7 +4,8 @@
 /** Trang hợp lệ của ứng dụng. */
 export const PAGES = [
   'home', 'shop', 'sale', 'new', 'brands', 'search', 'detail',
-  'cart', 'checkout', 'payment-result', 'auth', 'wishlist', 'shared-wishlist', 'profile', 'order-detail', '404',
+  'cart', 'checkout', 'payment-result', 'auth', 'wishlist', 'shared-wishlist', 'profile', 'order-detail',
+  'terms', 'privacy', '404',
 ];
 
 /** Bỏ dấu tiếng Việt + tạo slug an toàn cho URL. */
@@ -77,6 +78,10 @@ export function parseLocation(loc = {}) {
         : { page: '404', params };
     case 'auth':
       return { page: 'auth', params };
+    case 'terms':
+      return { page: 'terms', params };
+    case 'privacy':
+      return { page: 'privacy', params };
     case 'wishlist':
       return { page: 'wishlist', params };
     case 'shared-wishlist':
@@ -138,6 +143,8 @@ const TITLES = {
   checkout: 'Thanh toán',
   'payment-result': 'Kết quả thanh toán',
   auth: 'Đăng nhập',
+  terms: 'Điều khoản dịch vụ',
+  privacy: 'Chính sách bảo mật',
   wishlist: 'Yêu thích',
   'shared-wishlist': 'Danh sách yêu thích',
   profile: 'Tài khoản',

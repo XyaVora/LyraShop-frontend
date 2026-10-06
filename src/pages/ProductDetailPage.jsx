@@ -429,7 +429,7 @@ export default function ProductDetailPage() {
               )}
               <div className="pdp-vip-note">
                 <i className="bi bi-gem" />
-                <span>Tích lũy 5% Lyra Xu & Hỗ trợ trả góp 0% qua thẻ tín dụng</span>
+                <span>Tích lũy 5% Lyra Xu cho đơn hàng hoàn tất</span>
               </div>
             </div>
 

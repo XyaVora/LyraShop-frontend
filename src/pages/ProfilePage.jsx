@@ -4,7 +4,7 @@ import { useApp } from '../context/AppContext';
 import { useCart } from '../context/CartContext';
 import { fmt } from '../data/products';
 import { normalizeOrder } from '../data/orders';
-import { addressApi, authApi, extractErrorMessage, loyaltyApi, orderApi, paymentMethodApi, reviewApi, tokenStore, voucherApi } from '../services/api';
+import { addressApi, authApi, extractErrorMessage, loyaltyApi, orderApi, reviewApi, tokenStore, voucherApi } from '../services/api';
 import { isPhone, normPhone } from '../utils/validate';
 import { Footer, Stars, ProductCard } from '../components/index.jsx';
 import Modal from '../components/Modal.jsx';
@@ -19,7 +19,6 @@ const NAV_GROUPS = [
       { id: 'dashboard', label: 'Tổng quan tài khoản', icon: 'bi-grid-1x2' },
       { id: 'profile', label: 'Hồ sơ cá nhân', icon: 'bi-person' },
       { id: 'address', label: 'Sổ địa chỉ', icon: 'bi-geo-alt' },
-      { id: 'cards', label: 'Ngân hàng & Thẻ', icon: 'bi-credit-card' },
       { id: 'password', label: 'Đổi mật khẩu', icon: 'bi-shield-lock' },
     ],
   },
@@ -52,6 +51,12 @@ const isAwaitingOnlinePayment = (order) =>
 
 const isAwaitingConfirmation = (order) =>
   order.status === 'pending' && !isAwaitingOnlinePayment(order);
+
+const isReturnWindowOpen = (order) => {
+  if (!order?.returnEligible) return false;
+  const deadline = Date.parse(order.returnDeadline);
+  return Number.isNaN(deadline) || Date.now() < deadline;
+};
 
 const customerOrderStatusLabel = (order) => {
   if (order.status === 'cancelled') return 'Đã hủy';
@@ -315,7 +320,6 @@ export default function ProfilePage() {
               loading={vouchersLoading} error={vouchersError} onReload={loadVouchers} />
           )}
           {activeTab === 'membership' && <MembershipTab user={user} showToast={showToast} />}
-          {activeTab === 'cards' && <PaymentCardsTab showToast={showToast} />}
           {activeTab === 'wishlist' && (
             <WishlistTab
               wishlist={wishlist}
@@ -761,6 +765,10 @@ function OrdersTab({
   };
 
   const openReturnRequest = (order) => {
+    if (!isReturnWindowOpen(order)) {
+      showToast('Đơn hàng đã quá thời hạn đổi trả 7 ngày.', 'bi-exclamation-circle');
+      return;
+    }
     setReturningOrder(order);
     setReturnReason('');
     setReturnEvidence('');
@@ -1061,10 +1069,15 @@ function OrdersTab({
                       >
                         <i className="bi bi-arrow-repeat" /> Mua lại
                       </button>
-                      {!order.returnStatus && (
+                      {!order.returnStatus && isReturnWindowOpen(order) && (
                         <button type="button" className="btn-shopee-outline" onClick={() => openReturnRequest(order)}>
                           <i className="bi bi-arrow-return-left" /> Yêu cầu đổi trả
                         </button>
+                      )}
+                      {!order.returnStatus && !isReturnWindowOpen(order) && (
+                        <span className="text-muted" style={{ fontSize: 13 }}>
+                          Đã hết hạn đổi trả (7 ngày)
+                        </span>
                       )}
                       {order.returnStatus === 'REQUESTED' && (
                         <button type="button" className="btn-shopee-outline" onClick={() => openReturnDetail(order)}>
@@ -1192,6 +1205,9 @@ function OrdersTab({
         title="Yêu cầu đổi trả sản phẩm"
         width={620}
       >
+        <p style={{ marginTop: 0, color: 'var(--muted)', fontSize: 13 }}>
+          Yêu cầu đổi trả chỉ được gửi trong vòng 7 ngày kể từ khi đơn hàng được giao thành công.
+        </p>
         <div style={{ display: 'grid', gap: 12, marginBottom: 18 }}>
           {(returningOrder?.items || []).map(item => {
             const quantity = Number(returnQuantities[item.id] || 0);
@@ -1573,73 +1589,6 @@ function MembershipTab({ user, showToast }) {
             <h4>Hạng Diamond</h4>
             <p>Đạt khi tổng giá trị các đơn đã thanh toán từ {fmt(diamondThreshold)}.</p>
           </div>
-        </div>
-      </div>
-    </>
-  );
-}
-
-/* ══════════════ Tab 5: Ngân hàng & Thẻ liên kết (PaymentCardsTab) ══════════════ */
-function PaymentCardsTab({ showToast }) {
-  const [cards, setCards] = useState([]);
-  const loadCards=useCallback(()=>paymentMethodApi.list().then(({data})=>setCards(data||[])).catch(e=>showToast(extractErrorMessage(e,'Không thể tải phương thức thanh toán'),'bi-exclamation-circle')),[showToast]);
-  useEffect(()=>{loadCards();},[loadCards]);
-
-  const handleSetDefault = async (id) => {
-    await paymentMethodApi.setDefault(id);await loadCards();
-    showToast('Đã đặt làm phương thức thanh toán mặc định!', 'bi-check-circle');
-  };
-
-  const handleDeleteCard = async (id) => {
-    await paymentMethodApi.remove(id);await loadCards();
-    showToast('Đã xóa phương thức thanh toán.', 'bi-trash');
-  };
-
-  return (
-    <>
-      <TabHead
-        eyebrow="Thanh toán an toàn"
-        title="Ngân hàng & Thẻ liên kết"
-        sub="Quản lý thẻ thanh toán và tài khoản ngân hàng liên kết để thanh toán đơn mua nhanh chóng, bảo mật cao."
-      />
-
-      <div className="payment-cards-grid">
-        {cards.map((c) => (
-          <div key={c.id} className={`payment-card-box${c.isDefault ? ' is-default' : ''}`}>
-            <div className="payment-card-header">
-              <span className="payment-bank-name">
-                <i className="bi bi-credit-card-2-front" /> {c.displayName}
-              </span>
-              {c.isDefault && <span className="payment-default-badge">Mặc định</span>}
-            </div>
-            <div className="payment-card-num">•••• •••• •••• {c.lastFour || '••••'}</div>
-            <div className="payment-card-footer">
-              <div className="payment-card-holder">{c.provider}</div>
-            </div>
-            <div className="payment-card-actions">
-              {!c.isDefault && (
-                <button
-                  type="button"
-                  className="btn-card-action"
-                  onClick={() => handleSetDefault(c.id)}
-                >
-                  Đặt mặc định
-                </button>
-              )}
-              <button
-                type="button"
-                className="btn-card-action danger"
-                onClick={() => handleDeleteCard(c.id)}
-              >
-                Xóa
-              </button>
-            </div>
-          </div>
-        ))}
-
-        <div className="add-card-placeholder" style={{ cursor: 'default' }}>
-          <i className="bi bi-shield-lock" style={{ fontSize: '28px' }} />
-          <span>Liên kết thẻ sẽ được mở sau khi cấu hình cổng token hóa</span>
         </div>
       </div>
     </>

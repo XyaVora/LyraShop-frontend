@@ -219,7 +219,7 @@ export function Marquee() {
     'Đổi trả 30 ngày',
     'Thanh toán an toàn',
     'Giao hàng toàn quốc',
-    'Chăm sóc khách hàng 24/7',
+    'Hỗ trợ khách hàng qua hotline',
   ];
   const doubled = [...items, ...items];
   return (
@@ -254,7 +254,8 @@ export function Newsletter({ showToast }) {
           </div>
           <div className="col-lg-6 offset-lg-1">
             <div className="newsletter-form">
-              <input className="newsletter-input" type="email" placeholder="Nhập địa chỉ email của bạn..." value={email} onChange={e=>setEmail(e.target.value)} />
+              <label className="visually-hidden" htmlFor="newsletter-email">Email nhận bản tin</label>
+              <input id="newsletter-email" className="newsletter-input" type="email" autoComplete="email" placeholder="Nhập địa chỉ email của bạn..." value={email} onChange={e=>setEmail(e.target.value)} />
               <button className="newsletter-btn" onClick={subscribe} disabled={submitting}>
                 Đăng ký
               </button>
@@ -290,6 +291,8 @@ export function Footer({ navigate }) {
     { heading: 'Về LYRA', links: [
       { label: 'Câu chuyện thương hiệu', page: 'brands' },
       { label: 'Bộ sưu tập mới', page: 'new' },
+      { label: 'Điều khoản dịch vụ', page: 'terms' },
+      { label: 'Chính sách bảo mật', page: 'privacy' },
     ] },
   ];
   return (

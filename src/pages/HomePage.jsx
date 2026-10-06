@@ -637,16 +637,16 @@ export default function HomePage() {
               <div className="standard-icon-wrap">
                 <i className="bi bi-arrow-repeat" />
               </div>
-              <div className="standard-title">Đổi Mẫu 30 Ngày</div>
-              <div className="standard-desc">Hỗ trợ thử đồ và đổi size linh hoạt tận nhà hoàn toàn miễn phí.</div>
+              <div className="standard-title">Yêu Cầu Trả Hàng 30 Ngày</div>
+              <div className="standard-desc">Gửi yêu cầu trả hàng và bằng chứng trực tiếp trong trang tài khoản.</div>
             </div>
 
             <div className="standard-item">
               <div className="standard-icon-wrap">
                 <i className="bi bi-gem" />
               </div>
-              <div className="standard-title">Chăm Sóc Trọn Đời</div>
-              <div className="standard-desc">Tư vấn bảo quản tơ lụa và hỗ trợ may đo chỉnh sửa phom dáng miễn phí.</div>
+              <div className="standard-title">Hỗ Trợ Bảo Quản</div>
+              <div className="standard-desc">Liên hệ hotline để được tư vấn cách bảo quản chất liệu và sản phẩm.</div>
             </div>
           </div>
         </div>

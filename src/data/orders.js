@@ -45,6 +45,8 @@ export function normalizeOrder(raw, user = null) {
     trackingUrl: raw?.trackingUrl || '',
     estimatedDeliveryAt: raw?.estimatedDeliveryAt || null,
     deliveredAt: raw?.deliveredAt || null,
+    returnDeadline: raw?.returnDeadline || null,
+    returnEligible: Boolean(raw?.returnEligible),
     expiresAt: raw?.expiresAt || null,
     returnStatus: raw?.returnStatus || null,
     returnReason: raw?.returnReason || '',
